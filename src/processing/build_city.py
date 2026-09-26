@@ -4,7 +4,8 @@ compact scene-local geometry the three.js frontend renders directly.
 Only *processes* real OSM data; raw files are never modified (AGENTS §2).
 
 Usage: ./venv/bin/python -m src.processing.build_city savannah
-       ./venv/bin/python -m src.processing.build_city augusta
+       ./venv/bin/python -m src.processing.build_city atlanta macon ...
+       (no args = every SCENES entry except `state`, which build_state.py owns)
 """
 from __future__ import annotations
 
@@ -112,13 +113,18 @@ def _ring_area_m2(ring: list[list[float]]) -> float:
 
 
 def build(scene: str) -> dict:
-    center = SCENES[scene]["center"]
-    bbox = SCENES[scene]["bbox"]
+    spec = SCENES[scene]
+    center = spec["center"]
+    bbox = spec["bbox"]
+    # Per-scene overrides let a dense pull (Atlanta's 175k buildings) shape
+    # down to the artifact budget without touching shared defaults.
+    core_radius = float(spec.get("core_radius_m", CORE_RADIUS_M))
+    max_roads = int(spec.get("max_roads", _MAX_ROADS))
 
     buildings, roads, water, parks = [], [], [], []
     min_x = min_y = math.inf
     max_x = max_y = -math.inf
-    r2 = CORE_RADIUS_M * CORE_RADIUS_M
+    r2 = core_radius * core_radius
 
     def track(ring: list[list[float]]) -> None:
         nonlocal min_x, min_y, max_x, max_y
@@ -221,7 +227,7 @@ def build(scene: str) -> dict:
     water = polygons("water")
     parks = polygons("green")
     roads.sort(key=lambda r: r["rank"])
-    roads = roads[:_MAX_ROADS]
+    roads = roads[:max_roads]
 
     # Named POIs -> floating label chips (real OSM names only).
     pois = []
@@ -271,7 +277,10 @@ def build(scene: str) -> dict:
 
 
 def main() -> None:
-    scenes = sys.argv[1:] or list(SCENES)
+    # Default: every OSM corridor scene. `state` is excluded on purpose —
+    # its artifact comes from build_state.py, and building it here would
+    # clobber the real city_state.json with an empty one.
+    scenes = sys.argv[1:] or [s for s in SCENES if s != "state"]
     for scene in scenes:
         doc = build(scene)
         out = OUT / f"city_{scene}.json"

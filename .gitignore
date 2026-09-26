@@ -25,6 +25,7 @@ dist/
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/README.md
+!data/raw/SOURCES.md
 
 # Processed data — generated artifacts (kept out of git; regenerate via pipeline)
 data/processed/*
