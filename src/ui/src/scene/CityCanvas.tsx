@@ -168,6 +168,14 @@ export function CityCanvas() {
           minZoom={0.0008}
           maxZoom={1.4}
           screenSpacePanning={false}
+          // The zoom range is ~640x (statewide 0.0022 -> street 1.4):
+          // default speed (1.0, ~5%/notch) needs ~100 wheel ticks to reach
+          // building detail — effectively unreachable, reads as a "cut
+          // off" empty map. 2.4 gets overview->street in ~10 ticks.
+          // zoomToCursor keeps the pointed feature centered like every
+          // tiled web map.
+          zoomSpeed={2.4}
+          zoomToCursor
         />
       </Canvas>
     </div>

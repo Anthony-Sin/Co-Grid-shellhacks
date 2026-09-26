@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useAppStore } from '../../state/store'
 import { useCity } from './useCity'
+import { useZoomAtLeast } from './cityUtils'
 import {
   useCorridorDetail,
   useCorridorZoomGate,
@@ -34,13 +35,17 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const { data } = useCity(activeScene)
 
   // Deferred detail fetch (tiled-map style): the two corridor artifacts
-  // are ~45 MB of JSON — the biggest single startup cost — and nothing
-  // visible needs them at statewide overview. Fetch only once the zoom
-  // gate opens OR an overlap is selected (the zone tint needs footprints).
+  // are ~50 MB of JSON — the biggest single startup cost — and nothing
+  // visible needs them at statewide overview. Prefetch early (zoom just
+  // past overview, ~0.0035) so the data has already landed by the time
+  // the render gate (0.008) opens — web maps prefetch the next zoom
+  // level the same way. A selection also triggers it (zone tint needs
+  // footprints) even at overview.
   const detailVisible = useCorridorZoomGate()
+  const prefetch = useZoomAtLeast(0.0035, 0.7)
   const hasSelection = useAppStore((s) => s.selectedOverlapId != null)
   const corridor = useCorridorDetail(
-    activeScene === 'state' && (detailVisible || hasSelection),
+    activeScene === 'state' && (prefetch || hasSelection),
   )
   const merged = useMemo<CorridorDetail | null>(() => {
     if (!data) return null
