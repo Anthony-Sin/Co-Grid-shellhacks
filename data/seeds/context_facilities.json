@@ -1,0 +1,53 @@
+{
+  "_readme": "EXISTING cross-border facilities documented in public filings — NOT planned projects. Rendered as an emphasized basemap layer: these are the REAL inter-utility ties the challenge's overlap zones cluster around. Sources in each record.",
+  "facilities": [
+    {
+      "name": "Okatie – McIntosh 115 kV SOCO Tie",
+      "owner": "DESC <-> GPC", "voltage_kv": 115,
+      "source": "SCRTP 2024-10-30 deck contingency tables; VC Summer UFSAR Table 8.1-1",
+      "line": [[-81.0324, 32.3345], [-81.1751, 32.3521]]
+    },
+    {
+      "name": "Purrysburg – McIntosh 230 kV #1 & #2",
+      "owner": "SCPSA <-> GPC", "voltage_kv": 230,
+      "source": "SCRTP 2024-10-30 deck contingency tables; SC PSC Docket 2026-175-E Table 1",
+      "line": [[-81.122, 32.368], [-81.1751, 32.3521]]
+    },
+    {
+      "name": "Jasper – Purrysburg 230 kV #1 & #2",
+      "owner": "DESC <-> SCPSA", "voltage_kv": 230,
+      "source": "SC PSC Docket 2026-175-E pp.1-2 (0.59 mi each)",
+      "line": [[-81.1242, 32.3607], [-81.122, 32.368]]
+    },
+    {
+      "name": "Toolebeck – South Augusta 230 kV SOCO Tie",
+      "owner": "DESC <-> GPC", "voltage_kv": 230,
+      "source": "SCRTP 2024-10-30 deck contingency tables",
+      "line": [[-81.6693, 33.5346], [-81.9953, 33.4338]]
+    },
+    {
+      "name": "Graniteville #2 – Sand Bar Ferry 115 kV SOCO Tie",
+      "owner": "DESC <-> GPC", "voltage_kv": 115,
+      "source": "SCRTP 2024-10-30 deck contingency tables",
+      "line": [[-81.806, 33.5835], [-81.936, 33.431]]
+    },
+    {
+      "name": "SRS – Vogtle 230 kV SOCO Tie",
+      "owner": "DESC (SRS) <-> GPC", "voltage_kv": 230,
+      "source": "SCRTP 2024-10-30 deck contingency tables",
+      "line": [[-81.683, 33.291], [-81.7627, 33.1458]]
+    },
+    {
+      "name": "Toolebeck – Aiken 230 kV SCPSA Tie",
+      "owner": "DESC <-> SCPSA", "voltage_kv": 230,
+      "source": "SCRTP 2024-10-30 deck contingency tables",
+      "line": [[-81.6693, 33.5346], [-81.72, 33.56]]
+    },
+    {
+      "name": "Thomson – Vogtle 500 kV (in service ~2017-18)",
+      "owner": "GPC", "voltage_kv": 500,
+      "source": "https://www.georgiapower.com/about/grid-reliability/grid-improvements/grid-projects/thomson-vogtle.html (55 mi, in service — context, not planned)",
+      "line": [[-81.7696, 33.145], [-82.4142, 33.454]]
+    }
+  ]
+}

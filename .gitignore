@@ -1,0 +1,41 @@
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Raw data — large downloads, regenerable via src/ingestion scripts
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/README.md
+
+# Processed data — generated artifacts (kept out of git; regenerate via pipeline)
+data/processed/*
+!data/processed/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs
+*.log

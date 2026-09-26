@@ -1,0 +1,10 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+geopandas>=1.0
+shapely>=2.0
+pyproj>=3.6
+pandas>=2.2
+requests>=2.32
+pydantic>=2.8
+python-dotenv>=1.0
+pytest>=8.3

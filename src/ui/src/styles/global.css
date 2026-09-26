@@ -1,0 +1,712 @@
+/* CO-GRID global styles — hand-drawn / paper + ink aesthetic */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #e8e4da;
+  color: #2b2b2b;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- 3D canvas ----------------------------------------------------------- */
+
+.canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-wrap canvas {
+  display: block;
+}
+
+/* ---- header bar ---------------------------------------------------------- */
+
+.header-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 16px;
+  background: rgba(232, 228, 218, 0.92);
+  border-bottom: 2px solid #2b2b2b;
+  backdrop-filter: blur(3px);
+  z-index: 100;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  user-select: none;
+}
+
+.brand-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.brand-sep {
+  opacity: 0.5;
+}
+
+.brand-sub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.scene-switch {
+  display: flex;
+  border: 2px solid #2b2b2b;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.2);
+}
+
+.scene-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.scene-btn + .scene-btn {
+  border-left: 2px solid #2b2b2b;
+}
+
+.scene-btn:hover {
+  background: rgba(43, 43, 43, 0.08);
+}
+
+.scene-btn.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.header-stats {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(245, 242, 234, 0.95);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+  user-select: none;
+}
+
+.header-stats b {
+  font-weight: 800;
+}
+
+.header-stats-sep {
+  opacity: 0.4;
+}
+
+/* ---- left panel ---------------------------------------------------------- */
+
+.panel {
+  position: absolute;
+  top: 70px;
+  left: 14px;
+  width: 332px;
+  max-height: calc(100% - 140px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 rgba(43, 43, 43, 0.18);
+  overflow: hidden;
+  z-index: 90;
+}
+
+.panel-reopen {
+  position: absolute;
+  top: 70px;
+  left: 14px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 rgba(43, 43, 43, 0.18);
+  z-index: 90;
+}
+
+.panel-reopen:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 2px solid #2b2b2b;
+}
+
+.panel-head h2 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-collapse {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.panel-collapse:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.panel-filters {
+  padding: 10px 14px;
+  border-bottom: 1px dashed rgba(43, 43, 43, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-row input[type='checkbox'] {
+  accent-color: #2b2b2b;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.filter-row--timeline {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.25);
+  font-weight: 600;
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid #2b2b2b;
+  flex: none;
+}
+
+.panel-body {
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.empty-state {
+  border: 2px dashed rgba(43, 43, 43, 0.4);
+  border-radius: 12px;
+  padding: 16px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(43, 43, 43, 0.85);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+
+.empty-state code {
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+  background: rgba(43, 43, 43, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* ---- legend -------------------------------------------------------------- */
+
+.legend {
+  padding: 10px 14px;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 rgba(43, 43, 43, 0.18);
+  z-index: 90;
+}
+
+.legend-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.legend-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+/* ---- floating label chips (inside drei Html) ------------------------------ */
+
+.label-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(30, 30, 30, 0.85);
+  color: #f5f2ea;
+  border-radius: 999px;
+  box-shadow: 2px 3px 0 rgba(43, 43, 43, 0.25);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.label-chip-text {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.label-chip-sub {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+
+/* ==========================================================================
+   API-wired dashboard chrome — ranked overlap list, detail card, legend extras
+   Matches paper/ink chrome: 1.5px ink borders, ~12px radius, hard offset
+   shadows, monospace accents for numbers.
+   ========================================================================== */
+
+.mono {
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+}
+
+/* ---- ranked list (OverlapPanel) ------------------------------------------ */
+
+.panel-count {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 10px;
+}
+
+.overlap-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlap-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 10px;
+  padding: 9px 11px;
+  text-align: left;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 rgba(30, 30, 30, 0.9);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    background 0.08s ease;
+}
+
+.overlap-row:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+}
+
+.overlap-row:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}
+
+.overlap-row.is-selected {
+  background: #ece2c8;
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+}
+
+.ov-rank {
+  font-size: 12.5px;
+  font-weight: 800;
+  opacity: 0.5;
+  padding-top: 2px;
+}
+
+.ov-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ov-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.ov-names {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ov-swap {
+  margin: 0 4px;
+  font-weight: 800;
+  color: #2b2b2b;
+  opacity: 0.45;
+}
+
+.ov-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-dist {
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.chip-timeline {
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  border: 1.5px solid #4e7a3a;
+  background: rgba(127, 176, 105, 0.3);
+  color: #33511f;
+  white-space: nowrap;
+}
+
+.chip-timeline.is-none {
+  border-style: dashed;
+  border-color: rgba(43, 43, 43, 0.4);
+  background: transparent;
+  color: rgba(43, 43, 43, 0.55);
+  font-family: inherit;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.score-bar {
+  flex: 1;
+  max-width: 72px;
+  height: 7px;
+  background: #fffdf6;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.score-fill {
+  display: block;
+  height: 100%;
+}
+
+.score-num {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ---- bottom-right rail (Legend + docked OverlapDetail) -------------------- */
+
+.right-rail {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 90;
+}
+
+.overlap-detail {
+  width: 322px;
+  max-height: min(58vh, 540px);
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-size: 12px;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 rgba(30, 30, 30, 0.9);
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-id {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.detail-close {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  flex: none;
+}
+
+.detail-close:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.detail-expl {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.detail-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.detail-sec-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin-bottom: 6px;
+}
+
+.proj-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.proj-letter {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #2b2b2b;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 900;
+  color: #f5f2ea;
+  flex: none;
+  margin-top: 1px;
+}
+
+.proj-info {
+  min-width: 0;
+}
+
+.proj-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.proj-utility {
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.proj-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.proj-src {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.4;
+  opacity: 0.6;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 11.5px;
+}
+
+.kv .k {
+  opacity: 0.65;
+}
+
+.kv .v {
+  font-weight: 700;
+  text-align: right;
+}
+
+.detail-basis {
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  opacity: 0.65;
+}
+
+.coords {
+  font-size: 10.5px;
+  line-height: 1.6;
+  opacity: 0.8;
+}
+
+/* ---- legend extras --------------------------------------------------------- */
+
+.legend-title--sub {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.utility-count {
+  margin-left: auto;
+  padding: 0 7px;
+  font-size: 10.5px;
+  font-weight: 800;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  background: #f5f2ea;
+}
+
+.legend-list li {
+  min-width: 150px;
+}
+
+.legend-muted {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.legend-sources {
+  margin-top: 9px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.legend-sources summary {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  list-style: none;
+  user-select: none;
+}
+
+.legend-sources summary::before {
+  content: '▸ ';
+}
+
+.legend-sources[open] summary::before {
+  content: '▾ ';
+}
+
+.legend-sources p {
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
