@@ -82,7 +82,27 @@ export function AgentBar() {
 
   const send = async (text: string) => {
     const content = text.trim()
-    if (!content || busy || !health?.configured) return
+    if (!content || busy) return
+    if (!health?.configured) {
+      // graceful fallback — 'Explain selected' still works via the
+      // deterministic /api/analysis/brief route (no LLM key needed)
+      if (selectedOverlapId) {
+        setMsgs((m) => [...m, { role: 'user' as const, content }])
+        setBusy(true)
+        try {
+          const b = await api.analysisBrief(selectedOverlapId)
+          setMsgs((m) => [...m, { role: 'assistant' as const, content: b.brief }])
+        } catch {
+          setMsgs((m) => [...m, {
+            role: 'assistant' as const,
+            content: 'agent offline — set AGENT_API_KEY in .env for full analysis',
+          }])
+        } finally {
+          setBusy(false)
+        }
+      }
+      return
+    }
     const next = [...msgs, { role: 'user' as const, content }]
     setMsgs(next)
     setInput('')
@@ -143,7 +163,11 @@ export function AgentBar() {
           <button
             key={a.label}
             type="button"
-            disabled={busy || !health?.configured}
+            disabled={
+              busy ||
+              (health?.configured === false &&
+                !(a.label === 'Explain selected' && selectedOverlapId))
+            }
             onClick={() => send(a.prompt)}
           >
             {a.label}

@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TIERS, TIER_COLORS } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
-import { useOverlaps, useProjects } from '../hooks/useApiData'
+import { useOverlaps, useProjects, useRegions } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
 
@@ -97,6 +97,8 @@ export function OverlapPanel() {
 
   const overlaps = useOverlaps()
   const projects = useProjects()
+  const regions = useRegions()
+  const [zoneFilter, setZoneFilter] = useState<string>('')
 
   const projectById = useMemo<ProjectMap>(() => {
     const m = new Map<string, ProjectProps>()
@@ -112,8 +114,12 @@ export function OverlapPanel() {
     () => new Map(all.map((o, i) => [o.overlap_id, i + 1])),
     [all],
   )
+  const zones = regions.data?.zones ?? []
   const shown = all.filter(
-    (o) => visibleTiers[o.tier] && (!timelineOnly || o.timeline_overlap),
+    (o) =>
+      visibleTiers[o.tier] &&
+      (!timelineOnly || o.timeline_overlap) &&
+      (!zoneFilter || (o.zone || '').toLowerCase().includes(zoneFilter)),
   )
 
   if (!panelOpen) {
@@ -220,6 +226,24 @@ export function OverlapPanel() {
           />
           <span className="filter-label">Timeline overlap only</span>
         </label>
+
+        {zones.length > 0 && (
+          <label className="filter-row filter-row--zone">
+            <span className="filter-label">Region</span>
+            <select
+              className="zone-select"
+              value={zoneFilter}
+              onChange={(e) => setZoneFilter(e.target.value)}
+            >
+              <option value="">All regions</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.id.replace(/_/g, ' ')} ({z.overlaps})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="panel-body">{body}</div>

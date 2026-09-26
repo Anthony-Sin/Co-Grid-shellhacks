@@ -35,6 +35,18 @@ class ApiRoutesTest(unittest.TestCase):
         r = client.get("/api/overlaps", params={"q": "mcintosh"})
         assert r.json()["overlaps"], "mcintosh search must hit real records"
 
+    def test_overlaps_sort_limit_zone(self):
+        r = client.get("/api/overlaps", params={"sort": "distance", "limit": 5})
+        rows = r.json()["overlaps"]
+        assert len(rows) <= 5
+        dists = [o["min_distance_km"] for o in rows]
+        assert dists == sorted(dists), "distance sort must be ascending"
+        r = client.get("/api/overlaps", params={"zone": "charleston"})
+        rows = r.json()["overlaps"]
+        assert rows and all("charleston" in o["zone"].lower() for o in rows)
+        r = client.get("/api/overlaps", params={"sort": "bogus"})
+        assert r.status_code == 422
+
     def test_overlaps_csv(self):
         r = client.get("/api/overlaps.csv", params={"tier": 1})
         assert r.status_code == 200

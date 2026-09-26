@@ -170,6 +170,57 @@ def nearby(overlap_id: str,
     }
 
 
+@router.get("/brief/{overlap_id}")
+def brief(overlap_id: str) -> dict:
+    """Deterministic prose brief for one overlap — the same facts the
+    model-backed /api/agent/brief composes, but with no LLM. Works even
+    when AGENT_API_KEY is unset; frontend can prefer whichever exists."""
+    records = _fresh("overlaps.json").get("overlaps") or []
+    r = next((x for x in records if x.get("overlap_id") == overlap_id), None)
+    if not r:
+        raise HTTPException(404, f"no overlap {overlap_id!r}")
+    projs = {f["properties"]["project_id"]: f["properties"]
+             for f in _fresh("projects.geojson").get("features", [])}
+    a, b = projs.get(r["project_a"], {}), projs.get(r["project_b"], {})
+    utils = " and ".join(r.get("utilities") or ["?"])
+    win = r.get("shared_window") or {}
+    parts = [
+        f"{r['overlap_id']}: {utils} coordination opportunity "
+        f"({r.get('tier_label')}, {r.get('min_distance_km')} km at closest approach).",
+        f"{a.get('name', r['project_a'])} ({a.get('utility', '?')}) "
+        f"vs {b.get('name', r['project_b'])} ({b.get('utility', '?')}).",
+    ]
+    if r.get("timeline_overlap") and win:
+        parts.append(
+            f"Build windows overlap {int(win['start'])}–{int(win['end'])} — "
+            "joint scheduling is feasible.")
+        if r["tier"] == 1:
+            parts.append("Geometries touch/cross during a shared window — "
+                         "joint outage scheduling is mandatory, not optional.")
+    else:
+        parts.append("Build windows do not intersect — coordination pays off "
+                     "only if schedules can be aligned.")
+    imp = next((x for x in _impacts() if x.get("overlap_id") == overlap_id), None)
+    if imp and (imp.get("est_savings_usd_range") or {}).get("high"):
+        rng = imp["est_savings_usd_range"]
+        parts.append(
+            f"Estimated shared-resource savings: ${rng['low']:,.0f}–${rng['high']:,.0f} "
+            f"({rng.get('basis', 'planning-level estimate')}).")
+    if r.get("explanation"):
+        parts.append(str(r["explanation"]))
+    return {
+        "overlap_id": overlap_id,
+        "brief": " ".join(parts),
+        "deterministic": True,
+        "fields": {
+            "tier": r["tier"], "min_distance_km": r["min_distance_km"],
+            "timeline_overlap": r["timeline_overlap"],
+            "shared_window": r.get("shared_window"),
+            "score": r.get("score"), "zone": r.get("zone"),
+        },
+    }
+
+
 @router.get("/conflicts")
 def conflicts() -> dict:
     """Must-coordinate subset: tier-1 touching + shared window, bucketed
@@ -183,6 +234,15 @@ def clusters(radius_km: float = Query(40.0, ge=5.0, le=200.0)) -> dict:
     """Staging clusters — overlap groups shareable from one crew yard
     (midpoints within `radius_km`, union-find, default the 40 km rule)."""
     return build_clusters(_fresh("overlaps.json"), radius_km)
+
+
+@router.get("/summary")
+def summary() -> dict:
+    """Deterministic executive summary — headline numbers composed from the
+    same artifacts the public API serves. No model involved; a dashboard
+    header card or agent grounding can read this verbatim."""
+    from .summary import build_summary
+    return build_summary(_fresh("projects.geojson"), _fresh("overlaps.json"))
 
 
 @router.get("/calendar")

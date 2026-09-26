@@ -270,6 +270,23 @@ button {
   font-weight: 600;
 }
 
+.filter-row--zone {
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.zone-select {
+  font: inherit;
+  font-size: 11px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(43, 43, 43, 0.35);
+  border-radius: 4px;
+  padding: 2px 4px;
+  max-width: 150px;
+  cursor: pointer;
+}
+
 .dot {
   width: 11px;
   height: 11px;

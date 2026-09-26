@@ -3,8 +3,10 @@ import { api } from '../../lib/api'
 import type {
   FeatureCollection,
   ImpactEstimate,
+  NearbyResponse,
   OverlapsResponse,
   ProjectProps,
+  RegionsResponse,
   StatsResponse,
 } from '../../lib/api'
 
@@ -82,6 +84,11 @@ export function useProjects(): ApiDataState<FeatureCollection<ProjectProps>> {
   return useApiData('projects', api.projects)
 }
 
+/** /api/regions — scenes index + zone rollup (per-region overlap counts) */
+export function useRegions(): ApiDataState<RegionsResponse> {
+  return useApiData('regions', api.regions)
+}
+
 /** /api/analysis/impact/{id} — geometry-derived sharing estimate for one overlap */
 export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate> {
   const fetcher = useMemo(
@@ -89,4 +96,13 @@ export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate
     [overlapId],
   )
   return useApiData(`impact:${overlapId ?? 'none'}`, fetcher)
+}
+
+/** /api/analysis/nearby/{id} — staging neighborhood count for the detail card */
+export function useNearby(overlapId: string | null, radiusKm = 15): ApiDataState<NearbyResponse> {
+  const fetcher = useMemo(
+    () => () => api.nearby(overlapId ?? '__none__', radiusKm),
+    [overlapId, radiusKm],
+  )
+  return useApiData(`nearby:${overlapId ?? 'none'}:${radiusKm}`, fetcher)
 }

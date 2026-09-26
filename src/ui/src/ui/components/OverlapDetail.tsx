@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { TIER_COLORS } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
-import { useImpact, useOverlaps, useProjects } from '../hooks/useApiData'
+import { useImpact, useNearby, useOverlaps, useProjects } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
 
@@ -105,6 +105,22 @@ function ImpactFallback({ overlapId }: { overlapId: string }) {
   )
 }
 
+/** Count of other overlap sites within crew range of this one — from
+ * /api/analysis/nearby. Honest: shows nothing until the count lands. */
+function NearbyCount({ overlapId }: { overlapId: string }) {
+  const nb = useNearby(overlapId, 15)
+  if (nb.loading || nb.error || !nb.data) return null
+  const n = nb.data.neighbor_count
+  return (
+    <div className="kv">
+      <span className="k">sites within 15 km</span>
+      <span className="v mono" title="other coordination sites a shared yard also reaches">
+        {n === 0 ? 'none' : n}
+      </span>
+    </div>
+  )
+}
+
 function DetailBody({
   o,
   projectById,
@@ -129,6 +145,10 @@ function DetailBody({
           <span className="v mono">{o.min_distance_km.toFixed(3)} km</span>
         </div>
         <div className="kv">
+          <span className="k">region</span>
+          <span className="v">{o.zone?.replace(/_/g, ' ') ?? '—'}</span>
+        </div>
+        <div className="kv">
           <span className="k">score</span>
           <span className="v mono">{o.score.toFixed(1)}</span>
         </div>
@@ -144,6 +164,7 @@ function DetailBody({
             )}
           </span>
         </div>
+        <NearbyCount overlapId={o.overlap_id} />
         {o.cost ? (
           <>
             <div className="kv">

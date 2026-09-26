@@ -135,10 +135,15 @@ def run(
     records = score_overlaps(records)
     attach_explanations(records, gdf)
     attach_costs(records, gdf)
+    # generated_at = input freshness (projects.geojson mtime), not wall
+    # clock — keeps the artifact byte-identical across rebuilds while still
+    # honestly reporting how fresh the source data was.
+    import datetime as _dt
+    src_mtime = Path(projects_path).stat().st_mtime
     payload = {
-        "generated_at": __import__("datetime").datetime.now(
-            __import__("datetime").timezone.utc
-        ).isoformat(),
+        "generated_at": _dt.datetime.fromtimestamp(
+            src_mtime, _dt.timezone.utc).isoformat(),
+        "generated_at_note": "mtime of projects.geojson input — deterministic",
         "region": zone,
         "project_count": int(len(gdf)),
         "overlaps": [r.model_dump() for r in records],

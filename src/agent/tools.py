@@ -11,8 +11,9 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .tool_analysis import (
-    tool_define, tool_impact_estimate, tool_outage_conflicts, tool_playbook,
-    tool_staging_clusters, tool_timeline_summary, tool_utility_matrix,
+    tool_define, tool_exec_summary, tool_impact_estimate,
+    tool_outage_conflicts, tool_playbook, tool_staging_clusters,
+    tool_timeline_summary, tool_utility_matrix,
 )
 from .tool_data import (
     tool_data_health, tool_gazetteer, tool_get_overlap, tool_get_project,
@@ -21,6 +22,13 @@ from .tool_data import (
 
 TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     "stats": (tool_stats, "Dataset-wide counts: projects per utility, overlaps per tier.", {}),
+    "exec_summary": (
+        tool_exec_summary,
+        "Program headline card: project/overlap counts, dominant utility pair, "
+        "peak build season, mandatory joint-outage count, top opportunity. "
+        "Best first call for 'what does the data say' questions.",
+        {},
+    ),
     "list_projects": (
         tool_list_projects,
         "List planned utility projects. Filter by utility ('DESC','GPC','SanteeCooper') or zone tag.",

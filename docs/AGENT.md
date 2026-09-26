@@ -52,9 +52,9 @@ Pass `overlap_id` when a zone is selected on the map — the agent injects
 the record's real fields (tier, distance, window, impact estimate) into
 the system context so "explain this" resolves correctly.
 
-## Tools (14)
+## Tools (15)
 
-`stats` · `list_projects` · `get_project` · `top_overlaps` ·
+`stats` · `exec_summary` · `list_projects` · `get_project` · `top_overlaps` ·
 `get_overlap` · `projects_near` · `timeline_summary` · `impact_estimate`
 · `gazetteer` · `data_health` · `staging_clusters` · `playbook` ·
 `outage_conflicts` · `utility_matrix` · `define`
@@ -70,6 +70,7 @@ the system context so "explain this" resolves correctly.
 | `/api/analysis/playbook?radius_km=&top=` | minimal season-years per cluster |
 | `/api/analysis/calendar` | overlaps grouped by window start year |
 | `/api/analysis/conflicts` | mandatory joint-outage list (tier-1 + shared window) |
+| `/api/analysis/summary` | exec-summary card (dominant pair, peak season, top opportunity) |
 
 ## Failure modes (all handled server-side)
 

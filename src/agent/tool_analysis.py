@@ -157,7 +157,8 @@ def tool_utility_matrix() -> dict:
         d = r.get("min_distance_km")
         if d is not None and (cell["best_distance_km"] is None or d < cell["best_distance_km"]):
             cell["best_distance_km"] = round(d, 3)
-    return {"pairs": sorted(pairs.values(), key=lambda c: -c["overlaps"])}
+    rows = sorted(pairs.values(), key=lambda c: -c["overlaps"])
+    return {"pairs": rows, "pair_count": len(rows)}
 
 
 def tool_outage_conflicts() -> dict:
@@ -168,6 +169,17 @@ def tool_outage_conflicts() -> dict:
         return build_conflicts({"overlaps": overlaps()})
     except Exception as e:
         return {"error": f"conflicts unavailable: {type(e).__name__}: {e}"}
+
+
+def tool_exec_summary() -> dict:
+    """Program headline numbers — one deterministic card for grounding
+    openers like 'what does the data say overall?'."""
+    try:
+        from src.analysis.summary import build_summary
+        return build_summary(load_processed("projects.geojson"),
+                             {"overlaps": overlaps()})
+    except Exception as e:
+        return {"error": f"summary unavailable: {type(e).__name__}: {e}"}
 
 
 # Challenge glossary — verbatim domain vocabulary so the analyst can define

@@ -201,7 +201,9 @@ def overlaps(
             "b": r.get("project_b"), "u": r.get("utilities"),
             "x": r.get("explanation"),
         }).lower()]
-    if sort in _OVERLAP_SORTS:
+    if sort is not None:
+        if sort not in _OVERLAP_SORTS:
+            raise HTTPException(422, f"unknown sort {sort!r} — use score|distance|year")
         rows = sorted(rows, key=_OVERLAP_SORTS[sort])
     if limit is not None:
         rows = rows[:limit]
@@ -225,7 +227,7 @@ def overlaps_csv(
 
     cols = [
         "rank", "overlap_id", "project_a", "project_b", "utilities",
-        "tier", "tier_label", "min_distance_km", "timeline_overlap",
+        "tier", "tier_label", "zone", "min_distance_km", "timeline_overlap",
         "shared_window_start", "shared_window_end",
         "closest_lon", "closest_lat", "score",
         "shared_row_km", "est_savings_low_usd", "est_savings_high_usd",
@@ -241,7 +243,7 @@ def overlaps_csv(
         w.writerow([
             i, r.get("overlap_id"), r.get("project_a"), r.get("project_b"),
             "|".join(r.get("utilities") or []), r.get("tier"), r.get("tier_label"),
-            r.get("min_distance_km"), r.get("timeline_overlap"),
+            r.get("zone"), r.get("min_distance_km"), r.get("timeline_overlap"),
             win.get("start"), win.get("end"), cp[0], cp[1], r.get("score"),
             cost.get("shared_row_km"), cost.get("est_savings_usd_low"),
             cost.get("est_savings_usd_high"), r.get("explanation"),

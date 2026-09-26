@@ -169,6 +169,10 @@ Analysis API (`src/analysis/`, deterministic — no model):
   mandatory joint-outage scheduling list, bucketed by season year
 - `GET /api/analysis/nearby/{id}?radius_km=` → a site's staging neighborhood
 - `GET /api/analysis/matrix` → utility-pair × tier overlap matrix
+- `GET /api/analysis/summary` → deterministic exec-summary card: counts,
+  dominant pair, peak season, mandatory outage count, top opportunity
+- `GET /api/analysis/brief/{id}` → model-free prose brief for one overlap
+  (same facts as the LLM brief; works without AGENT_API_KEY)
 
 Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 - `GET /api/agent/health` → `{configured, model, tools, max_rounds}`
@@ -180,4 +184,5 @@ Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
 `get_project`, `top_overlaps`, `get_overlap`, `projects_near`,
 `timeline_summary`, `impact_estimate`, `gazetteer`, `data_health`,
-`staging_clusters`, `playbook`, `outage_conflicts`, `utility_matrix`, `define`.
+`staging_clusters`, `playbook`, `outage_conflicts`, `utility_matrix`,
+`exec_summary`, `define`.

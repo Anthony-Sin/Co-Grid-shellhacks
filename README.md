@@ -101,12 +101,23 @@ Deterministic analysis API (no model needed, `src/analysis/`):
 
 | Route | What |
 |---|---|
+| `GET /api/analysis/summary` | exec-summary card — counts, dominant pair, peak season, top opportunity |
 | `GET /api/analysis/timeline` | yearly+quarterly build bands per utility, overlap-window stats |
 | `GET /api/analysis/impacts?top=N` | per-overlap cost/impact rows (shared-corridor km in UTM, ROW acres, savings range, crew-share days) |
 | `GET /api/analysis/impact/{id}` | one record, 404 on unknown id |
+| `GET /api/analysis/brief/{id}` | model-free prose brief for one overlap |
+| `GET /api/analysis/clusters?radius_km=` | staging clusters (union-find on midpoints, 40 km crew-yard rule) |
+| `GET /api/analysis/playbook?radius_km=&top=` | minimal season-years per cluster + peak concurrent sites |
+| `GET /api/analysis/calendar` | overlaps grouped by shared-window start year |
+| `GET /api/analysis/conflicts` | tier-1 + shared-window subset — mandatory joint-outage list |
+| `GET /api/analysis/matrix` | utility-pair × tier overlap matrix |
+| `GET /api/analysis/nearby/{id}?radius_km=` | a site's staging neighborhood |
 
-Other additions: `GET /api/regions` (scene/tile index — the contract for
-statewide coverage) and `GET /api/overlaps.csv` (ranked flat export).
+Other additions: `GET /api/regions` (scene index + per-zone overlap
+rollup — the contract for a region picker), `GET /api/meta` (artifact
+freshness), and `GET /api/overlaps.csv` (ranked flat export).
+`/api/overlaps` supports `tier`, `timeline_only`, `q`, `zone`,
+`sort=score|distance|year`, `limit`.
 
 ## 2. Data sources (all public, zero API keys)
 

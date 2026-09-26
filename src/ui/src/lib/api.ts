@@ -134,6 +134,11 @@ export interface StatsResponse {
   timeline_matches: number
 }
 
+export interface RegionsResponse {
+  regions: { id: string; label: string; built: boolean }[]
+  zones: { id: string; projects: number; overlaps: number }[]
+}
+
 // ---------- /api/agent/* ----------
 export interface AgentHealth {
   configured: boolean
@@ -175,6 +180,14 @@ export interface AgentBrief {
   usage: Record<string, number>
 }
 
+export interface NearbyResponse {
+  overlap_id: string
+  midpoint: [number, number]
+  radius_km: number
+  neighbor_count: number
+  neighbors: { overlap_id: string; distance_km: number; tier: number }[]
+}
+
 // ---------- fetch helpers ----------
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path)
@@ -202,6 +215,7 @@ export const api = {
   basemap: () => get<FeatureCollection<BasemapProps>>('/api/basemap'),
   overlaps: () => get<OverlapsResponse>('/api/overlaps'),
   stats: () => get<StatsResponse>('/api/stats'),
+  regions: () => get<RegionsResponse>('/api/regions'),
 
   agentHealth: () => get<AgentHealth>('/api/agent/health'),
   agentChat: (messages: { role: string; content: string }[], overlapId?: string | null) =>
@@ -212,4 +226,9 @@ export const api = {
   agentBrief: (overlapId: string) => get<AgentBrief>(`/api/agent/brief/${overlapId}`),
 
   impact: (overlapId: string) => get<ImpactEstimate>(`/api/analysis/impact/${overlapId}`),
+  nearby: (overlapId: string, radiusKm = 15) =>
+    get<NearbyResponse>(`/api/analysis/nearby/${overlapId}?radius_km=${radiusKm}`),
+  analysisBrief: (overlapId: string) =>
+    get<{ overlap_id: string; brief: string; deterministic: boolean }>(
+      `/api/analysis/brief/${overlapId}`),
 }

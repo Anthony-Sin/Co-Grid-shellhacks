@@ -87,3 +87,14 @@ class TestToolsAgainstRealData:
         assert r["result"]["count"] > 0
         for p in r["result"]["projects"]:
             assert p["distance_km"] <= 15
+
+    def test_utility_matrix_pairs(self):
+        r = run_tool("utility_matrix", {})
+        assert r["ok"], r.get("error")
+        res = r["result"]
+        assert res["pair_count"] >= 3 and res["pairs"]
+        top = res["pairs"][0]
+        # DESC x GPC is the dominant real pair in the dataset
+        assert set(top["utilities"]) == {"DESC", "GPC"}
+        assert top["overlaps"] > 100
+        assert sum(top["by_tier"].values()) == top["overlaps"]
