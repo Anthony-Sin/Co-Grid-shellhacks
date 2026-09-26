@@ -86,6 +86,11 @@ def _overlap_brief(r: dict) -> dict:
         "shared_window": r.get("shared_window"),
         "adjacent_window": r.get("adjacent_window"),
         "score": r.get("score"),
+        "zone": r.get("zone"),
+        "deep_link": (
+            f"/?scene={_scene_for_zone(r.get('zone'))}"
+            f"&select={r.get('overlap_id')}&panel=0"
+        ),
     }
 
 
@@ -158,6 +163,15 @@ def tool_top_overlaps(n: int = 10, tier: int | None = None,
     return {"shown": len(rows), "overlaps": [_overlap_brief(r) for r in rows]}
 
 
+def _scene_for_zone(zone: str | None) -> str:
+    z = (zone or "").lower()
+    if "savannah" in z:
+        return "savannah"
+    if "augusta" in z:
+        return "augusta"
+    return "state"
+
+
 def _overlap_detail(r: dict) -> dict:
     return {
         **_overlap_brief(r),
@@ -165,7 +179,6 @@ def _overlap_detail(r: dict) -> dict:
         "closest_point_b": r.get("closest_point_b"),
         "midpoint": r.get("midpoint"),
         "explanation": r.get("explanation"),
-        "zone": r.get("zone"),
         "cost": r.get("cost"),
     }
 
@@ -193,6 +206,67 @@ def tool_get_overlap(overlap_id: str | None = None,
         if r.get("overlap_id") == overlap_id:
             return _overlap_detail(r)
     return {"error": f"no overlap '{overlap_id}'"}
+
+
+def tool_find_overlaps(utility: str | None = None,
+                       utilities: str | list | None = None,
+                       tier: int | None = None,
+                       zone: str | None = None,
+                       timeline_only: bool = False,
+                       limit: int = 25) -> dict:
+    """Filtered overlap search — the record-level query primitive.
+
+    `utility` matches either side ("GPC"); `utilities` restricts to an
+    exact pair ("GPC,DESC" or ["GPC","DESC"]). `zone` is a substring
+    match on the record's zone label (incl. 'a / b' composites).
+    Results stay in engine rank order (tier asc -> distance asc)."""
+    rows = overlaps()
+    if utility:
+        u = str(utility).strip()
+        rows = [r for r in rows if u in (r.get("utilities") or [])]
+    if utilities:
+        pair = utilities if isinstance(utilities, list) else [
+            x.strip() for x in str(utilities).split(",") if x.strip()]
+        pair = sorted(pair)
+        rows = [r for r in rows
+                if sorted(r.get("utilities") or []) == pair]
+    if tier is not None:
+        rows = [r for r in rows if r.get("tier") == int(tier)]
+    if zone:
+        z = str(zone).strip().lower()
+        rows = [r for r in rows if z in (r.get("zone") or "").lower()]
+    if timeline_only:
+        rows = [r for r in rows if r.get("timeline_overlap")]
+    lim = max(1, min(int(limit or 25), 50))
+    return {
+        "total_matching": len(rows),
+        "shown": min(len(rows), lim),
+        "overlaps": [_overlap_brief(r) for r in rows[:lim]],
+    }
+
+
+def tool_project_overlaps(project_id: str) -> dict:
+    """Every coordination record touching one project — its full
+    coordination portfolio, in engine rank order."""
+    pid = (project_id or "").strip()
+    if not pid:
+        return {"error": "project_id required"}
+    rows = [r for r in overlaps()
+            if r.get("project_a") == pid or r.get("project_b") == pid]
+    if not rows:
+        return {"project_id": pid, "overlap_count": 0, "overlaps": [],
+                "note": "project has no cross-utility overlaps within 40 km"}
+    return {
+        "project_id": pid,
+        "overlap_count": len(rows),
+        "tiers": {str(t): sum(1 for r in rows if r["tier"] == t) for t in (1, 2, 3, 4)},
+        "overlaps": [{
+            **_overlap_brief(r),
+            # the OTHER side of the pair — never mutate the cached record
+            "against": (r.get("project_b") if r.get("project_a") == pid
+                        else r.get("project_a")),
+        } for r in rows[:40]],
+    }
 
 
 def tool_projects_near(lon: float, lat: float, km: float = 25) -> dict:

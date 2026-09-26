@@ -145,44 +145,12 @@ def nearby(overlap_id: str,
            radius_km: float = Query(40.0, ge=1.0, le=200.0)) -> dict:
     """Other overlaps whose midpoints sit within `radius_km` of this one's —
     the site's staging neighborhood (what a shared yard also reaches)."""
-    import math
-    data = _fresh("overlaps.json")
-    records = data.get("overlaps") or []
-    anchor = next((r for r in records if r.get("overlap_id") == overlap_id), None)
-    if not anchor:
+    from .nearby import build_nearby
+    res = build_nearby(_fresh("overlaps.json").get("overlaps") or [],
+                       overlap_id, radius_km)
+    if res is None:
         raise HTTPException(404, f"no overlap {overlap_id!r}")
-    mp = anchor.get("midpoint")
-    if not mp:
-        return {"overlap_id": overlap_id, "neighbors": [],
-                "note": "anchor record has no midpoint"}
-    ax, ay = mp[0], mp[1]
-    out = []
-    for r in records:
-        if r.get("overlap_id") == overlap_id:
-            continue
-        m2 = r.get("midpoint")
-        if not m2:
-            continue
-        p1, p2 = math.radians(ay), math.radians(m2[1])
-        dlat, dlon = p2 - p1, math.radians(m2[0] - ax)
-        d = 6371.0 * 2 * math.asin(math.sqrt(
-            math.sin(dlat / 2) ** 2
-            + math.cos(p1) * math.cos(p2) * math.sin(dlon / 2) ** 2))
-        if d <= radius_km:
-            out.append({
-                "overlap_id": r["overlap_id"], "distance_km": round(d, 2),
-                "tier": r["tier"], "utilities": r.get("utilities"),
-                "timeline_overlap": r.get("timeline_overlap"),
-                "shared_window": r.get("shared_window"),
-            })
-    out.sort(key=lambda x: x["distance_km"])
-    return {
-        "overlap_id": overlap_id,
-        "midpoint": mp,
-        "radius_km": radius_km,
-        "neighbor_count": len(out),
-        "neighbors": out[:60],
-    }
+    return res
 
 
 @router.get("/brief/{overlap_id}")
@@ -277,38 +245,5 @@ def calendar() -> dict:
     """Coordination calendar — overlaps grouped by shared-window start year.
     Each cell lists the tier-1..4 records opening that year (score-sorted),
     giving a Gantt-like schedule view for planning joint work."""
-    rows = _fresh("overlaps.json").get("overlaps", [])
-    years: dict[str, list[dict]] = {}
-    no_window = 0
-    adjacent_only = 0
-    for r in rows:
-        win = r.get("shared_window") or {}
-        start = win.get("start")
-        if start is None or not r.get("timeline_overlap"):
-            # adjacent windows have no concurrent window — they are counted
-            # separately, never scheduled into a season year.
-            if r.get("timeline_adjacent"):
-                adjacent_only += 1
-            else:
-                no_window += 1
-            continue
-        years.setdefault(str(int(start)), []).append({
-            "overlap_id": r.get("overlap_id"),
-            "utilities": r.get("utilities"),
-            "tier": r.get("tier"),
-            "tier_label": r.get("tier_label"),
-            "min_distance_km": r.get("min_distance_km"),
-            "window": {"start": win.get("start"), "end": win.get("end")},
-            "score": r.get("score"),
-        })
-    for v in years.values():
-        v.sort(key=lambda x: -(x.get("score") or 0))
-    return {
-        "metric": "coordination_calendar",
-        "by_start_year": dict(sorted(years.items())),
-        "overlaps_without_window": no_window,
-        "adjacent_only": adjacent_only,
-        "note": ("grouped by shared-window start year — only true window "
-                 "intersections are scheduled; adjacent (roll-over) windows "
-                 "are counted separately, never placed in a season"),
-    }
+    from .calendar import build_calendar
+    return build_calendar(_fresh("overlaps.json").get("overlaps", []))

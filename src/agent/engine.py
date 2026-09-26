@@ -53,6 +53,16 @@ then stop — the system runs it and replies with the result.
 _TOOL_BLOCK = re.compile(r"```tool\s*(\{.*?\})\s*```", re.DOTALL)
 
 
+def _tool_catalog() -> str:
+    """Compact name(args): desc listing — the fenced-fallback path gets no
+    native tool specs, so without this the model can't know tool names."""
+    lines = ["AVAILABLE TOOLS (emit exactly one fenced ```tool block per call):"]
+    for name, (_fn, desc, params) in TOOLS.items():
+        sig = ", ".join(params) if params else "no args"
+        lines.append(f"- {name} — {desc} [{sig}]")
+    return "\n".join(lines)
+
+
 def _truncate(obj: Any, limit: int = MAX_TOOL_RESULT_CHARS) -> str:
     s = json.dumps(obj, default=str)
     return s if len(s) <= limit else s[:limit] + "…(truncated)"
@@ -99,7 +109,10 @@ def run_chat(
 
 def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
     stats = _context_card()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT + "\nLIVE DATA: " + json.dumps(stats)}]
+    sysmsg = SYSTEM_PROMPT + "\nLIVE DATA: " + json.dumps(stats)
+    if not use_native_tools:
+        sysmsg += "\n\n" + _tool_catalog()
+    messages = [{"role": "system", "content": sysmsg}]
     messages.extend(history)
 
     specs = openai_tool_specs() if use_native_tools else None

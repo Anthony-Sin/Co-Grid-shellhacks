@@ -46,6 +46,16 @@ on `\n\n` (working implementation in `src/ui/src/ui/components/AgentBar.tsx`).
 alongside `content`. The API surfaces it verbatim — render it collapsed
 ("thinking…") or discard; never block on it.
 
+### Tool calling
+
+Two paths: native function-calling when the provider supports it
+(`openai_tool_specs()` injected per request), else a fenced
+```` ```tool ```` JSON block the engine parses and feeds back. In the
+fenced path the system message also carries a generated
+`AVAILABLE TOOLS` catalog (name — desc [arg shapes] from the same
+`TOOLS` registry, so it can't drift) — without it the model has no way
+to learn the tool names.
+
 ### Selection context
 
 Pass `overlap_id` when a zone is selected on the map — the route looks up
@@ -53,16 +63,29 @@ the record and injects its real fields (tier, distance, timeline flags,
 shared/adjacent windows, zone) into the last user message as
 `[context: user selected {...}]`, so "explain this" resolves correctly.
 
-## Tools (16)
+## Tools (26)
 
 `stats` · `exec_summary` · `list_projects` · `get_project` · `top_overlaps` ·
-`get_overlap` · `projects_near` · `timeline_summary` · `impact_estimate`
-· `gazetteer` · `data_health` · `staging_clusters` · `playbook` ·
-`outage_conflicts` · `utility_matrix` · `define`
+`get_overlap` · `find_overlaps` · `project_overlaps` · `projects_near` ·
+`compare_overlaps` · `why_ranked` · `zone_report` · `overlap_neighbors` ·
+`timeline_summary` · `impact_estimate` · `savings_rollup` · `what_if_shift` ·
+`season_calendar` · `gazetteer` · `data_health` · `staging_clusters` ·
+`playbook` · `outage_conflicts` · `utility_matrix` ·
+`what_if_drop_utility` · `define`
 
 `get_overlap` takes `overlap_id` (single) or `overlap_ids` (list ≤30,
 batch) — multi-record questions should use the list form so they don't
 burn a tool round per lookup inside the 6-round limit.
+
+Synthesis tools: `find_overlaps` is the filtered-search primitive;
+`project_overlaps` returns one project's whole portfolio;
+`compare_overlaps` gives a 2-8 record side-by-side; `why_ranked`
+decomposes the stored score (same ranker constants); `zone_report` and
+`savings_rollup` roll up by zone/utility; `what_if_shift` is a labeled
+counterfactual — it recomputes window relationships for a hypothetical
+schedule slip and never mutates stored data. `get_overlap` detail also
+carries `deep_link` — a `?scene=&select=` URL the agent can hand back
+for an exact map view.
 
 ## Deterministic analysis (no model)
 

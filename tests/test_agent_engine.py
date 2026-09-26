@@ -67,10 +67,43 @@ def test_native_tool_call_then_answer():
 
 def test_fenced_tool_block_fallback():
     fenced = '```tool\n{"tool": "stats", "args": {}}\n```'
-    out = _drive(_Cfg(), [{"role": "user", "content": "count"}], 
+    out = _drive(_Cfg(), [{"role": "user", "content": "count"}],
                  [_resp(fenced), _resp("Here are the numbers.")])
     assert out["tools"] == ["stats"]
     assert "numbers" in out["final"]["reply"]
+
+
+def test_fallback_mode_sends_tool_catalog():
+    # regression: the fenced path gave the model no way to learn tool
+    # names — the catalog must ride in the system message when native
+    # function-calling is off, and stay out when it's on.
+    seen: list[list] = []
+    real = eng.chat_completion
+    def spy(cfg, messages, **k):
+        seen.append(list(messages))
+        return _resp("done.")
+    eng.chat_completion = spy
+    try:
+        gen = eng.iter_chat(_Cfg(), [{"role": "user", "content": "x"}],
+                            use_native_tools=False)
+        while True:
+            try:
+                next(gen)
+            except StopIteration:
+                break
+        sysmsg = seen[0][0]["content"]
+        assert "AVAILABLE TOOLS" in sysmsg and "- stats" in sysmsg
+        seen.clear()
+        gen = eng.iter_chat(_Cfg(), [{"role": "user", "content": "x"}],
+                            use_native_tools=True)
+        while True:
+            try:
+                next(gen)
+            except StopIteration:
+                break
+        assert "AVAILABLE TOOLS" not in seen[0][0]["content"]
+    finally:
+        eng.chat_completion = real
 
 
 def test_bad_tool_name_self_corrects():

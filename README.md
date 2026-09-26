@@ -154,7 +154,7 @@ src/
   api/               # FastAPI app (port 8000)
   analysis/          # timeline bands + impact/cost estimates + staging
                      # clusters/playbook/conflicts (pure fns + routes)
-  agent/             # 16-tool analyst (client/engine/routes/tools/tool_*)
+  agent/             # 26-tool analyst (client/engine/routes/tools/tool_*)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
 tests/               # engine + api-routes + agent + build-projects tests
                      # (synthetic fixtures, logic only)

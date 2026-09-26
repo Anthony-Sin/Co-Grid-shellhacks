@@ -206,7 +206,10 @@ Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 - `GET /api/agent/brief/{overlap_id}` → `{overlap_id, brief, reasoning, usage}`
 
 Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
-`get_project`, `top_overlaps`, `get_overlap`, `projects_near`,
-`timeline_summary`, `impact_estimate`, `gazetteer`, `data_health`,
+`get_project`, `top_overlaps`, `get_overlap`, `find_overlaps`,
+`project_overlaps`, `projects_near`, `compare_overlaps`, `why_ranked`,
+`zone_report`, `overlap_neighbors`, `timeline_summary`, `impact_estimate`,
+`savings_rollup`,
+`what_if_shift`, `what_if_drop_utility`, `season_calendar`, `gazetteer`, `data_health`,
 `staging_clusters`, `playbook`, `outage_conflicts`, `utility_matrix`,
 `exec_summary`, `define`.

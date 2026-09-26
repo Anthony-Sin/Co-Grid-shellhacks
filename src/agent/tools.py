@@ -11,13 +11,17 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .tool_analysis import (
-    tool_define, tool_exec_summary, tool_impact_estimate,
-    tool_outage_conflicts, tool_playbook, tool_staging_clusters,
-    tool_timeline_summary, tool_utility_matrix,
+    tool_compare_overlaps, tool_define, tool_exec_summary,
+    tool_impact_estimate, tool_outage_conflicts, tool_overlap_neighbors,
+    tool_playbook, tool_savings_rollup, tool_season_calendar,
+    tool_staging_clusters,
+    tool_timeline_summary, tool_utility_matrix, tool_what_if_drop_utility,
+    tool_what_if_shift, tool_why_ranked, tool_zone_report,
 )
 from .tool_data import (
-    tool_data_health, tool_gazetteer, tool_get_overlap, tool_get_project,
-    tool_list_projects, tool_projects_near, tool_stats, tool_top_overlaps,
+    tool_data_health, tool_find_overlaps, tool_gazetteer, tool_get_overlap,
+    tool_get_project, tool_list_projects, tool_project_overlaps,
+    tool_projects_near, tool_stats, tool_top_overlaps,
 )
 
 TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
@@ -82,8 +86,10 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "staging_clusters": (
         tool_staging_clusters,
-        "Overlaps grouped by shared staging radius — where one crew yard "
-        "could serve multiple coordination sites (40 km rule).",
+        "Engine-built yard network: yards_needed (each cluster servable "
+        "within radius_km) + wider corridor groupings (connectivity "
+        "context — a corridor count is NOT a single-yard reach). For "
+        "'what does a yard AT THIS ONE SITE reach' use overlap_neighbors.",
         {"radius_km": "float 5-200 (optional)", "top": "int <=30 (optional)"},
     ),
     "playbook": (
@@ -104,6 +110,81 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Tier-1 touching overlaps WITH intersecting build windows — the "
         "mandatory joint-outage scheduling list, bucketed by season year.",
         {},
+    ),
+    "find_overlaps": (
+        tool_find_overlaps,
+        "Filtered overlap search: utility (either side), utilities (exact "
+        "pair 'GPC,DESC'), tier, zone substring, timeline_only. Engine "
+        "rank order. Use for 'all X overlaps in Y' questions.",
+        {"utility": "string (optional, either side)",
+         "utilities": "string 'A,B' or list (optional, exact pair)",
+         "tier": "int 1-4 (optional)", "zone": "string (optional)",
+         "timeline_only": "bool (optional)", "limit": "int <=50 (optional)"},
+    ),
+    "project_overlaps": (
+        tool_project_overlaps,
+        "Every coordination record touching one project_id — its full "
+        "coordination portfolio with the counterparty named per record.",
+        {"project_id": "string (required)"},
+    ),
+    "compare_overlaps": (
+        tool_compare_overlaps,
+        "Side-by-side comparison of 2-8 overlap records + a deltas "
+        "summary (closest, earliest window, best score, largest savings).",
+        {"overlap_ids": "list<string> 2-8 (required)"},
+    ),
+    "why_ranked": (
+        tool_why_ranked,
+        "Transparent score decomposition for one overlap — tier base, "
+        "distance-within-tier, timeline bonus, voltage bonus.",
+        {"overlap_id": "string (required)"},
+    ),
+    "zone_report": (
+        tool_zone_report,
+        "One-shot brief for a zone tag: project/overlap counts, tier "
+        "histogram, dominant utility pair, top-3 records.",
+        {"zone": "string (required — see stats.zones_available)"},
+    ),
+    "savings_rollup": (
+        tool_savings_rollup,
+        "Aggregate sharing value across filtered records — summed stored "
+        "cost fields (tiers <=tier_max; 3-4 carry $0 land).",
+        {"zone": "string (optional)", "utility": "string (optional)",
+         "tier_max": "int 1-4 (optional, default 2)"},
+    ),
+    "overlap_neighbors": (
+        tool_overlap_neighbors,
+        "Exact per-site yard reach: every other overlap record within "
+        "radius_km of THIS record's midpoint — prefer this over "
+        "staging_clusters for 'what does a yard at this site reach' "
+        "(clusters are engine-built groups; this is the ad-hoc radius).",
+        {"overlap_id": "string (required)",
+         "radius_km": "float (optional, default 40)"},
+    ),
+    "season_calendar": (
+        tool_season_calendar,
+        "THE tool for 'what joint work is schedulable in YEAR' — "
+        "overlaps bucketed by shared-window start year (concurrent "
+        "windows only; adjacent-only records never appear). Omit year "
+        "for the whole calendar.",
+        {"year": "int (optional — one season's full slate)"},
+    ),
+    "what_if_shift": (
+        tool_what_if_shift,
+        "Counterfactual: if one project's window moved to [new_start,"
+        "new_end], which of its overlap records keep a timeline "
+        "relationship? Labeled hypothetical — recomputed from the other "
+        "project's filed window.",
+        {"project_id": "string (required)",
+         "new_start": "int year (required)", "new_end": "int year (required)"},
+    ),
+    "what_if_drop_utility": (
+        tool_what_if_drop_utility,
+        "Counterfactual partner exit: if this utility's projects left, "
+        "every record touching it dies (records need both parties). "
+        "Reports lost value by tier + which partners lose the most. "
+        "Labeled hypothetical.",
+        {"utility": "string (required)"},
     ),
     "define": (
         tool_define,

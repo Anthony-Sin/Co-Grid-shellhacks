@@ -162,6 +162,154 @@ class TestToolsAgainstRealData:
         out = run_brief(cfg, "OV-NOPE-999")
         assert "error" in out and "OV-NOPE-999" in out["error"]
 
+    def test_find_overlaps_filters(self):
+        r = run_tool("find_overlaps", {"utility": "DESC", "tier": 1,
+                                       "timeline_only": True})
+        res = r["result"]
+        assert res["total_matching"] > 0
+        for o in res["overlaps"]:
+            assert "DESC" in o["utilities"] and o["tier"] == 1
+            assert o["timeline_overlap"] is True
+        # exact-pair restriction: only records between the two utilities
+        r = run_tool("find_overlaps", {"utilities": "DESC,GPC", "limit": 5})
+        for o in r["result"]["overlaps"]:
+            assert sorted(o["utilities"]) == ["DESC", "GPC"]
+        # honest empty on a nonsense zone
+        r = run_tool("find_overlaps", {"zone": "__nowhere__"})
+        assert r["result"]["total_matching"] == 0
+
+    def test_project_overlaps_portfolio(self):
+        # OV-0001's project_a must own at least that record
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        r = run_tool("project_overlaps", {"project_id": top["project_a"]})
+        res = r["result"]
+        assert res["overlap_count"] >= 1
+        rec = res["overlaps"][0]
+        assert rec["against"] != top["project_a"]
+        assert rec["overlap_id"] == top["overlap_id"]
+        # unknown project -> honest zero, not a crash
+        r = run_tool("project_overlaps", {"project_id": "NOPE-1"})
+        assert r["result"]["overlap_count"] == 0
+
+    def test_compare_overlaps_deltas(self):
+        ids = [o["overlap_id"] for o in
+               run_tool("top_overlaps", {"n": 3})["result"]["overlaps"]]
+        r = run_tool("compare_overlaps", {"overlap_ids": ids})
+        res = r["result"]
+        assert len(res["records"]) == 3 and res["missing"] == []
+        assert res["closest"] in ids and res["highest_scored"] in ids
+        # too few / too many ids -> error
+        assert "error" in run_tool(
+            "compare_overlaps", {"overlap_ids": [ids[0]]})["result"]
+        assert "error" in run_tool(
+            "compare_overlaps", {"overlap_ids": ids * 4})["result"]
+
+    def test_why_ranked_decomposition_matches_score(self):
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        r = run_tool("why_ranked", {"overlap_id": top["overlap_id"]})
+        res = r["result"]
+        c = res["components"]
+        # the decomposition must reproduce the stored score exactly
+        total = (c["tier_base"] + c["distance_within_tier"]
+                 + c["timeline_intersect_bonus"] + c["voltage_bonus"])
+        assert abs(total - res["ranked_score"]) < 0.15  # rounding to .1
+        # rank = position in the stored tuple-sorted corpus; ids are
+        # renumbered after that sort so OV-NNNN <=> position N
+        assert res["rank_position"] == int(top["overlap_id"].split("-")[1])
+        assert res["of_records"] > 1000
+
+    def test_zone_report_real_tag(self):
+        r = run_tool("zone_report", {"zone": "savannah"})
+        res = r["result"]
+        assert res["projects"] > 0 and res["overlaps"] > 0
+        assert sum(res["tiers"].values()) == res["overlaps"]
+        assert res["dominant_pair"]
+        assert "error" in run_tool("zone_report", {"zone": "__nope__"})["result"]
+
+    def test_savings_rollup_sums_stored_costs(self):
+        r = run_tool("savings_rollup", {"tier_max": 2})
+        res = r["result"]
+        assert res["priced_records"] > 0
+        assert res["total_est_savings_usd_high"] >= res["total_est_savings_usd_low"] > 0
+        # utility filter narrows scope
+        r2 = run_tool("savings_rollup", {"utility": "DESC", "tier_max": 2})
+        assert r2["result"]["records_in_scope"] <= res["records_in_scope"]
+
+    def test_what_if_shift_hypothetical(self):
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        pid = top["project_a"]
+        # shifting far into the future must lose every relationship
+        r = run_tool("what_if_shift", {"project_id": pid,
+                                       "new_start": 2050, "new_end": 2051})
+        res = r["result"]
+        assert res["hypothetical"] is True
+        assert res["records_evaluated"] >= 1
+        assert res["lost_relationship"] >= 0
+        for rec in res["per_record"]:
+            assert rec["would_be"] == "none"
+        # bad args
+        assert "error" in run_tool(
+            "what_if_shift", {"project_id": pid, "new_start": 2030,
+                              "new_end": 2020})["result"]
+        assert "error" in run_tool(
+            "what_if_shift", {"project_id": "NOPE", "new_start": 2030,
+                              "new_end": 2031})["result"]
+
+    def test_season_calendar_both_modes(self):
+        from src.agent.tool_data import overlaps
+        r = run_tool("season_calendar", {})
+        res = r["result"]
+        assert res["by_start_year"]  # at least one schedulable season
+        # whole-calendar counts sum to the true window-intersecting set
+        total = sum(res["by_start_year"].values())
+        real = {o["overlap_id"] for o in overlaps() if o.get("timeline_overlap")}
+        assert total == len(real)
+        # per-year mode returns the actual records — every one a genuine
+        # window intersection, never an adjacent-only record
+        y = int(next(iter(res["by_start_year"])))
+        r = run_tool("season_calendar", {"year": y})
+        res = r["result"]
+        assert res["schedulable_records"] > 0
+        assert all(o["window"]["start"] == y for o in res["overlaps"])
+        assert all(o["overlap_id"] in real for o in res["overlaps"])
+
+    def test_what_if_drop_utility_partner_exit(self):
+        from src.agent.tool_data import overlaps
+        allr = overlaps()
+        r = run_tool("what_if_drop_utility", {"utility": "DESC"})["result"]
+        assert r["hypothetical"] is True
+        real_dead = [o for o in allr if "DESC" in (o.get("utilities") or [])]
+        assert r["records_lost"] == len(real_dead)
+        assert sum(r["lost_by_tier"].values()) == len(real_dead)
+        # every reported partner genuinely co-occurs on a dead record
+        desc_partners = {x for o in real_dead for x in o["utilities"]
+                         if x != "DESC"}
+        assert {p["utility"] for p in r["partners_most_affected"]} == \
+            desc_partners
+        assert "error" in run_tool(
+            "what_if_drop_utility", {"utility": "FAKECO"})["result"]
+
+    def test_overlap_neighbors_matches_route(self):
+        from src.analysis.nearby import build_nearby
+        from src.agent.tool_data import overlaps
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        oid = top["overlap_id"]
+        tool = run_tool("overlap_neighbors", {"overlap_id": oid})["result"]
+        route = build_nearby(overlaps(), oid, 40.0)
+        assert tool["neighbor_count"] == route["neighbor_count"]
+        assert [n["overlap_id"] for n in tool["neighbors"]] == \
+               [n["overlap_id"] for n in route["neighbors"]]
+        # every neighbor genuinely within the default radius
+        assert all(n["distance_km"] <= 40.0 for n in tool["neighbors"])
+        assert "error" in run_tool(
+            "overlap_neighbors", {"overlap_id": "NOPE"})["result"]
+
+    def test_get_overlap_detail_has_deep_link(self):
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        d = run_tool("get_overlap", {"overlap_id": top["overlap_id"]})["result"]
+        assert d["deep_link"].startswith("/?scene=")
+        assert f"select={top['overlap_id']}" in d["deep_link"]
+
     def test_client_nonjson_200_raises_chaterror(self):
         # regression: a non-JSON 200 body crashed with JSONDecodeError
         # instead of a controlled ChatError (route -> 502, not 500).
