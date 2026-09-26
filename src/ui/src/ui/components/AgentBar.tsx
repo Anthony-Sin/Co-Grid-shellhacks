@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type AgentHealth } from '../../lib/api'
+import { api, type AgentHealth, type AgentReply } from '../../lib/api'
 import { useAppStore } from '../../state/store'
 
 /**
@@ -22,6 +22,7 @@ interface Msg {
 const QUICK_ACTIONS = [
   { label: 'Top opportunities', prompt: 'List the top 3 coordination opportunities — overlap id, utilities, tier, distance, and whether timelines overlap.' },
   { label: 'Explain selected', prompt: 'Explain the currently selected overlap: what could the two utilities share and when is the shared build window?' },
+  { label: 'Staging plan', prompt: 'Where would you put shared staging yards? Use the staging_clusters tool and name the top clusters with their member counts.' },
   { label: 'Timeline view', prompt: 'Summarize build activity per year per utility and flag the busiest coordination windows.' },
   { label: 'Data health', prompt: 'How much of the dataset is missing timeline dates or location confidence? Be honest about gaps.' },
 ]
@@ -43,6 +44,40 @@ export function AgentBar() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
 
+  /** POST + ReadableStream SSE reader — EventSource can't POST. Falls back
+   * to plain /chat if the stream errors mid-flight. */
+  const streamChat = async (
+    history: { role: string; content: string }[],
+    onTool: (name: string) => void,
+  ): Promise<AgentReply | null> => {
+    const res = await fetch('/api/agent/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history, ...(selectedOverlapId ? { overlap_id: selectedOverlapId } : {}) }),
+    })
+    if (!res.ok || !res.body) return null
+    const reader = res.body.getReader()
+    const dec = new TextDecoder()
+    let buf = ''
+    let final: AgentReply | null = null
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      const parts = buf.split('\n\n')
+      buf = parts.pop() ?? ''
+      for (const part of parts) {
+        const ev = part.match(/^event: (\w+)\ndata: (.*)$/s)
+        if (!ev) continue
+        const data = JSON.parse(ev[2] || 'null')
+        if (ev[1] === 'tool' && data?.tool) onTool(data.tool)
+        if (ev[1] === 'final') final = data
+        if (ev[1] === 'error') throw new Error(data?.message || 'stream error')
+      }
+    }
+    return final
+  }
+
   const send = async (text: string) => {
     const content = text.trim()
     if (!content || busy || !health?.configured) return
@@ -50,23 +85,39 @@ export function AgentBar() {
     setMsgs(next)
     setInput('')
     setBusy(true)
+    const liveTools: string[] = []
     try {
-      const res = await api.agentChat(
+      const res = await streamChat(
+        next.map((m) => ({ role: m.role, content: m.content })),
+        (name) => {
+          liveTools.push(name)
+          // live progress line under the log while the chain runs
+          setMsgs((m) => {
+            const last = m[m.length - 1]
+            if (last?.role === 'assistant' && last.content.startsWith('⚙ ')) {
+              return [...m.slice(0, -1), { role: 'assistant', content: `⚙ ${liveTools.join(' · ')}` }]
+            }
+            return [...m, { role: 'assistant', content: `⚙ ${name}` }]
+          })
+        },
+      )
+      const reply = res ?? (await api.agentChat(
         next.map((m) => ({ role: m.role, content: m.content })),
         selectedOverlapId,
-      )
+      ))
       setMsgs((m) => [
-        ...m,
+        // replace the transient ⚙ progress line with the real answer
+        ...(m[m.length - 1]?.content.startsWith('⚙ ') ? m.slice(0, -1) : m),
         {
           role: 'assistant',
-          content: res.reply,
-          reasoning: res.reasoning,
-          tools: res.tool_trace.map((t) => t.tool),
+          content: reply.reply,
+          reasoning: reply.reasoning,
+          tools: reply.tool_trace.map((t) => t.tool),
         },
       ])
     } catch (e) {
       setMsgs((m) => [
-        ...m,
+        ...(m[m.length - 1]?.content.startsWith('⚙ ') ? m.slice(0, -1) : m),
         { role: 'assistant', content: `agent error: ${e instanceof Error ? e.message : e}` },
       ])
     } finally {

@@ -135,6 +135,7 @@ def regions() -> dict:
 def overlaps(
     tier: Optional[int] = Query(None, ge=1, le=4),
     timeline_only: bool = Query(False),
+    q: Optional[str] = Query(None, description="substring match on ids, project names, utilities"),
 ) -> dict:
     data = _fresh("overlaps.json")
     rows = data.get("overlaps", [])
@@ -142,6 +143,13 @@ def overlaps(
         rows = [r for r in rows if r["tier"] == tier]
     if timeline_only:
         rows = [r for r in rows if r["timeline_overlap"]]
+    if q:
+        needle = q.strip().lower()
+        rows = [r for r in rows if needle in json.dumps({
+            "id": r.get("overlap_id"), "a": r.get("project_a"),
+            "b": r.get("project_b"), "u": r.get("utilities"),
+            "x": r.get("explanation"),
+        }).lower()]
     return {**data, "overlaps": rows}
 
 

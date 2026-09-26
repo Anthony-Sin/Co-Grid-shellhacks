@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from .clusters import build_clusters
 from .impact import build_impacts
 from .timeline import build_timeline
 
@@ -88,6 +89,21 @@ def impact(overlap_id: str) -> dict:
         if r.get("overlap_id") == overlap_id:
             return r
     raise HTTPException(404, f"no impact record for {overlap_id!r}")
+
+
+@router.get("/playbook")
+def playbook(radius_km: float = Query(40.0, ge=5.0, le=200.0),
+             top: int = Query(10, ge=1, le=50)) -> dict:
+    """Season-plan per staging cluster — executable joint-work schedule."""
+    from .optimize import build_playbook
+    return build_playbook(_fresh("overlaps.json"), radius_km, top)
+
+
+@router.get("/clusters")
+def clusters(radius_km: float = Query(40.0, ge=5.0, le=200.0)) -> dict:
+    """Staging clusters — overlap groups shareable from one crew yard
+    (midpoints within `radius_km`, union-find, default the 40 km rule)."""
+    return build_clusters(_fresh("overlaps.json"), radius_km)
 
 
 @router.get("/calendar")

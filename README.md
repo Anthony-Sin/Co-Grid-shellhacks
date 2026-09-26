@@ -1,13 +1,16 @@
-# CO-GRID — Savannah River Corridor
+# CO-GRID — Savannah River Corridor + Statewide
 
 **Gridlock Challenge (Sperry Tech × Shell Hacks 2026).** Finds where two
 electric utilities' *planned* construction projects overlap geographically
 (≤ 40 km, closest-points) and in time, then ranks coordination
-opportunities into tiers and renders them on a stylized 3D city map.
+opportunities into tiers and renders them on a stylized 3D map.
 
 Utilities tracked: **Georgia Power (GPC)** and **Dominion Energy South
-Carolina (DESC)** across the Savannah River corridor — Savannah metro +
-Augusta.
+Carolina (DESC)** (+ Santee Cooper/SCPSA) — planned projects cluster in
+the Savannah River corridor (Savannah metro + Augusta), while the
+existing-grid basemap and a dedicated **GA+SC state scene** cover the
+full two-state envelope: 15.7k real HIFLD features, state/county borders,
+interstate corridors, named rivers, 508 real places.
 
 > Working with a coding agent? Hand it this file + `AGENTS.md` +
 > `docs/DATA_SCHEMA.md` and it can rebuild everything from scratch.
@@ -23,10 +26,14 @@ uv pip install --python venv/bin/python -r requirements.txt
 #   ^ or: ./venv/bin/pip install -r requirements.txt
 
 # --- download real public data (no API keys needed) ---
-./venv/bin/python -m src.ingestion.hifld_download   # HIFLD grid layers
-./venv/bin/python -m src.ingestion.osm_download     # OSM city geometry
+./venv/bin/python -m src.ingestion.hifld_download   # HIFLD grid layers (statewide)
+./venv/bin/python -m src.ingestion.osm_download     # OSM city geometry (corridors)
 ./venv/bin/python -m src.ingestion.osm_pois         # named places (label chips)
 ./venv/bin/python -m src.ingestion.osm_power        # named substations (gazetteer)
+./venv/bin/python -m src.ingestion.osm_places       # statewide cities/towns
+./venv/bin/python -m src.ingestion.osm_borders      # state + county boundaries
+# state_roads_rivers.json: interstate/trunk corridors + named rivers —
+# one-off Overpass query documented in src/processing/build_state.py
 
 # --- run the processing pipeline ---
 ./scripts/pipeline.sh                 # raw -> processed -> overlaps.json

@@ -14,12 +14,16 @@ BBOXES = {
     "savannah":  {"min_lon": -81.55, "min_lat": 31.95, "max_lon": -80.75, "max_lat": 32.45},
     # Augusta metro: Urquhart (Beech Island SC), Augusta GA, toward Thomson
     "augusta":   {"min_lon": -82.30, "min_lat": 33.25, "max_lon": -81.60, "max_lat": 33.65},
+    # Full Georgia + South Carolina envelope (bbox-intersect also pulls
+    # border counties in FL/AL/TN/NC — intentional, for edge rendering)
+    "state":     {"min_lon": -85.70, "min_lat": 30.30, "max_lon": -78.00, "max_lat": 35.25},
 }
 ```
 
 Scene centers (for local-meter projection in the UI):
 - `savannah`: `[-81.10, 32.13]`
 - `augusta`:   `[-81.97, 33.45]`
+- `state`:     `[-81.85, 32.78]`
 
 ## 1. `data/processed/projects.geojson` — utility planned projects
 
@@ -80,6 +84,24 @@ rendered emphasized, they're why the overlap zones cluster where they do.
 `x,y` are **local meters**: `x=(lon-c0)*111320*cos(c1)`, `y=(lat-c1)*110540`,
 `c0,c1 = center`. Heights in meters (OSM `height` tag, else `building:levels`*3.2, else random 8-14 seeded by id).
 
+`water` entries may carry either `polygon` (closed ring — corridors) OR
+`line` (open polyline — rivers in the state scene). `pois[].pop` holds the
+real OSM `population` tag when present (used to rank city labels).
+
+### `city_state.json` — the statewide scene
+
+Produced by `src/processing/build_state.py` from
+`data/raw/osm/state_borders.json` (admin relations), `state_roads_rivers.json`
+(motorway/trunk + named rivers), `statewide_places.json`. At state scale
+**no buildings/parks are emitted** (honestly empty arrays) — the scene
+carries boundaries, corridors, rivers, and places only:
+
+- `roads[]`: state boundary `kind:"trunk"` rank 0 (double-inked), county
+  boundaries `kind:"boundary"` rank 7, interstates `kind:"motorway"` rank 0
+  / `trunk` rank 2.
+- `water[]`: named rivers as `{"kind":"river","name":..,"line":[..]}`.
+- `pois[]`: `kind:"place_city|place_town|place_suburb"` + optional `pop`.
+
 ## 4. `data/processed/overlaps.json` — ranked coordination opportunities
 
 ```json
@@ -138,13 +160,18 @@ Analysis API (`src/analysis/`, deterministic — no model):
 - `GET /api/analysis/impact/{overlap_id}` → shared_corridor_km, row_width_m,
   corridor/zone/shared-ROW acres, shared_window_months, crew_share_days,
   est_savings_usd_range {low, high, basis}, assumptions[], confidence
+- `GET /api/analysis/clusters?radius_km=` → staging clusters (union-find on
+  overlap midpoints): centroid, span, utilities, tiers, member overlap_ids
+- `GET /api/analysis/calendar` → overlaps grouped by shared-window start year
 
 Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 - `GET /api/agent/health` → `{configured, model, tools, max_rounds}`
 - `POST /api/agent/chat` → `{messages, overlap_id?}` →
   `{reply, reasoning, tool_trace[{tool,args,preview}], rounds, usage, finish_reason}`
+- `POST /api/agent/chat/stream` → SSE: `tool` events live, then `final`, `done`
 - `GET /api/agent/brief/{overlap_id}` → `{overlap_id, brief, reasoning, usage}`
 
 Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
 `get_project`, `top_overlaps`, `get_overlap`, `projects_near`,
-`timeline_summary`, `impact_estimate`, `gazetteer`.
+`timeline_summary`, `impact_estimate`, `gazetteer`, `data_health`,
+`staging_clusters`, `define`.

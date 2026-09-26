@@ -269,6 +269,79 @@ def tool_data_health() -> dict:
     }
 
 
+def tool_playbook(radius_km: float = 40.0, top: int = 5) -> dict:
+    """Executable joint-work schedule: seasons per staging cluster."""
+    try:
+        from src.analysis.optimize import build_playbook
+    except Exception:
+        return {"error": "playbook module unavailable"}
+    try:
+        res = build_playbook(
+            _overlaps_data(), float(min(max(radius_km or 40, 5), 200)),
+            int(min(max(top or 5, 1), 20)))
+    except Exception as exc:
+        return {"error": f"playbook failed: {exc}"}
+    for cl in res.get("clusters", []):
+        for s in cl.get("seasons", []):
+            s["overlap_ids"] = s["overlap_ids"][:20]
+    return res
+
+
+# Challenge glossary — verbatim domain vocabulary so the analyst can define
+# terms correctly instead of paraphrasing from memory.
+_GLOSSARY = {
+    "transmission line": ("high-voltage line moving electricity long distances "
+                          "between plants, substations, regions (vs local distribution lines)"),
+    "substation": ("facility stepping voltage up/down and routing between lines — "
+                   "a highway interchange for electricity"),
+    "right-of-way": ("land strip a utility owns/has access to build or maintain a line; "
+                     "shared ROW = shared land + permits"),
+    "irp": ("Integrated Resource Plan — a utility's official long-term plan "
+            "(DESC: 15-yr w/ SC PSC; GPC: 10-yr w/ GA PSC)"),
+    "psc": "Public Service Commission — state regulator approving utility plans",
+    "ferc": "Federal Energy Regulatory Commission — federal regulator above the PSCs",
+    "order 1920": ("2024 FERC rule requiring coordinated long-term regional transmission "
+                   "planning — the real-world driver of this challenge"),
+    "sertp": ("Southeastern Regional Transmission Planning — coordination forum founded "
+              "by Southern Company (GPC parent) + GTC + MEAG; DESC is joining"),
+    "scrtp": ("South Carolina Regional Transmission Planning — DESC + Santee Cooper "
+              "project-list process (our DESC data source); DESC is transitioning to SERTP"),
+    "ceii": ("Critical Energy Infrastructure Information — confidential grid data; "
+             "off-limits for this challenge, we use public filings only"),
+    "40km rule": ("overlaps count when closest geometry points are within 40 km — "
+                  "crew-drive range from a staging yard"),
+    "tiers": ("ranking by distance: 1 touching | 2 <1.6km shared ROW | "
+              "3 <8km logistics | 4 <40km crews"),
+}
+
+
+def tool_define(term: str) -> dict:
+    """Define a grid-planning term from the challenge glossary."""
+    q = (term or "").strip().lower()
+    if not q:
+        return {"error": "term required"}
+    if q in _GLOSSARY:
+        return {"term": q, "definition": _GLOSSARY[q]}
+    fuzzy = [k for k in _GLOSSARY if q in k or k in q]
+    if fuzzy:
+        return {"matches": {k: _GLOSSARY[k] for k in fuzzy[:5]}}
+    return {"error": f"not in glossary: {term}",
+            "available": sorted(_GLOSSARY)}
+
+
+def tool_staging_clusters(radius_km: float = 40.0, top: int = 8) -> dict:
+    """Which overlaps share one crew yard — clustered by midpoint proximity.
+    Answers 'where should a joint staging base go' directly."""
+    try:
+        from src.analysis.clusters import build_clusters
+        out = build_clusters({"overlaps": _overlaps()},
+                             max(5.0, min(radius_km, 200.0)))
+        out["clusters"] = out["clusters"][: max(1, min(top, 30))]
+        return out
+    except Exception as e:
+        return {"error": f"clusters unavailable: {type(e).__name__}: {e}"}
+
+
 def tool_gazetteer(name: str, limit: int = 10) -> dict:
     """Fuzzy-lookup real facilities (substations/plants) by name — resolves
     WHERE a filed project sits when the record only names a substation."""
@@ -402,6 +475,25 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Dataset quality report: missing build dates, location-confidence "
         "breakdown, source families, overlap timeline coverage.",
         {},
+    ),
+    "staging_clusters": (
+        tool_staging_clusters,
+        "Overlaps grouped by shared staging radius — where one crew yard "
+        "could serve multiple coordination sites (40 km rule).",
+        {"radius_km": "float 5-200 (optional)", "top": "int <=30 (optional)"},
+    ),
+    "playbook": (
+        tool_playbook,
+        "Executable coordination plan: per staging cluster, the minimal "
+        "season-years covering all windowed sites + peak concurrent "
+        "workload (crew sizing).",
+        {"radius_km": "float 5-200 (optional)", "top": "int <=20 (optional)"},
+    ),
+    "define": (
+        tool_define,
+        "Define a grid-planning term (IRP, SERTP, SCRTP, CEII, right-of-way, "
+        "Order 1920, tiers, 40km rule...) from the challenge glossary.",
+        {"term": "string (required)"},
     ),
 }
 

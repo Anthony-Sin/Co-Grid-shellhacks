@@ -56,6 +56,22 @@ class TestToolsAgainstRealData:
             assert f["name"] in TOOLS
             assert f["parameters"]["type"] == "object"
 
+    def test_staging_clusters_covers_all_records(self):
+        r = run_tool("staging_clusters", {})
+        assert r["ok"]
+        res = r["result"]
+        assert res["cluster_count"] >= 1
+        assert res["overlaps_clustered"] == res["overlaps_total"]
+        for c in res["clusters"]:
+            assert c["size"] >= 1 and c["overlap_ids"]
+
+    def test_glossary(self):
+        r = run_tool("define", {"term": "sertp"})
+        assert r["ok"]
+        assert "Southeastern Regional Transmission Planning" in r["result"]["definition"]
+        r = run_tool("define", {"term": "bogus term xyz"})
+        assert "error" in r["result"] or "error" in r
+
     def test_projects_near_finds_okatie_cluster(self):
         # Okatie/McIntosh area — the densest real cluster in the corridor.
         r = run_tool("projects_near", {"lon": -81.06, "lat": 32.34, "km": 15})
