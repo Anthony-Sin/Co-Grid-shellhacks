@@ -65,6 +65,32 @@ class ApiRoutesTest(unittest.TestCase):
         assert r.status_code == 200
         assert "overlap_id" in r.text.splitlines()[0]
 
+    def test_csv_filters_match_agent_find_overlaps(self):
+        # the agent's csv_export link must be faithful: same filters on
+        # the route return exactly the tool's total_matching set.
+        from src.agent.tools import run_tool
+        import csv
+        import io
+        cases = [
+            {"utility": "GPC"},
+            {"utilities": "GTC,MEAG", "tier": 1},
+            {"zone": "charleston", "timeline_only": "true"},
+            {"utility": "DESC", "adjacent_only": "true"},
+        ]
+        for params in cases:
+            tool_args = dict(params)
+            tool_args["timeline_only"] = params.get("timeline_only") == "true"
+            tool_args["adjacent_only"] = params.get("adjacent_only") == "true"
+            res = run_tool("find_overlaps", tool_args)["result"]
+            r = client.get("/api/overlaps.csv", params=params)
+            assert r.status_code == 200, params
+            rows = list(csv.reader(io.StringIO(r.text)))[1:]
+            assert len(rows) == res["total_matching"], params
+        r = client.get("/api/overlaps.csv",
+                       params={"timeline_only": "true",
+                               "adjacent_only": "true"})
+        assert r.status_code == 422
+
     def test_analysis_endpoints(self):
         for path in ("/api/analysis/timeline", "/api/analysis/calendar",
                      "/api/analysis/clusters", "/api/analysis/playbook",

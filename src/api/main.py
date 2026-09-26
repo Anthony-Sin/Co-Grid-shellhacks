@@ -247,17 +247,29 @@ def overlaps(
 
 @app.get("/api/overlaps.csv")
 def overlaps_csv(
+    utility: Optional[str] = Query(None),
+    utilities: Optional[str] = Query(
+        None, description="exact pair, comma-separated — e.g. 'DESC,GPC'"),
     tier: Optional[int] = Query(None, ge=1, le=4),
+    zone: Optional[str] = Query(None),
     timeline_only: bool = Query(False),
+    adjacent_only: bool = Query(False),
 ) -> "Response":
-    """Ranked overlaps as flat CSV — teammates/spreadsheets/BI friendly."""
+    """Ranked overlaps as flat CSV — teammates/spreadsheets/BI friendly.
+    Accepts the same filters as the agent's find_overlaps tool (shared
+    filter_records) so agent-emitted csv_export links are faithful."""
     from fastapi.responses import Response
+    from src.analysis.filters import filter_records
+    from src.processing.projection import scene_for_zone
 
     rows = _fresh("overlaps.json").get("overlaps", [])
-    if tier is not None:
-        rows = [r for r in rows if r["tier"] == tier]
-    if timeline_only:
-        rows = [r for r in rows if r["timeline_overlap"]]
+    try:
+        rows = filter_records(
+            rows, utility=utility, utilities=utilities, tier=tier,
+            zone=zone, timeline_only=timeline_only,
+            adjacent_only=adjacent_only)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
     # rank = position in the canonical engine ordering (the same order
     # /api/overlaps serves and the UI displays) — not a separate sort.
     rows = list(rows)  # overlaps.json is already engine-ordered
@@ -268,7 +280,7 @@ def overlaps_csv(
         "timeline_adjacent", "shared_window_start", "shared_window_end",
         "closest_lon", "closest_lat", "score",
         "shared_row_km", "est_savings_low_usd", "est_savings_high_usd",
-        "explanation",
+        "explanation", "map_link",
     ]
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -285,6 +297,8 @@ def overlaps_csv(
             win.get("start"), win.get("end"), cp[0], cp[1], r.get("score"),
             cost.get("shared_row_km"), cost.get("est_savings_usd_low"),
             cost.get("est_savings_usd_high"), r.get("explanation"),
+            f"/?scene={scene_for_zone(r.get('zone'))}"
+            f"&select={r.get('overlap_id')}&panel=0",
         ])
     return Response(
         content=buf.getvalue(),

@@ -117,7 +117,10 @@ Deterministic analysis API (no model needed, `src/analysis/`):
 
 Other additions: `GET /api/regions` (scene index + per-zone overlap
 rollup — the contract for a region picker), `GET /api/meta` (artifact
-freshness), and `GET /api/overlaps.csv` (ranked flat export).
+freshness), and `GET /api/overlaps.csv` (ranked flat export — same
+`utility`/`utilities`/`tier`/`zone`/`timeline_only`/`adjacent_only`
+filters as the agent's `find_overlaps`, shared `analysis/filters.py`,
+plus a `map_link` deep-link column).
 `/api/overlaps` supports `tier`, `timeline_only`, `q`, `zone`,
 `sort=score|distance|year`, `limit`, `offset` (paging — response
 carries `total` + `offset`), `geometry=false` (drops `zone_geometry`
@@ -153,8 +156,9 @@ src/
                      # timeline.py, ranker.py, costmodel.py, crs.py, schema.py
   api/               # FastAPI app (port 8000)
   analysis/          # timeline bands + impact/cost estimates + staging
-                     # clusters/playbook/conflicts (pure fns + routes)
-  agent/             # 26-tool analyst (client/engine/routes/tools/tool_*)
+                     # clusters/playbook/conflicts/filters (pure fns
+                     # shared by routes AND agent tools + routes)
+  agent/             # 30-tool analyst (client/engine/routes/tools/tool_*)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
 tests/               # engine + api-routes + agent + build-projects tests
                      # (synthetic fixtures, logic only)

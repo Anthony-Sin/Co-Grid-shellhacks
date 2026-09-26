@@ -43,3 +43,14 @@ def in_bbox(lon: float, lat: float, bbox: Sequence[float], pad: float = 0.0) -> 
         bbox[0] - pad <= lon <= bbox[2] + pad
         and bbox[1] - pad <= lat <= bbox[3] + pad
     )
+
+
+def scene_for_zone(zone: str | None) -> str:
+    """Zone tag -> best-fit UI scene for deep links. Shared by the agent's
+    deep_link fields and the /api/overlaps.csv map_link column."""
+    z = (zone or "").lower()
+    if "savannah" in z:
+        return "savannah"
+    if "augusta" in z:
+        return "augusta"
+    return "state"

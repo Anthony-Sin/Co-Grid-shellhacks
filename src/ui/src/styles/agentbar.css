@@ -217,6 +217,25 @@
 }
 
 /* --- agent markdown render --- */
+.md-ovlink {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 1px;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  background: #1f1f1f;
+  color: #7db8ff;
+  font-size: 10.5px;
+  line-height: 1.6;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.md-ovlink:hover {
+  border-color: #7db8ff;
+  background: #262626;
+}
+
 .md-p {
   margin: 0 0 6px;
   line-height: 1.45;

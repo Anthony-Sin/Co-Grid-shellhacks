@@ -27,11 +27,16 @@ const QUICK_ACTIONS = [
   { label: 'Explain selected', prompt: 'Explain the currently selected overlap: what could the two utilities share and when is the shared build window?' },
   { label: 'Staging plan', prompt: 'Where would you put shared staging yards? Use the staging_clusters tool and name the top clusters with their member counts.' },
   { label: 'Timeline view', prompt: 'Summarize build activity per year per utility and flag the busiest coordination windows.' },
+  { label: '2027 season', prompt: 'What joint work is schedulable in 2027? Use season_calendar — the top records and their utility pairs.' },
+  { label: 'Crew relays', prompt: 'Could one crew relay between projects end-to-start across years? Use handoff_chains and name the longest chains with their project sequence and years.' },
+  { label: 'What-if slip', prompt: 'If the currently selected project slipped two years, which coordination records would lose their timeline relationship? Use what_if_shift on the selected overlap.' },
   { label: 'Data health', prompt: 'How much of the dataset is missing timeline dates or location confidence? Be honest about gaps.' },
 ]
 
 export function AgentBar() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
+  const selectOverlap = useAppStore((s) => s.selectOverlap)
+  const setActiveScene = useAppStore((s) => s.setActiveScene)
   const [health, setHealth] = useState<AgentHealth | null>(null)
   const [input, setInput] = useState('')
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -192,7 +197,13 @@ export function AgentBar() {
                 <div className="agent-tools">⚙ {m.tools.join(' · ')}</div>
               )}
               {m.role === 'assistant' && !m.progress
-                ? renderMarkdown(m.content)
+                ? renderMarkdown(m.content, (oid, scene) => {
+                    if (scene === 'savannah' || scene === 'augusta' ||
+                        scene === 'state') {
+                      setActiveScene(scene)
+                    }
+                    selectOverlap(oid)
+                  })
                 : m.content}
               {m.reasoning && (
                 <details className="agent-reasoning">

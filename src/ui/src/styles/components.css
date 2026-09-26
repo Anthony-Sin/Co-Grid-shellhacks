@@ -199,8 +199,25 @@
   letter-spacing: 0.06em;
 }
 
-.detail-close {
+.detail-share {
   margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a877e;
+  border: 1px solid #2b2b2b;
+  flex: none;
+}
+
+.detail-share:hover {
+  border-color: #f5f2ea;
+  color: #f5f2ea;
+}
+
+.detail-close {
+  margin-left: 6px;
   width: 22px;
   height: 22px;
   border-radius: 50%;

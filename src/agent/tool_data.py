@@ -12,7 +12,10 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
+
+from src.analysis.filters import filter_records
+from src.processing.projection import scene_for_zone as _scene_for_zone
 
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "data" / "processed"
@@ -122,13 +125,18 @@ def tool_stats() -> dict:
 
 
 def tool_list_projects(utility: str | None = None, zone: str | None = None,
-                       limit: int = 30) -> dict:
-    """List planned projects, optionally filtered by utility or zone tag."""
+                       source: str | None = None, limit: int = 30) -> dict:
+    """List planned projects, optionally filtered by utility, zone tag, or
+    a substring of the provenance `source` (e.g. an IRP/filing name)."""
     feats = projects()
     if utility:
         feats = [f for f in feats if f["properties"].get("utility") == utility]
     if zone:
         feats = [f for f in feats if zone in (f["properties"].get("zones") or [])]
+    if source:
+        s = str(source).strip().lower()
+        feats = [f for f in feats
+                 if s in (f["properties"].get("source") or "").lower()]
     return {
         "count": len(feats),
         "shown": min(len(feats), limit),
@@ -163,18 +171,26 @@ def tool_top_overlaps(n: int = 10, tier: int | None = None,
     return {"shown": len(rows), "overlaps": [_overlap_brief(r) for r in rows]}
 
 
-def _scene_for_zone(zone: str | None) -> str:
-    z = (zone or "").lower()
-    if "savannah" in z:
-        return "savannah"
-    if "augusta" in z:
-        return "augusta"
-    return "state"
-
-
 def _overlap_detail(r: dict) -> dict:
+    # resolve member ids to name/utility/source so a single get_overlap
+    # call can fully cite an opportunity — no extra get_project rounds.
+    by_id = {f["properties"].get("project_id"): f["properties"]
+             for f in projects()}
+    members = []
+    for pid in (r.get("project_a"), r.get("project_b")):
+        p = by_id.get(pid) or {}
+        members.append({
+            "project_id": pid,
+            "name": p.get("name"),
+            "utility": p.get("utility"),
+            "voltage_kv": p.get("voltage_kv"),
+            "window": {"start_year": p.get("start_year"),
+                       "end_year": p.get("end_year")},
+            "source": p.get("source"),
+        })
     return {
         **_overlap_brief(r),
+        "members": members,
         "closest_point_a": r.get("closest_point_a"),
         "closest_point_b": r.get("closest_point_b"),
         "midpoint": r.get("midpoint"),
@@ -213,35 +229,114 @@ def tool_find_overlaps(utility: str | None = None,
                        tier: int | None = None,
                        zone: str | None = None,
                        timeline_only: bool = False,
+                       adjacent_only: bool = False,
                        limit: int = 25) -> dict:
     """Filtered overlap search — the record-level query primitive.
 
     `utility` matches either side ("GPC"); `utilities` restricts to an
     exact pair ("GPC,DESC" or ["GPC","DESC"]). `zone` is a substring
     match on the record's zone label (incl. 'a / b' composites).
-    Results stay in engine rank order (tier asc -> distance asc)."""
-    rows = overlaps()
-    if utility:
-        u = str(utility).strip()
-        rows = [r for r in rows if u in (r.get("utilities") or [])]
-    if utilities:
-        pair = utilities if isinstance(utilities, list) else [
-            x.strip() for x in str(utilities).split(",") if x.strip()]
-        pair = sorted(pair)
-        rows = [r for r in rows
-                if sorted(r.get("utilities") or []) == pair]
-    if tier is not None:
-        rows = [r for r in rows if r.get("tier") == int(tier)]
-    if zone:
-        z = str(zone).strip().lower()
-        rows = [r for r in rows if z in (r.get("zone") or "").lower()]
-    if timeline_only:
-        rows = [r for r in rows if r.get("timeline_overlap")]
+    `timeline_only` keeps true window intersections; `adjacent_only`
+    keeps the end-to-start handoff records instead (a different
+    coordination class — never both). Results stay in engine rank
+    order (tier asc -> distance asc)."""
+    try:
+        rows = filter_records(
+            overlaps(), utility=utility, utilities=utilities, tier=tier,
+            zone=zone, timeline_only=timeline_only,
+            adjacent_only=adjacent_only)
+    except ValueError as e:
+        return {"error": str(e)}
     lim = max(1, min(int(limit or 25), 50))
+    # download link mirrors this exact filter set — /api/overlaps.csv
+    # shares filter_records so the export is faithful to this result.
+    qs: dict[str, Any] = {}
+    if utility:
+        qs["utility"] = utility
+    if utilities:
+        qs["utilities"] = (",".join(utilities) if isinstance(utilities, list)
+                           else utilities)
+    if tier is not None:
+        qs["tier"] = int(tier)
+    if zone:
+        qs["zone"] = zone
+    if timeline_only:
+        qs["timeline_only"] = "true"
+    if adjacent_only:
+        qs["adjacent_only"] = "true"
     return {
         "total_matching": len(rows),
         "shown": min(len(rows), lim),
         "overlaps": [_overlap_brief(r) for r in rows[:lim]],
+        "csv_export": (f"/api/overlaps.csv?{urlencode(qs)}" if qs
+                       else "/api/overlaps.csv"),
+    }
+
+
+def tool_no_overlap_reason(project_id: str) -> dict:
+    """Honest diagnosis when a project has zero coordination records:
+    nearest same-utility neighbor (excluded by rule), nearest cross-
+    utility project + its closest-point distance (the only reason that
+    matters — overlaps are geometry-first). Uses the same LCC projected
+    distance as the engine — never centroid guesses."""
+    pid = (project_id or "").strip()
+    feats = {f["properties"].get("project_id"): f for f in projects()}
+    anchor = feats.get(pid)
+    if not anchor:
+        return {"error": f"no project '{project_id}'"}
+    have = sum(1 for r in overlaps()
+               if r.get("project_a") == pid or r.get("project_b") == pid)
+    props = anchor["properties"]
+    if have:
+        return {"project_id": pid, "overlap_records": have,
+                "reason": "project HAS coordination records — "
+                          "see project_overlaps for its portfolio"}
+    if not anchor.get("geometry"):
+        return {"project_id": pid, "overlap_records": 0,
+                "reason": "project has no geometry — it cannot enter "
+                          "overlap detection at all"}
+    from pyproj import Transformer
+    from shapely.geometry import shape
+    from shapely.ops import transform as shp_transform
+    from src.spatial.crs import SOURCE_CRS, TARGET_CRS
+    to_m = Transformer.from_crs(SOURCE_CRS, TARGET_CRS, always_xy=True)
+    g0 = shp_transform(to_m.transform, shape(anchor["geometry"]))
+    own = props.get("utility")
+    nearest_same = nearest_cross = None
+    for f in projects():
+        p = f["properties"]
+        if p.get("project_id") == pid or not f.get("geometry"):
+            continue
+        try:
+            d = shp_transform(to_m.transform,
+                              shape(f["geometry"])).distance(g0) / 1000.0
+        except Exception:
+            continue
+        entry = {"project_id": p.get("project_id"), "name": p.get("name"),
+                 "utility": p.get("utility"), "distance_km": round(d, 1)}
+        if p.get("utility") == own:
+            if nearest_same is None or d < nearest_same["distance_km"]:
+                nearest_same = entry
+        elif nearest_cross is None or d < nearest_cross["distance_km"]:
+            nearest_cross = entry
+    reason = None
+    if nearest_cross and nearest_cross["distance_km"] <= 40.0:
+        reason = ("nearest cross-utility project is inside 40 km but no "
+                  "record exists — check whether it is the same physical "
+                  "project filed by both parties (dedup) or flagged data")
+    elif nearest_cross:
+        reason = (f"nearest cross-utility project is "
+                  f"{nearest_cross['distance_km']} km away — outside the "
+                  f"40 km coordination radius, so no record can exist")
+    else:
+        reason = "no other utility's projects exist to compare against"
+    return {
+        "project_id": pid, "utility": own, "overlap_records": 0,
+        "nearest_cross_utility": nearest_cross,
+        "nearest_same_utility": nearest_same,
+        "reason": reason,
+        "note": ("same-utility proximity never produces a record — "
+                 "overlaps are cross-utility by rule"),
     }
 
 

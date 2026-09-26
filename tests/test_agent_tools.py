@@ -177,6 +177,17 @@ class TestToolsAgainstRealData:
         # honest empty on a nonsense zone
         r = run_tool("find_overlaps", {"zone": "__nowhere__"})
         assert r["result"]["total_matching"] == 0
+        # adjacent_only returns only end-to-start handoff records —
+        # a different class, never intersecting
+        r = run_tool("find_overlaps", {"adjacent_only": True, "limit": 50})
+        res = r["result"]
+        assert res["total_matching"] > 0
+        for o in res["overlaps"]:
+            assert o["timeline_adjacent"] and not o["timeline_overlap"]
+        # the two flags are exclusive
+        assert "error" in run_tool(
+            "find_overlaps", {"timeline_only": True,
+                              "adjacent_only": True})["result"]
 
     def test_project_overlaps_portfolio(self):
         # OV-0001's project_a must own at least that record
@@ -273,6 +284,81 @@ class TestToolsAgainstRealData:
         assert all(o["window"]["start"] == y for o in res["overlaps"])
         assert all(o["overlap_id"] in real for o in res["overlaps"])
 
+    def test_no_overlap_reason_diagnosis(self):
+        from src.agent.tool_data import overlaps, projects
+        in_any = {o["project_a"] for o in overlaps()} | \
+                 {o["project_b"] for o in overlaps()}
+        lonely = next(f["properties"]["project_id"] for f in projects()
+                      if f["properties"]["project_id"] not in in_any)
+        r = run_tool("no_overlap_reason", {"project_id": lonely})["result"]
+        assert r["overlap_records"] == 0
+        # the diagnosis must name a real nearest cross-utility project
+        # beyond 40 km — the honest 'why not'
+        nc = r["nearest_cross_utility"]
+        assert nc and nc["distance_km"] > 40.0
+        assert "outside the" in r["reason"]
+        # a project WITH records gets a redirect, not a fake diagnosis
+        pid = next(iter(in_any))
+        r = run_tool("no_overlap_reason", {"project_id": pid})["result"]
+        assert r["overlap_records"] >= 1
+        assert "error" in run_tool(
+            "no_overlap_reason", {"project_id": "NOPE"})["result"]
+
+    def test_handoff_chains_directed_and_real(self):
+        from src.agent.tool_data import overlaps, projects
+        wins = {f["properties"]["project_id"]:
+                (f["properties"].get("start_year"),
+                 f["properties"].get("end_year")) for f in projects()}
+        adjacent_ids = {o["overlap_id"] for o in overlaps()
+                        if o.get("timeline_adjacent")
+                        and not o.get("timeline_overlap")}
+        r = run_tool("handoff_chains", {})["result"]
+        assert r["chains_found"] > 0
+        for c in r["chains"]:
+            assert c["length_hops"] == len(c["projects"]) - 1
+            assert len(set(c["projects"])) == len(c["projects"])
+            # every hop is a real adjacent record
+            for h in c["hops"]:
+                assert h["overlap_id"] in adjacent_ids
+            # direction: each project ends <= next starts (crew relay
+            # is time-ordered, not symmetric)
+            for x, y in zip(c["projects"], c["projects"][1:]):
+                wx, wy = wins[x], wins[y]
+                if wx[1] is not None and wy[0] is not None:
+                    assert wx[1] <= wy[0], (x, wx, y, wy)
+
+    def test_voltage_match_equipment_classes(self):
+        from src.agent.tool_data import overlaps, projects
+        projs = {f["properties"]["project_id"]: f["properties"]
+                 for f in projects()}
+        r = run_tool("voltage_match", {})["result"]
+        assert r["same_voltage_records"] + r["interface_records"] == \
+            len(overlaps())
+        # every 'same' entry genuinely equal-kV on both sides
+        for e in r["top_same_voltage"]:
+            pa, pb = e.get("kv_a"), e.get("kv_b")
+            assert pa == pb and pa is not None
+        for e in r["top_interface"]:
+            assert e["kv_a"] != e["kv_b"] or e["kv_a"] is None
+        # tier filter narrows scope
+        r2 = run_tool("voltage_match", {"tier": 1})["result"]
+        assert r2["same_voltage_records"] + r2["interface_records"] <= \
+            len(overlaps())
+
+    def test_utility_profile_rollup(self):
+        from src.agent.tool_data import overlaps, projects
+        r = run_tool("utility_profile", {"utility": "MEAG"})["result"]
+        assert r["projects"] > 0 and r["overlap_records"] > 0
+        real = [o for o in overlaps() if "MEAG" in (o.get("utilities") or [])]
+        assert r["overlap_records"] == len(real)
+        assert sum(r["tiers"].values()) == len(real)
+        # partners cover every MEAG record's other side
+        meag_partners = {x for o in real for x in o["utilities"] if x != "MEAG"}
+        assert set(r["partners"]) == meag_partners
+        assert sum(r["location_confidence"].values()) == r["projects"]
+        assert "error" in run_tool(
+            "utility_profile", {"utility": "FAKECO"})["result"]
+
     def test_what_if_drop_utility_partner_exit(self):
         from src.agent.tool_data import overlaps
         allr = overlaps()
@@ -309,6 +395,25 @@ class TestToolsAgainstRealData:
         d = run_tool("get_overlap", {"overlap_id": top["overlap_id"]})["result"]
         assert d["deep_link"].startswith("/?scene=")
         assert f"select={top['overlap_id']}" in d["deep_link"]
+        # members resolve id -> name/utility/source so one call cites fully
+        assert len(d["members"]) == 2
+        for m in d["members"]:
+            assert m["project_id"] and m["utility"] and m["name"]
+            assert m["source"]
+
+    def test_list_projects_source_filter(self):
+        # provenance queries: a filing-name substring selects that
+        # source family and every returned project carries the match.
+        r = run_tool("list_projects", {"source": "sertp", "limit": 50})
+        assert r["ok"]
+        res = r["result"]
+        assert res["count"] > 100
+        assert res["shown"] == 50
+        for p in res["projects"]:
+            assert "sertp" in p["source"].lower()
+        # unfiltered count is strictly larger
+        total = run_tool("list_projects", {})["result"]["count"]
+        assert res["count"] < total
 
     def test_client_nonjson_200_raises_chaterror(self):
         # regression: a non-JSON 200 body crashed with JSONDecodeError

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { TIER_COLORS } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
 import { useImpact, useNearby, useOverlaps, useProjects } from '../hooks/useApiData'
@@ -207,8 +207,10 @@ function DetailBody({
 export function OverlapDetail() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
   const selectOverlap = useAppStore((s) => s.selectOverlap)
+  const activeScene = useAppStore((s) => s.activeScene)
   const overlaps = useOverlaps()
   const projects = useProjects()
+  const [copied, setCopied] = useState(false)
 
   const projectById = useMemo(() => {
     const m = new Map<string, ProjectProps>()
@@ -233,6 +235,22 @@ export function OverlapDetail() {
             {o.tier_label}
           </span>
         ) : null}
+        <button
+          type="button"
+          className="detail-share mono"
+          aria-label="Copy link to this overlap"
+          title="Copy a ?select= link — the same deep_link the agent hands back"
+          onClick={() => {
+            const url = `${window.location.origin}/?scene=${activeScene}` +
+              `&select=${selectedOverlapId}&panel=0`
+            navigator.clipboard?.writeText(url).then(() => {
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            }).catch(() => {})
+          }}
+        >
+          {copied ? 'copied' : 'link'}
+        </button>
         <button
           type="button"
           className="detail-close"

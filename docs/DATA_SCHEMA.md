@@ -168,7 +168,12 @@ don't meet has both flags false and both windows null.
 - `GET /api/overlaps?tier=&timeline_only=&q=&zone=&sort=&limit=&offset=&geometry=&fields=`
   → overlaps.json + `total` (post-filter count, for paging) + `offset`;
   `geometry=false` strips `zone_geometry`; `fields=a,b,c` keeps only those keys
-- `GET /api/overlaps.csv?tier=&timeline_only=` → ranked flat CSV export
+- `GET /api/overlaps.csv?utility=&utilities=&tier=&zone=&timeline_only=&adjacent_only=`
+  → ranked flat CSV export — same filters as the agent's `find_overlaps`
+  (shared `analysis/filters.py`), so agent-emitted `csv_export` links are
+  faithful
+  (includes a `map_link` column — `/?scene=&select=&panel=0` deep link
+  into the UI, same `scene_for_zone` mapping as the agent's deep_link)
 - `GET /api/stats` → counts per utility/tier + `staging_yards`,
   `staging_corridors`, `peak_season`, per-utility `coverage`
 - `GET /api/raw/{path}` → raw filing (path-confined to `data/raw/`)
@@ -207,9 +212,11 @@ Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 
 Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
 `get_project`, `top_overlaps`, `get_overlap`, `find_overlaps`,
-`project_overlaps`, `projects_near`, `compare_overlaps`, `why_ranked`,
+`project_overlaps`, `projects_near`, `no_overlap_reason`,
+`compare_overlaps`, `why_ranked`,
 `zone_report`, `overlap_neighbors`, `timeline_summary`, `impact_estimate`,
 `savings_rollup`,
-`what_if_shift`, `what_if_drop_utility`, `season_calendar`, `gazetteer`, `data_health`,
+`what_if_shift`, `what_if_drop_utility`, `season_calendar`,
+`handoff_chains`, `gazetteer`, `data_health`,
 `staging_clusters`, `playbook`, `outage_conflicts`, `utility_matrix`,
-`exec_summary`, `define`.
+`utility_profile`, `voltage_match`, `exec_summary`, `define`.

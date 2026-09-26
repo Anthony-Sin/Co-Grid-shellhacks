@@ -13,15 +13,19 @@ from typing import Any, Callable
 from .tool_analysis import (
     tool_compare_overlaps, tool_define, tool_exec_summary,
     tool_impact_estimate, tool_outage_conflicts, tool_overlap_neighbors,
-    tool_playbook, tool_savings_rollup, tool_season_calendar,
-    tool_staging_clusters,
-    tool_timeline_summary, tool_utility_matrix, tool_what_if_drop_utility,
-    tool_what_if_shift, tool_why_ranked, tool_zone_report,
+    tool_playbook, tool_staging_clusters, tool_timeline_summary,
+    tool_utility_matrix, tool_why_ranked,
 )
+from .tool_reports import (
+    tool_handoff_chains, tool_savings_rollup, tool_season_calendar,
+    tool_utility_profile, tool_voltage_match, tool_zone_report,
+)
+from .tool_whatif import tool_what_if_drop_utility, tool_what_if_shift
 from .tool_data import (
     tool_data_health, tool_find_overlaps, tool_gazetteer, tool_get_overlap,
-    tool_get_project, tool_list_projects, tool_project_overlaps,
-    tool_projects_near, tool_stats, tool_top_overlaps,
+    tool_get_project, tool_list_projects, tool_no_overlap_reason,
+    tool_project_overlaps, tool_projects_near, tool_stats,
+    tool_top_overlaps,
 )
 
 TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
@@ -35,8 +39,11 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "list_projects": (
         tool_list_projects,
-        "List planned utility projects. Filter by utility ('DESC','GPC','SanteeCooper') or zone tag.",
-        {"utility": "string (optional)", "zone": "string (optional)", "limit": "int <=50 (optional)"},
+        "List planned utility projects. Filter by utility ('DESC','GPC','SanteeCooper'), "
+        "zone tag, or a substring of the provenance source (e.g. '2025 IRP', 'GTC').",
+        {"utility": "string (optional)", "zone": "string (optional)",
+         "source": "string substring of the provenance source (optional)",
+         "limit": "int <=50 (optional)"},
     ),
     "get_project": (
         tool_get_project,
@@ -50,9 +57,10 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "get_overlap": (
         tool_get_overlap,
-        "Full detail for overlap records. Pass overlap_id for one record, "
-        "or overlap_ids (list, <=30) to fetch several in one call — prefer "
-        "the list form for multi-record questions.",
+        "Full detail for overlap records — includes `members` resolving each "
+        "side to name/utility/voltage/window/filing source, so one call fully "
+        "cites an opportunity. Pass overlap_id for one record, or overlap_ids "
+        "(list, <=30) to fetch several — prefer the list form.",
         {"overlap_id": "string (single record)",
          "overlap_ids": "list<string> <=30 (batch fetch)"},
     ),
@@ -114,17 +122,30 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     "find_overlaps": (
         tool_find_overlaps,
         "Filtered overlap search: utility (either side), utilities (exact "
-        "pair 'GPC,DESC'), tier, zone substring, timeline_only. Engine "
-        "rank order. Use for 'all X overlaps in Y' questions.",
+        "pair 'GPC,DESC'), tier, zone substring, timeline_only "
+        "(intersecting) OR adjacent_only (end-to-start handoffs — a "
+        "different coordination class). Engine rank order. Returns a "
+        "csv_export link — same filters on /api/overlaps.csv — you can "
+        "hand to the analyst for the full result as a spreadsheet.",
         {"utility": "string (optional, either side)",
          "utilities": "string 'A,B' or list (optional, exact pair)",
          "tier": "int 1-4 (optional)", "zone": "string (optional)",
-         "timeline_only": "bool (optional)", "limit": "int <=50 (optional)"},
+         "timeline_only": "bool (optional)",
+         "adjacent_only": "bool (optional, exclusive w/ timeline_only)",
+         "limit": "int <=50 (optional)"},
     ),
     "project_overlaps": (
         tool_project_overlaps,
         "Every coordination record touching one project_id — its full "
         "coordination portfolio with the counterparty named per record.",
+        {"project_id": "string (required)"},
+    ),
+    "no_overlap_reason": (
+        tool_no_overlap_reason,
+        "Why a project has ZERO records: nearest cross-utility project + "
+        "closest-point distance (>=40km = outside radius, the honest "
+        "reason), nearest same-utility neighbor (excluded by rule). "
+        "Answers 'why NOT', not just 'what'.",
         {"project_id": "string (required)"},
     ),
     "compare_overlaps": (
@@ -177,6 +198,27 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "project's filed window.",
         {"project_id": "string (required)",
          "new_start": "int year (required)", "new_end": "int year (required)"},
+    ),
+    "handoff_chains": (
+        tool_handoff_chains,
+        "Crew-relay chains: maximal sequences of end-to-start (adjacent) "
+        "records a shared crew could roll through — the longest honest "
+        "relays across utilities. Each hop is a real record.",
+        {},
+    ),
+    "voltage_match": (
+        tool_voltage_match,
+        "Equipment-class view: records where both projects share the "
+        "same kV (conductor/hardware family) vs interface pairs across "
+        "classes (autobank ties). Buckets by voltage class.",
+        {"tier": "int 1-4 (optional)", "limit": "int <=50 (optional)"},
+    ),
+    "utility_profile": (
+        tool_utility_profile,
+        "One-shot brief for ONE utility: project count/kinds, program "
+        "window span, coordination partners + record counts, tier "
+        "histogram, top-3 scored records. Use for 'tell me about X'.",
+        {"utility": "string (required — stats.projects_by_utility)"},
     ),
     "what_if_drop_utility": (
         tool_what_if_drop_utility,

@@ -5,14 +5,55 @@ import type { ReactNode } from 'react'
  * Handles exactly what the model emits: **bold**, -/* bullets,
  * | pipe | tables |, ## headers, and plain paragraphs. Anything else
  * passes through as text — never trusts the model with raw HTML.
+ *
+ * `onSelect` turns overlap references into live chips: a deep-link
+ * token (/?scene=X&select=OV-NNNN…) jumps scene + selects, a bare
+ * OV-NNNN id selects in the current scene.
  */
 
-function inline(text: string, keyBase: string): ReactNode[] {
-  // split on **bold** spans; odd indexes are bold
-  const parts = text.split(/\*\*([^*]+)\*\*/g)
-  return parts.map((p, i) =>
-    i % 2 === 1 ? <strong key={`${keyBase}-b${i}`}>{p}</strong> : p,
-  )
+export type OverlapSelectFn = (overlapId: string, scene?: string) => void
+
+const TOKEN_RE =
+  /(\*\*(OV-\d{3,})\*\*|\/?\?scene=(savannah|augusta|state)&select=(OV-\d+)[^ )\]]*|\bOV-\d{3,}\b)/g
+
+function inline(text: string, keyBase: string,
+                onSelect?: OverlapSelectFn): ReactNode[] {
+  const parts = text.split(TOKEN_RE)
+  const out: ReactNode[] = []
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    if (p == null || p === '') continue
+    // split interleaves 4 capture groups:
+    // [text, full, boldOV, scene, linkOV, text, ...]
+    if (i % 5 === 1) {
+      const oid = parts[i + 1] ?? parts[i + 3] ?? p
+      const scene = parts[i + 2]
+      out.push(
+        <button
+          key={`${keyBase}-ov${i}`}
+          type="button"
+          className="md-ovlink mono"
+          title={scene ? `jump to ${scene} scene + select ${oid}` : `select ${oid}`}
+          onClick={() => onSelect?.(oid, scene || undefined)}
+        >
+          {oid}
+        </button>,
+      )
+      continue
+    }
+    if (i % 5 >= 2) continue // consumed capture groups
+    // plain text — bold-split
+    const subs = p.split(/\*\*([^*]+)\*\*/g)
+    subs.forEach((s, j) => {
+      if (s === '') return
+      out.push(
+        j % 2 === 1
+          ? <strong key={`${keyBase}-b${i}-${j}`}>{s}</strong>
+          : <span key={`${keyBase}-t${i}-${j}`}>{s}</span>,
+      )
+    })
+  }
+  return out
 }
 
 function isTableRow(line: string): boolean {
@@ -24,7 +65,8 @@ function isSepRow(line: string): boolean {
   return /^\|[\s:|-]+\|$/.test(line.trim())
 }
 
-export function renderMarkdown(text: string): ReactNode[] {
+export function renderMarkdown(text: string,
+                               onSelect?: OverlapSelectFn): ReactNode[] {
   const lines = text.split('\n')
   const out: ReactNode[] = []
   let i = 0
@@ -51,12 +93,12 @@ export function renderMarkdown(text: string): ReactNode[] {
         <table key={`t${key++}`} className="md-table">
           {header && (
             <thead>
-              <tr>{header.map((c, j) => <th key={j}>{inline(c, `h${key}-${j}`)}</th>)}</tr>
+              <tr>{header.map((c, j) => <th key={j}>{inline(c, `h${key}-${j}`, onSelect)}</th>)}</tr>
             </thead>
           )}
           <tbody>
             {body.map((r, ri) => (
-              <tr key={ri}>{r.map((c, j) => <td key={j}>{inline(c, `c${key}-${ri}-${j}`)}</td>)}</tr>
+              <tr key={ri}>{r.map((c, j) => <td key={j}>{inline(c, `c${key}-${ri}-${j}`, onSelect)}</td>)}</tr>
             ))}
           </tbody>
         </table>,
@@ -69,7 +111,7 @@ export function renderMarkdown(text: string): ReactNode[] {
     if (h) {
       out.push(
         <div key={`h${key++}`} className={`md-h md-h${h[1].length}`}>
-          {inline(h[2], `h${key}`)}
+          {inline(h[2], `h${key}`, onSelect)}
         </div>,
       )
       i++
@@ -85,7 +127,7 @@ export function renderMarkdown(text: string): ReactNode[] {
       }
       out.push(
         <ul key={`l${key++}`} className="md-list">
-          {items.map((it, j) => <li key={j}>{inline(it, `li${key}-${j}`)}</li>)}
+          {items.map((it, j) => <li key={j}>{inline(it, `li${key}-${j}`, onSelect)}</li>)}
         </ul>,
       )
       continue
@@ -111,7 +153,7 @@ export function renderMarkdown(text: string): ReactNode[] {
     }
     out.push(
       <p key={`p${key++}`} className="md-p">
-        {inline(para.join(' '), `p${key}`)}
+        {inline(para.join(' '), `p${key}`, onSelect)}
       </p>,
     )
   }

@@ -63,15 +63,16 @@ the record and injects its real fields (tier, distance, timeline flags,
 shared/adjacent windows, zone) into the last user message as
 `[context: user selected {...}]`, so "explain this" resolves correctly.
 
-## Tools (26)
+## Tools (30)
 
 `stats` · `exec_summary` · `list_projects` · `get_project` · `top_overlaps` ·
 `get_overlap` · `find_overlaps` · `project_overlaps` · `projects_near` ·
+`no_overlap_reason` ·
 `compare_overlaps` · `why_ranked` · `zone_report` · `overlap_neighbors` ·
 `timeline_summary` · `impact_estimate` · `savings_rollup` · `what_if_shift` ·
-`season_calendar` · `gazetteer` · `data_health` · `staging_clusters` ·
-`playbook` · `outage_conflicts` · `utility_matrix` ·
-`what_if_drop_utility` · `define`
+`season_calendar` · `handoff_chains` · `gazetteer` · `data_health` · `staging_clusters` ·
+`playbook` · `outage_conflicts` · `utility_matrix` · `utility_profile` ·
+`voltage_match` · `what_if_drop_utility` · `define`
 
 `get_overlap` takes `overlap_id` (single) or `overlap_ids` (list ≤30,
 batch) — multi-record questions should use the list form so they don't
