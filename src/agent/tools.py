@@ -21,6 +21,7 @@ from .tool_reports import (
     tool_utility_profile, tool_voltage_match, tool_zone_report,
 )
 from .tool_whatif import tool_what_if_drop_utility, tool_what_if_shift
+from .tool_map import tool_map_focus
 from .tool_data import (
     tool_data_health, tool_find_overlaps, tool_gazetteer, tool_get_overlap,
     tool_get_project, tool_list_projects, tool_no_overlap_reason,
@@ -233,6 +234,21 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Define a grid-planning term (IRP, SERTP, SCRTP, CEII, right-of-way, "
         "Order 1920, tiers, 40km rule...) from the challenge glossary.",
         {"term": "string (required)"},
+    ),
+    "map_focus": (
+        tool_map_focus,
+        "Drive the user's interactive map: select + fly to an overlap or "
+        "project, restrict the visible tiers, filter to one utility, or "
+        "clear everything (reset selection + filters). Ids are validated "
+        "against the loaded data — unknown ids return honest errors, so "
+        "resolve real ids first (get_overlap/top_overlaps/list_projects). "
+        "Use when the user says 'show me …' or right after citing a "
+        "record worth looking at; then describe what the map is showing.",
+        {"overlap_id": "string (optional) — select + zoom to a record",
+         "project_id": "string (optional) — select + zoom to a project",
+         "utility": "string (optional) — filter map to one utility",
+         "tiers": "list<int> 1-4 (optional) — visible tiers",
+         "clear": "bool (optional) — reset selection + all filters"},
     ),
 }
 

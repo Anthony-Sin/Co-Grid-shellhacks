@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, type AgentHealth, type AgentReply } from '../../lib/api'
+import { api, type AgentHealth, type AgentTrace } from '../../lib/api'
+import { streamAgentChat } from '../../lib/agentStream'
+import { contextPrefix, inferDraftContext } from '../../lib/agentContext'
+import { applyMapAction, mapActionFromTrace } from '../../lib/mapActions'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { MsgView, type Msg, type OverlapSelectFn } from './md'
 import { useAppStore } from '../../state/store'
+import {
+  QUICK_ACTIONS, briefErrCopy, dropProgress, errText, freezeProgress,
+  isAbort, raceAbort, type HealthState,
+} from '../agentbarShared'
 
 /**
  * AgentBar — floating bottom command bar for the CO-GRID analyst agent.
@@ -13,73 +20,16 @@ import { useAppStore } from '../../state/store'
  * Selection-aware: when an overlap is selected on the map, its id is sent
  * as context so "explain this" resolves against the real record.
  *
+ * Pin-to-chat: "ask agent" buttons pin a removable CONTEXT CHIP above the
+ * input (store.agentContext); each submitted message repeats it as a
+ * compact `[context: …]` prefix. Input is an auto-growing textarea —
+ * Enter submits, Shift+Enter newline. Quick chips hide once used (a
+ * "⟲ suggestions" ghost restores them). The agent's `map_focus` tool
+ * drives the map — its ui_action is applied live from the tool trace.
+ *
  * Honest states only: backend-down, unconfigured, cancelled, and
  * interrupted runs all surface visible messages — nothing fails silently.
  */
-
-type HealthState = 'loading' | 'ok' | 'failed'
-
-const QUICK_ACTIONS = [
-  { label: 'Exec summary', prompt: 'Give me the headline executive summary — counts, dominant utility pair, peak build season, mandatory joint outages, top opportunity.' },
-  { label: 'Top opportunities', prompt: 'List the top 3 coordination opportunities — overlap id, utilities, tier, distance, and whether timelines overlap.' },
-  { label: 'Explain selected', prompt: 'Explain the currently selected overlap: what could the two utilities share and when is the shared build window?' },
-  { label: 'Staging plan', prompt: 'Where would you put shared staging yards? Use the staging_clusters tool and name the top clusters with their member counts.' },
-  { label: 'Timeline view', prompt: 'Summarize build activity per year per utility and flag the busiest coordination windows.' },
-  { label: '2027 season', prompt: 'What joint work is schedulable in 2027? Use season_calendar — the top records and their utility pairs.' },
-  { label: 'Crew relays', prompt: 'Could one crew relay between projects end-to-start across years? Use handoff_chains and name the longest chains with their project sequence and years.' },
-  { label: 'What-if slip', prompt: "If the currently selected overlap's projects slipped two years, which coordination records would lose their timeline relationship? Use what_if_shift on the selected overlap." },
-  { label: 'Data health', prompt: 'How much of the dataset is missing timeline dates or location confidence? Be honest about gaps.' },
-]
-
-const abortError = () => new DOMException('aborted', 'AbortError')
-const isAbort = (e: unknown) =>
-  typeof e === 'object' && e !== null &&
-  (e as { name?: string }).name === 'AbortError'
-
-/** Race a promise against an AbortSignal — lets the /chat fallback share
- * the run's controller even though api.agentChat takes no signal. */
-function raceAbort<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    if (signal.aborted) {
-      reject(abortError())
-      return
-    }
-    const onAbort = () => reject(abortError())
-    signal.addEventListener('abort', onAbort, { once: true })
-    p.then(
-      (v) => { signal.removeEventListener('abort', onAbort); resolve(v) },
-      (e) => { signal.removeEventListener('abort', onAbort); reject(e) },
-    )
-  })
-}
-
-const errText = (e: unknown) =>
-  e instanceof TypeError
-    ? 'backend unreachable — is uvicorn running on :8000?'
-    : e instanceof Error ? e.message : String(e)
-
-/** analysisBrief failure copy: a dead/missing route means the backend is
- * down; a 503 means it's up but has no LLM key configured. */
-const briefErrCopy = (e: unknown) => {
-  const msg = e instanceof Error ? e.message : String(e)
-  if (e instanceof TypeError || /HTTP 404/.test(msg))
-    return 'backend offline — start uvicorn :8000'
-  if (/HTTP 503/.test(msg))
-    return 'agent offline — set AGENT_API_KEY in .env for full analysis'
-  return `agent error: ${msg}`
-}
-
-const dropProgress = (m: Msg[]): Msg[] =>
-  m[m.length - 1]?.progress ? m.slice(0, -1) : m
-
-/** Freeze the transient ⚙ progress line into a muted record of the tools
- * that actually ran — used when a run is cancelled or interrupted. */
-const freezeProgress = (m: Msg[]): Msg[] => {
-  const last = m[m.length - 1]
-  return last?.progress
-    ? [...m.slice(0, -1), { ...last, progress: false, kind: 'note' as const }]
-    : m
-}
 
 export function AgentBar() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
@@ -87,6 +37,9 @@ export function AgentBar() {
   const setActiveScene = useAppStore((s) => s.setActiveScene)
   const promptDraft = useAppStore((s) => s.agentPromptDraft)
   const setPromptDraft = useAppStore((s) => s.setAgentPromptDraft)
+  const agentContext = useAppStore((s) => s.agentContext)
+  const setAgentContext = useAppStore((s) => s.setAgentContext)
+  const clearAgentContext = useAppStore((s) => s.clearAgentContext)
   const [health, setHealth] = useState<AgentHealth | null>(null)
   const [healthState, setHealthState] = useState<HealthState>('loading')
   const [input, setInput] = useState('')
@@ -94,8 +47,11 @@ export function AgentBar() {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(true)
   const [expanded, setExpanded] = useState(false)
+  // quick chips are one-shot suggestions — once used they hide for the
+  // session; the ⟲ ghost restores them
+  const [usedChips, setUsedChips] = useState<Set<string>>(new Set())
   const listRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const checkHealth = useCallback(() => {
@@ -121,15 +77,20 @@ export function AgentBar() {
   }, [healthState, health?.configured, checkHealth])
 
   // a draft pushed from elsewhere (e.g. "ask about this" on a record)
-  // opens the bar, prefills the input, focuses it, then clears
+  // opens the bar, prefills the input, pins its context chip, then clears
   useEffect(() => {
     if (!promptDraft) return
     setOpen(true)
     setInput(promptDraft)
+    // resolve the chip BEFORE clearing — clearing the draft also clears
+    // any context the caller pinned explicitly alongside it
+    const ctx =
+      useAppStore.getState().agentContext ?? inferDraftContext(promptDraft)
     setPromptDraft(null)
+    setAgentContext(ctx)
     const id = requestAnimationFrame(() => inputRef.current?.focus())
     return () => cancelAnimationFrame(id)
-  }, [promptDraft, setPromptDraft])
+  }, [promptDraft, setPromptDraft, setAgentContext])
 
   // Escape aborts a running call; otherwise collapses the bar
   useEffect(() => {
@@ -146,6 +107,15 @@ export function AgentBar() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
 
+  // auto-grow the textarea to ~4 rows (CSS max-height caps it; beyond
+  // that the field scrolls — normal chat behavior)
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input, open])
+
   const onSelectOv = useCallback<OverlapSelectFn>(
     (oid, scene) => {
       if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
@@ -160,54 +130,20 @@ export function AgentBar() {
     [setActiveScene, selectOverlap],
   )
 
-  /** POST + ReadableStream SSE reader — EventSource can't POST.
-   * Returns the `final` reply plus whether ANY event was seen, so the
-   * caller can tell a dead connection (safe to retry via /chat) from a
-   * stream that died mid-chain (must NOT re-run the paid tool loop). */
-  const streamChat = async (
-    history: { role: string; content: string }[],
-    onTool: (name: string) => void,
-    signal: AbortSignal,
-  ): Promise<{ reply: AgentReply | null; sawEvents: boolean }> => {
-    const res = await fetch('/api/agent/chat/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history, ...(selectedOverlapId ? { overlap_id: selectedOverlapId } : {}) }),
-      signal,
-    })
-    if (!res.ok) {
-      // surface the real server reason (400 limit, 429 rate, 503 unconfigured)
-      const detail = await res.json().catch(() => null)
-      throw new Error(detail?.detail || `stream HTTP ${res.status}`)
-    }
-    if (!res.body) return { reply: null, sawEvents: false }
-    const reader = res.body.getReader()
-    const dec = new TextDecoder()
-    let buf = ''
-    let final: AgentReply | null = null
-    let sawEvents = false
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buf += dec.decode(value, { stream: true })
-      const parts = buf.split('\n\n')
-      buf = parts.pop() ?? ''
-      for (const part of parts) {
-        const ev = part.match(/^event: (\w+)\ndata: (.*)$/s)
-        if (!ev) continue
-        sawEvents = true
-        const data = JSON.parse(ev[2] || 'null')
-        if (ev[1] === 'tool' && data?.tool) onTool(data.tool)
-        if (ev[1] === 'final') final = data
-        if (ev[1] === 'error') throw new Error(data?.message || 'stream error')
-      }
-    }
-    return { reply: final, sawEvents }
+  /** A map_focus tool event anywhere in the run drives the map — the
+   * SSE tool event carries the result preview, so the action lands live
+   * while the model is still composing its answer. */
+  const applyTraceMapAction = (t: AgentTrace) => {
+    const act = mapActionFromTrace(t)
+    if (act) applyMapAction(act)
   }
 
   const send = async (text: string) => {
-    const content = text.trim()
-    if (!content || busy) return
+    const typed = text.trim()
+    if (!typed || busy) return
+    // the pinned chip rides the message as a compact context prefix —
+    // the model sees the canonical id; the pin stays for follow-ups
+    const content = agentContext ? contextPrefix(agentContext) + typed : typed
 
     // backend unreachable — visible, honest failure instead of a dead click
     if (healthState === 'failed') {
@@ -258,10 +194,12 @@ export function AgentBar() {
     // sessions degrade gracefully instead of dying on HTTP 400
     const history = next.slice(-30).map((m) => ({ role: m.role, content: m.content }))
     try {
-      const { reply, sawEvents } = await streamChat(
+      const { reply, sawEvents } = await streamAgentChat(
         history,
-        (name) => {
+        selectedOverlapId,
+        (name, entry) => {
           liveTools.push(name)
+          applyTraceMapAction(entry)
           // live progress line under the log while the chain runs
           setMsgs((m) => {
             const last = m[m.length - 1]
@@ -295,6 +233,9 @@ export function AgentBar() {
           { role: 'assistant', content: 'reconnecting…', progress: true },
         ])
         final = await raceAbort(api.agentChat(history, selectedOverlapId), ctrl.signal)
+        // the non-SSE path delivers the whole trace at once — apply its
+        // map actions now (live events never fired)
+        for (const t of final.tool_trace ?? []) applyTraceMapAction(t)
       }
 
       setMsgs((m) => [
@@ -341,6 +282,7 @@ export function AgentBar() {
   const unconfigured = healthState === 'ok' && !!health && !health.configured
   const offline = healthState === 'failed' || unconfigured
   const inputDisabled = busy || healthState === 'loading' || unconfigured
+  const freshChips = QUICK_ACTIONS.filter((a) => !usedChips.has(a.label))
   const placeholder =
     healthState === 'loading'
       ? 'checking agent…'
@@ -355,7 +297,7 @@ export function AgentBar() {
   return (
     <div className={`agent-bar${expanded ? ' is-expanded' : ''}`}>
       <div className="agent-chips">
-        {QUICK_ACTIONS.map((a) => (
+        {freshChips.map((a) => (
           <button
             key={a.label}
             type="button"
@@ -366,11 +308,27 @@ export function AgentBar() {
                 !health.configured &&
                 !(a.label === 'Explain selected' && selectedOverlapId))
             }
-            onClick={() => send(a.prompt)}
+            onClick={() => {
+              // a click on an enabled chip always starts a run — mark it
+              // used so the suggestion collapses out of the way
+              setUsedChips((s) => new Set(s).add(a.label))
+              send(a.prompt)
+            }}
           >
             {a.label}
           </button>
         ))}
+        {usedChips.size > 0 && (
+          <button
+            type="button"
+            className="agent-suggest"
+            aria-label="restore suggestion chips"
+            title="bring the suggestion chips back"
+            onClick={() => setUsedChips(new Set())}
+          >
+            ⟲ suggestions
+          </button>
+        )}
         {offline && (
           <button
             type="button"
@@ -417,6 +375,25 @@ export function AgentBar() {
         </div>
       )}
 
+      {agentContext && (
+        <div className="agent-context" aria-label="pinned context">
+          <span
+            className="agent-context-chip"
+            title={agentContext.id ?? agentContext.label}
+          >
+            ◎ <span className="agent-context-label">{agentContext.label}</span>
+            <button
+              type="button"
+              aria-label="remove pinned context"
+              title="unpin"
+              onClick={clearAgentContext}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+
       <form
         className="agent-input"
         onSubmit={(e) => {
@@ -424,14 +401,21 @@ export function AgentBar() {
           send(input)
         }}
       >
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={input}
           disabled={inputDisabled}
           aria-label="ask the analyst"
           placeholder={placeholder}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter submits; Shift+Enter newline; don't submit mid-IME
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              e.currentTarget.form?.requestSubmit()
+            }
+          }}
         />
         {busy ? (
           <button

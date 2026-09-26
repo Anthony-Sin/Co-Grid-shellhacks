@@ -27,6 +27,17 @@ export interface YearRange {
   end: number
 }
 
+/** Context pinned to the agent bar by "ask agent" buttons — rendered as
+ * a removable chip above the input and prepended to the outgoing
+ * message as a compact `[context: …]` line. `label` is display text
+ * (e.g. 'OV-0004 · DESC Jasper⇄SanteeCooper Bluffton'); `id` is the
+ * canonical record id when the chip points at one. */
+export interface AgentContext {
+  kind: 'overlap' | 'project' | 'view'
+  id?: string
+  label: string
+}
+
 interface AppState {
   /** Which corridor scene is being viewed */
   activeScene: SceneId
@@ -53,6 +64,11 @@ interface AppState {
   yearFilter: YearRange | null
   /** Draft text the agent bar should prefill (e.g. "ask about this" buttons) */
   agentPromptDraft: string | null
+  /** Pinned chat context for the agent bar (chip above the input).
+   *  Draft setters may pass one explicitly; the bar infers one from the
+   *  draft text otherwise. Stays pinned until cleared — each submitted
+   *  message repeats it as a `[context: …]` prefix. */
+  agentContext: AgentContext | null
   /** Overlap hovered in the ranked list — map zones highlight (brushing) */
   hoveredOverlapId: string | null
   /** Utility filter — records involving ANY selected utility pass */
@@ -69,10 +85,16 @@ interface AppState {
   setMapStyle: (style: MapStyle) => void
   toggleLayer: (layer: keyof LayerFlags) => void
   setYearFilter: (range: YearRange | null) => void
-  setAgentPromptDraft: (text: string | null) => void
+  setAgentPromptDraft: (text: string | null, context?: AgentContext | null) => void
+  setAgentContext: (ctx: AgentContext | null) => void
+  clearAgentContext: () => void
   setHoveredOverlap: (id: string | null) => void
   toggleUtilityFilter: (utility: string) => void
   clearUtilityFilter: () => void
+  /** Bulk-set the utility filter (e.g. agent map_focus) — replaces, not toggles */
+  setUtilityFilter: (utilities: string[]) => void
+  /** Bulk-set tier visibility — replaces the whole record */
+  setVisibleTiers: (tiers: Record<Tier, boolean>) => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -95,6 +117,7 @@ export const useAppStore = create<AppState>()((set) => ({
   layers: { basemap: true, projects: true, zones: false, labels: true },
   yearFilter: null,
   agentPromptDraft: null,
+  agentContext: null,
   hoveredOverlapId: null,
   utilityFilter: [],
 
@@ -119,7 +142,12 @@ export const useAppStore = create<AppState>()((set) => ({
   toggleLayer: (layer) =>
     set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })),
   setYearFilter: (range) => set({ yearFilter: range }),
-  setAgentPromptDraft: (text) => set({ agentPromptDraft: text }),
+  // a new draft REPLACES any pinned context — the consuming bar re-pins
+  // the explicit context (or one inferred from the draft text)
+  setAgentPromptDraft: (text, context = null) =>
+    set({ agentPromptDraft: text, agentContext: context }),
+  setAgentContext: (ctx) => set({ agentContext: ctx }),
+  clearAgentContext: () => set({ agentContext: null }),
   setHoveredOverlap: (id) => set({ hoveredOverlapId: id }),
   toggleUtilityFilter: (utility) =>
     set((s) => ({
@@ -128,4 +156,6 @@ export const useAppStore = create<AppState>()((set) => ({
         : [...s.utilityFilter, utility],
     })),
   clearUtilityFilter: () => set({ utilityFilter: [] }),
+  setUtilityFilter: (utilities) => set({ utilityFilter: utilities }),
+  setVisibleTiers: (tiers) => set({ visibleTiers: tiers }),
 }))

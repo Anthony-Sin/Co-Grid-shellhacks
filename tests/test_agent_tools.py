@@ -415,6 +415,38 @@ class TestToolsAgainstRealData:
         total = run_tool("list_projects", {})["result"]["count"]
         assert res["count"] < total
 
+    def test_map_focus_validates_and_builds_ui_action(self):
+        # the map-driving tool validates ids against the loaded artifacts
+        # and returns the ui_action the frontend applies — never a
+        # fabricated target.
+        top = run_tool("top_overlaps", {"n": 1})["result"]["overlaps"][0]
+        res = run_tool("map_focus", {"overlap_id": top["overlap_id"]})["result"]
+        assert res["ok"] is True
+        assert res["ui_action"]["select_overlap"] == top["overlap_id"]
+
+        pid = top["project_a"]
+        res = run_tool("map_focus", {"project_id": pid})["result"]
+        assert res["ok"] and res["ui_action"]["select_project"] == pid
+
+        # utility resolves case-insensitively to the canonical tag
+        res = run_tool("map_focus", {"utility": "desc"})["result"]
+        assert res["ok"] and res["ui_action"]["utility_filter"] == ["DESC"]
+
+        # tiers coerce from a list / string; clear alone is a valid action
+        res = run_tool("map_focus", {"tiers": [2, 1]})["result"]
+        assert res["ok"] and res["ui_action"]["tiers"] == [1, 2]
+        res = run_tool("map_focus", {"tiers": "1,3"})["result"]
+        assert res["ui_action"]["tiers"] == [1, 3]
+        res = run_tool("map_focus", {"clear": True})["result"]
+        assert res["ok"] and res["ui_action"]["clear"] is True
+
+        # honest errors — unknown ids, out-of-range tiers, empty call
+        for bad in ({"overlap_id": "OV-NOPE"}, {"project_id": "NOPE"},
+                    {"utility": "FAKECO"}, {"tiers": [0, 9]}, {}):
+            res = run_tool("map_focus", bad)["result"]
+            assert res["ok"] is False and "error" in res, bad
+            assert "ui_action" not in res
+
     def test_client_nonjson_200_raises_chaterror(self):
         # regression: a non-JSON 200 body crashed with JSONDecodeError
         # instead of a controlled ChatError (route -> 502, not 500).

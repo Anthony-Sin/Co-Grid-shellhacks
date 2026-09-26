@@ -110,6 +110,20 @@
   font-size: 14px;
 }
 
+/* ghost restore button — used quick-chips collapse away; this brings
+   them back. Dashed/transparent so it never competes with real chips. */
+.agent-chips .agent-suggest {
+  border-style: dashed;
+  background: transparent;
+  opacity: 0.55;
+  text-transform: none;
+}
+
+.agent-chips .agent-suggest:hover:not(:disabled) {
+  opacity: 0.95;
+  background: rgba(250, 248, 240, 0.75);
+}
+
 .agent-bar-toggle {
   position: absolute;
   bottom: 18px;
@@ -251,28 +265,84 @@
   white-space: pre-wrap;
 }
 
+/* pinned chat context — a removable chip row above the input */
+.agent-context {
+  display: flex;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.agent-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 4px 8px 4px 12px;
+  border-radius: 999px;
+  background: #2b2b2b;
+  color: #f5f2ea;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.18);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-context-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-context-chip button {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 3px;
+  cursor: pointer;
+}
+
+.agent-context-chip button:hover {
+  opacity: 1;
+}
+
 .agent-input {
   display: flex;
   gap: 8px;
   padding: 6px;
-  border-radius: 999px;
+  /* 20px radius + bottom-aligned button — the field is a textarea now,
+     so the pill look needs to survive 1–4 rows of height */
+  border-radius: 20px;
+  align-items: flex-end;
   background: rgba(250, 248, 240, 0.95);
   border: 1px solid rgba(43, 43, 43, 0.4);
   box-shadow: 3px 4px 0 rgba(43, 43, 43, 0.18);
 }
 
-.agent-input input {
+.agent-input textarea {
   flex: 1;
   border: none;
   background: transparent;
   padding: 8px 14px;
   font: inherit;
   font-size: 13px;
+  line-height: 1.45;
   color: #2b2b2b;
   outline: none;
+  resize: none;
+  /* ~4 rows then scroll (JS sets height to scrollHeight; this clamps) */
+  max-height: calc(4 * 1.45em + 16px);
+  overflow-y: auto;
 }
 
-.agent-input input::placeholder {
+.agent-input textarea::placeholder {
   color: rgba(43, 43, 43, 0.45);
 }
 
