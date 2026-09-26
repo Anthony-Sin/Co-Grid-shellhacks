@@ -197,3 +197,33 @@ export function buildOverlayGeometry(
   const geometry = mergeGeometries(parts, false)
   return geometry ? { geometry, count: parts.length } : null
 }
+
+/**
+ * Flat-mode twin of buildOverlayGeometry — same mask, same cap, but a
+ * merged ShapeGeometry (2D footprint fills, no extrusion) for the tier
+ * wash over the flat web-map buildings. Geometry bakes at y=0; the
+ * caller lifts the mesh to FLAT_WASH_Y so it clears the footprint fills.
+ */
+export function buildFlatOverlayGeometry(
+  buildings: CityBuilding[],
+  hits: number[],
+): { geometry: THREE.BufferGeometry; count: number } | null {
+  if (hits.length > MAX_OVERLAY_BUILDINGS) {
+    console.debug(
+      `[zoneHighlight] ${hits.length} buildings inside zone > cap ${MAX_OVERLAY_BUILDINGS} — skipping tint (city-wide envelope)`,
+    )
+    return null
+  }
+  const shapes: THREE.Shape[] = []
+  for (const i of hits) {
+    const ring = cleanRing(buildings[i].footprint)
+    if (!ring) continue
+    shapes.push(polygonShape(ring))
+  }
+  if (!shapes.length) return null
+  const geometry = new THREE.ShapeGeometry(shapes)
+  geometry.rotateX(-Math.PI / 2) // +y north -> -z world, faces up
+  geometry.deleteAttribute('uv')
+  geometry.computeBoundingSphere()
+  return { geometry, count: shapes.length }
+}

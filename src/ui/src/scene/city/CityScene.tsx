@@ -30,10 +30,11 @@ import { useShadowRefresh } from './cityUtils'
  * extruded buildings).
  *
  * mapStyle split (store): 'flat' renders the clean web-map read — land
- * fill, blue water, green parks, single-stroke neutral roads, NO 3D
- * extrusions (buildings+trees unmount entirely — a large perf win since
- * ~148k footprints never even extrude). 'sketch' keeps the hand-drawn
- * paper city exactly as before. The state border stroke draws in BOTH.
+ * fill, blue water, green parks, single-stroke neutral roads, and flat
+ * 2D building footprint fills (ShapeGeometry tiles — the "Google-Maps
+ * density" layer, gated LOWER than sketch extrusions since 2D is cheap;
+ * trees stay sketch-only). 'sketch' keeps the hand-drawn 3D paper city
+ * exactly as before. The state border stroke draws in BOTH.
  *
  * `showLabels` (the layers.labels toggle) gates only the floating name
  * chips — the basemap geometry itself is controlled by layers.basemap.
@@ -109,15 +110,11 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
       <ParksLayer parks={merged.parks} flat={flat} />
       <WaterLayer water={data.water} flat={flat} />
       <RoadsLayer roads={data.roads} flat={flat} />
-      {/* flat mode = no 3D extrusions at all — the ~148k corridor
-          buildings skip extrude+draw entirely; the merged array still
-          feeds labels/parks/zone data above. Sketch keeps everything. */}
-      {!flat && (
-        <>
-          <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} />
-          <TreesLayer parks={merged.parks} />
-        </>
-      )}
+      {/* ONE buildings layer serves both modes: flat = merged 2D footprint
+          fills per ~12km cell (own lower zoom gate), sketch = extruded +
+          inked 3D cells. Trees remain sketch-only — no 2D canopy layer. */}
+      <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} flat={flat} />
+      {!flat && <TreesLayer parks={merged.parks} />}
       {showLabels && <LabelChips data={labelData} />}
     </group>
   )
