@@ -314,6 +314,70 @@ details.detail-basis div {
   padding-top: 6px;
 }
 
+/* ---- area snapshot (mini-map SVG built from our own processed filings) ------ */
+
+.snap {
+  margin-top: 4px;
+}
+
+.snap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(43, 43, 43, 0.55);
+  border-radius: 8px;
+  background: #f8f6f0;
+}
+
+/* ---- export report buttons ---------------------------------------------------
+   Overlap card: small pill in the head cluster, beside 'link'/'✦'.
+   Project card: lighter ghost pill in the actions row. */
+
+.detail-report {
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a877e;
+  border: 1px solid #2b2b2b;
+  flex: none;
+}
+
+.detail-report:hover:not(:disabled) {
+  background: #2b2b2b;
+  border-color: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.detail-report:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.detail-report:focus-visible,
+.pd-report:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}
+
+.pd-report {
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(43, 43, 43, 0.75);
+  border: 1px dashed rgba(43, 43, 43, 0.55);
+  border-radius: 999px;
+}
+
+.pd-report:hover:not(:disabled) {
+  background: #2b2b2b;
+  color: #f5f2ea;
+  border-style: solid;
+}
+
 /* ---- project detail ---------------------------------------------------------
    ProjectDetail — the clicked-marker card. Reuses .overlap-detail chrome,
    .kv rows, .conf-badge, .proj-src/.src-link and .nb-chip jump chips;
@@ -344,17 +408,31 @@ details.detail-basis div {
   gap: 6px;
 }
 
-/* tail after the 4 shown OV-chips — the full list stays in the ranked panel */
-.pd-more {
-  align-self: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  opacity: 0.6;
+/* the full OV-chip list scrolls past ~8 rows instead of growing the card
+   (chips ~18px + 4px gap; 168px ≈ 8 rows with a peek at row 9) */
+.pd-recs {
+  max-height: 168px;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 43, 43, 0.45) transparent;
+}
+
+.pd-recs::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pd-recs::-webkit-scrollbar-thumb {
+  background: rgba(43, 43, 43, 0.32);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
 }
 
 .pd-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 6px;
 }
 
 /* "✦ ask agent" — same pill language as .pnl-ask in the panel stats strip */
