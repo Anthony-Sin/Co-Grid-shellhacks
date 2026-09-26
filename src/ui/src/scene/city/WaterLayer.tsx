@@ -8,11 +8,11 @@ import { cleanRing, useDispose } from './cityUtils'
 
 /**
  * Rivers, coastline, canals, lakes — real OSM water polygons.
- * Sketch treatment: a faint cool-gray wash fill (one merged ShapeGeometry)
- * plus a jittered ink shoreline stroke around every ring — the pencil-coast
- * convention. Two draw calls, no color (color is reserved for the data layer).
+ * Two treatments over one geometry build: sketch mode uses a translucent
+ * wash fill + jittered ink shoreline (the pencil-coast convention); flat
+ * mode pushes the same muted map blue to near-solid with a blue edge.
  */
-export function WaterLayer({ water }: { water: CityPolygon[] }) {
+export function WaterLayer({ water, flat = false }: { water: CityPolygon[]; flat?: boolean }) {
   const built = useMemo(() => {
     const shapes: THREE.Shape[] = []
     const shore: number[] = []
@@ -69,23 +69,39 @@ export function WaterLayer({ water }: { water: CityPolygon[] }) {
   }, [water])
   useDispose(built.disposables)
 
+  // Flat mode: solid map-blue fill (unlit — exact hex) + a matching blue
+  // shoreline; sketch keeps the translucent lit wash + pencil-ink coast.
+  const shoreColor = flat ? PALETTE.water.edge : PALETTE.inkSoft
+
   return (
     <group>
       {built.fill ? (
-        <mesh geometry={built.fill} receiveShadow>
-          <meshStandardMaterial
-            color={PALETTE.water.surface}
-            flatShading
-            roughness={1}
-            metalness={0}
-            transparent
-            opacity={0.75}
-          />
+        <mesh geometry={built.fill} receiveShadow={!flat}>
+          {flat ? (
+            <meshBasicMaterial
+              color={PALETTE.water.surface}
+              transparent
+              opacity={0.95}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={PALETTE.water.surface}
+              flatShading
+              roughness={1}
+              metalness={0}
+              transparent
+              opacity={0.75}
+            />
+          )}
         </mesh>
       ) : null}
       {built.shore ? (
         <lineSegments geometry={built.shore}>
-          <lineBasicMaterial color={PALETTE.inkSoft} transparent opacity={0.5} />
+          <lineBasicMaterial
+            color={shoreColor}
+            transparent
+            opacity={flat ? 0.65 : 0.5}
+          />
         </lineSegments>
       ) : null}
       {built.river ? (

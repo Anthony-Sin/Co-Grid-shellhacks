@@ -4,6 +4,13 @@ import type { SceneId } from '../lib/projection'
 
 export type { SceneId }
 
+/** Basemap treatment — 'flat' is the clean web-map look (filled land,
+ * blue water, soft green parks, neutral road strokes, no 3D extrusions);
+ * 'sketch' keeps the hand-drawn paper city (extruded buildings + ink).
+ * The data layer (planned lines, overlap zones) is unaffected — it stays
+ * the hero in both. */
+export type MapStyle = 'flat' | 'sketch'
+
 /** Map layer toggles — the ViewModes overlay controls which scene
  * layers render. `projects` also gates overlap zones' connectors. */
 export interface LayerFlags {
@@ -38,6 +45,8 @@ interface AppState {
   focusTarget: [number, number] | null
   /** Left opportunities panel open/collapsed */
   panelOpen: boolean
+  /** Basemap style — flat web map (default) vs 3D sketch city */
+  mapStyle: MapStyle
   /** Scene layer visibility (ViewModes overlay) */
   layers: LayerFlags
   /** Year-window filter shared by list + map */
@@ -57,6 +66,7 @@ interface AppState {
   setHoveredProject: (id: string | null) => void
   setFocusTarget: (target: [number, number] | null) => void
   setPanelOpen: (open: boolean) => void
+  setMapStyle: (style: MapStyle) => void
   toggleLayer: (layer: keyof LayerFlags) => void
   setYearFilter: (range: YearRange | null) => void
   setAgentPromptDraft: (text: string | null) => void
@@ -77,6 +87,9 @@ export const useAppStore = create<AppState>()((set) => ({
   hoveredProjectId: null,
   focusTarget: null,
   panelOpen: true,
+  // flat is the default read — the state sheet + utility-colored data
+  // layer carry the story; sketch is opt-in for the hand-drawn 3D look
+  mapStyle: 'flat',
   // zones default OFF — the circles are opt-in via "map view »" (a selected
   // overlap still renders its own zone even with the layer off)
   layers: { basemap: true, projects: true, zones: false, labels: true },
@@ -102,6 +115,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setHoveredProject: (id) => set({ hoveredProjectId: id }),
   setFocusTarget: (target) => set({ focusTarget: target }),
   setPanelOpen: (open) => set({ panelOpen: open }),
+  setMapStyle: (style) => set({ mapStyle: style }),
   toggleLayer: (layer) =>
     set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })),
   setYearFilter: (range) => set({ yearFilter: range }),

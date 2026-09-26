@@ -44,34 +44,49 @@ function buildParks(parks: CityPolygon[]): BuiltParks {
   return { light, deep, disposables }
 }
 
-export function ParksLayer({ parks }: { parks: CityPolygon[] }) {
+export function ParksLayer({ parks, flat = false }: { parks: CityPolygon[]; flat?: boolean }) {
   const built = useMemo(() => buildParks(parks), [parks])
   useDispose(built.disposables)
+
+  // Flat mode: real soft greens at near-solid opacity over the land fill,
+  // unlit (meshBasicMaterial) so the palette hex is what renders.
+  // Sketch mode: lit grayscale washes that let the paper show through.
+  const lightColor = flat ? PALETTE.flat.parkLight : PALETTE.park.light
+  const deepColor = flat ? PALETTE.flat.parkDeep : PALETTE.park.deep
+  const opacity = flat ? 0.95 : 0.6
 
   return (
     <group>
       {built.light ? (
-        <mesh geometry={built.light} receiveShadow>
-          <meshStandardMaterial
-            color={PALETTE.park.light}
-            flatShading
-            roughness={1}
-            metalness={0}
-            transparent
-            opacity={0.6}
-          />
+        <mesh geometry={built.light} receiveShadow={!flat}>
+          {flat ? (
+            <meshBasicMaterial color={lightColor} transparent opacity={opacity} />
+          ) : (
+            <meshStandardMaterial
+              color={lightColor}
+              flatShading
+              roughness={1}
+              metalness={0}
+              transparent
+              opacity={opacity}
+            />
+          )}
         </mesh>
       ) : null}
       {built.deep ? (
-        <mesh geometry={built.deep} receiveShadow>
-          <meshStandardMaterial
-            color={PALETTE.park.deep}
-            flatShading
-            roughness={1}
-            metalness={0}
-            transparent
-            opacity={0.6}
-          />
+        <mesh geometry={built.deep} receiveShadow={!flat}>
+          {flat ? (
+            <meshBasicMaterial color={deepColor} transparent opacity={opacity} />
+          ) : (
+            <meshStandardMaterial
+              color={deepColor}
+              flatShading
+              roughness={1}
+              metalness={0}
+              transparent
+              opacity={opacity}
+            />
+          )}
         </mesh>
       ) : null}
     </group>

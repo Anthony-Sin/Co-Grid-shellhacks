@@ -92,6 +92,12 @@ export interface FeatureCollection<P> {
   features: GeoFeature<P>[]
 }
 
+// ---------- /api/state-bounds ----------
+export interface StateBoundsProps {
+  /** Census STUSPS resolved: "Georgia" | "South Carolina" */
+  state: string
+}
+
 // ---------- /api/overlaps ----------
 export interface OverlapRecord {
   overlap_id: string
@@ -251,6 +257,9 @@ export const api = {
   projects: () => get<FeatureCollection<ProjectProps>>('/api/projects'),
   basemap: () => get<FeatureCollection<BasemapProps>>('/api/basemap'),
   overlaps: () => get<OverlapsResponse>('/api/overlaps'),
+  /** GA + SC state boundary polygons (WGS84 GeoJSON) — Census 2024 500k
+   *  cartographic boundary set, public domain. Land fill + border strokes. */
+  stateBounds: () => get<FeatureCollection<StateBoundsProps>>('/api/state-bounds'),
   stats: () => get<StatsResponse>('/api/stats'),
   regions: () => get<RegionsResponse>('/api/regions'),
 

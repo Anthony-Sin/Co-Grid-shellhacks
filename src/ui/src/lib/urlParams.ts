@@ -9,6 +9,7 @@ import { lonLatToLocal, SCENE_CENTERS, type SceneId } from './projection'
  *   ?panel=0|1                hide/show the opportunities panel
  *   ?tiers=1,2,3,4            restrict visible tiers
  *   ?timeline=0|1             timeline-overlap-only filter
+ *   ?style=flat|sketch        basemap style (default flat)
  *
  * Used by scripts/screenshot.sh and handy for sharing specific views.
  */
@@ -27,6 +28,9 @@ export function applyUrlParams() {
   const panel = q.get('panel')
   if (panel === '0' || panel === 'false') s.setPanelOpen(false)
   if (panel === '1' || panel === 'true') s.setPanelOpen(true)
+
+  const style = q.get('style')
+  if (style === 'flat' || style === 'sketch') s.setMapStyle(style)
 
   const timeline = q.get('timeline')
   if (timeline === '0' || timeline === 'false') s.setTimelineOnly(false)

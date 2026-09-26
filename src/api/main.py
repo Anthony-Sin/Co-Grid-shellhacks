@@ -134,6 +134,14 @@ def city(scene: str) -> dict:
     return _fresh(f"city_{scene}.json")
 
 
+@app.get("/api/state-bounds")
+def state_bounds() -> dict:
+    """GA + SC state boundary polygons (WGS84 GeoJSON) — Census Bureau
+    2024 500k cartographic boundary set, public domain. Used for the
+    state outlines and the flat-map land fill."""
+    return _fresh("state_bounds.geojson")
+
+
 @app.get("/api/regions")
 def regions() -> dict:
     """Index of renderable regions/scenes — the contract for statewide tiles.

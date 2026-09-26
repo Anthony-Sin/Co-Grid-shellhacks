@@ -14,6 +14,7 @@ import { WaterLayer } from './WaterLayer'
 import { ParksLayer } from './ParksLayer'
 import { TreesLayer } from './TreesLayer'
 import { LabelChips } from './LabelChips'
+import { StateBoundsLayer } from './StateBoundsLayer'
 import { useShadowRefresh } from './cityUtils'
 
 /**
@@ -23,15 +24,24 @@ import { useShadowRefresh } from './cityUtils'
  * While loading — or if the backend is unreachable — this renders NOTHING.
  * Per project rules there is no fabricated fallback geometry.
  *
- * Layer stack (bottom → top): parks → water → roads → buildings/trees.
- * y-ordering is baked into the layer heights (~0.10 parks < 0.12 water <
- * 0.15–0.35 roads by rank < extruded buildings).
+ * Layer stack (bottom → top): state land fill/borders → parks → water →
+ * roads → buildings/trees. y-ordering is baked into the layer heights
+ * (~0.05 land < 0.10 parks < 0.12 water < 0.15–0.35 roads by rank <
+ * extruded buildings).
+ *
+ * mapStyle split (store): 'flat' renders the clean web-map read — land
+ * fill, blue water, green parks, single-stroke neutral roads, NO 3D
+ * extrusions (buildings+trees unmount entirely — a large perf win since
+ * ~148k footprints never even extrude). 'sketch' keeps the hand-drawn
+ * paper city exactly as before. The state border stroke draws in BOTH.
  *
  * `showLabels` (the layers.labels toggle) gates only the floating name
  * chips — the basemap geometry itself is controlled by layers.basemap.
  */
 export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const activeScene = useAppStore((s) => s.activeScene)
+  const mapStyle = useAppStore((s) => s.mapStyle)
+  const flat = mapStyle === 'flat'
   const { data } = useCity(activeScene)
 
   // Deferred detail fetch (tiled-map style): the two corridor artifacts
@@ -95,11 +105,19 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
 
   return (
     <group>
-      <ParksLayer parks={merged.parks} />
-      <WaterLayer water={data.water} />
-      <RoadsLayer roads={data.roads} />
-      <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} />
-      <TreesLayer parks={merged.parks} />
+      <StateBoundsLayer flat={flat} />
+      <ParksLayer parks={merged.parks} flat={flat} />
+      <WaterLayer water={data.water} flat={flat} />
+      <RoadsLayer roads={data.roads} flat={flat} />
+      {/* flat mode = no 3D extrusions at all — the ~148k corridor
+          buildings skip extrude+draw entirely; the merged array still
+          feeds labels/parks/zone data above. Sketch keeps everything. */}
+      {!flat && (
+        <>
+          <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} />
+          <TreesLayer parks={merged.parks} />
+        </>
+      )}
       {showLabels && <LabelChips data={labelData} />}
     </group>
   )

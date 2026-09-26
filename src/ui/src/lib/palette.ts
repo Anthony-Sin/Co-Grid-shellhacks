@@ -45,6 +45,24 @@ export const PALETTE = {
   /** Softer ink for secondary strokes (roads, shorelines) */
   inkSoft: '#4B463C',
 
+  /** Flat "web map" basemap (mapStyle='flat') — the clean Google/OSM
+   *  read: solid land fill, real blue water, soft green parks, neutral
+   *  road strokes. Deliberately muted so the utility-colored data layer
+   *  stays the hero. Water reuses PALETTE.water.surface (#A8C6D8). */
+  flat: {
+    /** Land fill inside the state bounds — warm paper-adjacent tan */
+    land: '#EDE7D9',
+    /** Soft real greens for green-space fills */
+    parkLight: '#D3E2C5',
+    parkDeep: '#B8D0A4',
+    /** Neutral road strokes: light minors ("streets"), slate majors */
+    roadMajor: '#A6ABB2',
+    roadMinor: '#F7F5EE',
+    rail: '#9C968A',
+    /** Wide soft halo under the state border ink (paper-tone casing) */
+    borderHalo: '#F7F4EC',
+  },
+
   /** Floating label chips */
   chipBg: 'rgba(30, 30, 30, 0.85)',
   chipText: '#F5F2EA',

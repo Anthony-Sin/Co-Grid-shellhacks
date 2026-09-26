@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../state/store'
-import type { LayerFlags, YearRange } from '../../state/store'
+import type { LayerFlags, MapStyle, YearRange } from '../../state/store'
 import type { SceneId } from '../../lib/projection'
 import { yearExtent } from '../../lib/overlapFilters'
 import { useOverlaps, useRegions } from '../hooks/useApiData'
@@ -26,6 +26,13 @@ const LAYERS: { key: keyof LayerFlags; label: string; hint: string }[] = [
 
 const SCENES: { id: SceneId; label: string }[] = [
   { id: 'state', label: 'GA+SC' },
+]
+
+/** Basemap style pills — flat is the default clean web map; sketch is
+ * the hand-drawn 3D paper city. Reuses the .vm-scenes pill styling. */
+const MAP_STYLES: { id: MapStyle; label: string; hint: string }[] = [
+  { id: 'flat', label: 'map', hint: 'flat basemap — filled states, blue water, no 3D' },
+  { id: 'sketch', label: 'sketch', hint: 'hand-drawn 3D basemap — extruded buildings + ink' },
 ]
 
 /** Debounce window for year-range writes while a thumb is dragging. */
@@ -189,6 +196,32 @@ function BuildWindow() {
 }
 
 /**
+ * Basemap style switcher — a store-backed pair of pills. 'flat' unmounts
+ * the extrusion layers entirely (the data fetches stay cached — only the
+ * ~148k extrude cost re-runs, tile-by-tile, on the first sketch flip).
+ */
+function StyleSection() {
+  const mapStyle = useAppStore((s) => s.mapStyle)
+  const setMapStyle = useAppStore((s) => s.setMapStyle)
+  return (
+    <div className="vm-scenes" role="group" aria-label="Basemap style">
+      {MAP_STYLES.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          className={`vm-scene${m.id === mapStyle ? ' is-active' : ''}`}
+          title={m.hint}
+          aria-pressed={m.id === mapStyle}
+          onClick={() => setMapStyle(m.id)}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Mini scene switcher — the same SceneIds the header uses, but gated by
  * /api/regions: only scenes whose artifact is `built` are enabled.
  */
@@ -266,6 +299,10 @@ export function ViewModes() {
           </button>
         </div>
 
+        <details className="vm-sec" open>
+          <summary className="vm-sec-title">Basemap style</summary>
+          <StyleSection />
+        </details>
         <details className="vm-sec" open>
           <summary className="vm-sec-title">Layers</summary>
           <LayersSection />
