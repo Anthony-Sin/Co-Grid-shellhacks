@@ -96,10 +96,12 @@ function buildTrees(parks: CityPolygon[]): BuiltTrees {
   // 4) bake the InstancedMesh
   const geo = new THREE.IcosahedronGeometry(1, 0)
   const mat = new THREE.MeshStandardMaterial({
-    color: '#ffffff', // per-instance colors carry the canopy green
+    color: '#ffffff', // per-instance colors carry the gray canopy wash
     flatShading: true,
     roughness: 1,
     metalness: 0,
+    transparent: true,
+    opacity: 0.85,
   })
   const mesh = new THREE.InstancedMesh(geo, mat, spots.length)
   mesh.castShadow = true

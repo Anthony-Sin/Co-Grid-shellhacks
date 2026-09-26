@@ -1,42 +1,48 @@
 /**
  * Central palette for the CO-GRID stylized map.
- * Aesthetic: hand-drawn / toon — warm paper background, pastel flat-shaded
- * extruded buildings with ink outlines, blobby low-poly trees, flat blue
- * water, muted road ribbons, floating dark label chips.
+ * Aesthetic: monochrome "sketch the city" — warm paper background,
+ * semi-transparent white building faces with dark sketch edges, grayscale
+ * water/parks/roads. COLOR is reserved for the data layer: planned project
+ * geometries (utility colors) and coordination zones (tier colors).
  */
 export const PALETTE = {
-  /** Paper / sky background; fog should match this for a seamless sheet look */
+  /** Paper / sky background; the CSS grain texture uses the same tone */
   paper: '#E8E4DA',
-  /** Ground plane — a hair darker than the sky so the map reads as a sheet */
+  /** Shadow-catcher ground tone (only shadows show through) */
   ground: '#E1DCCB',
 
   building: {
-    grays: ['#C9CDD3', '#B8BDC6', '#D8DCE2'] as const,
-    warm: ['#C9A38B', '#B28E77'] as const,
+    /** Translucent whites — faces barely tint the paper beneath them */
+    grays: ['#FFFFFF', '#F8F6EF', '#F4F1E8'] as const,
+    warm: ['#F6F3EB', '#EFEBE0'] as const,
   },
 
   park: {
-    deep: '#7FB069',
-    light: '#A8C686',
-    canopy: '#6D9E5B',
-    trunk: '#7A5C42',
+    /** Grayscale green-space washes (a hair darker/lighter than paper) */
+    deep: '#CBC8BB',
+    light: '#DCD8CB',
+    canopy: '#83837A',
+    trunk: '#6E6A5E',
   },
 
   water: {
-    surface: '#4A7FA5',
-    edge: '#3D6E94',
+    /** Cool light-gray wash + darker ink shoreline */
+    surface: '#C6CCD0',
+    edge: '#8E959B',
   },
 
   road: {
-    surface: '#9AA0A8',
+    surface: '#57534A',
     edge: '#83898F',
     /** Colored accents for highlighted routes (planned corridors, etc.) */
     accentAmber: '#D9A441',
     accentClay: '#C97B4A',
   },
 
-  /** Ink: outlines, borders, primary text */
-  ink: '#2B2B2B',
+  /** Sketch ink: warm near-black for outlines, strokes, primary text */
+  ink: '#231F18',
+  /** Softer ink for secondary strokes (roads, shorelines) */
+  inkSoft: '#4B463C',
 
   /** Floating label chips */
   chipBg: 'rgba(30, 30, 30, 0.85)',

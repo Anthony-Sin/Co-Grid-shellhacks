@@ -23,7 +23,8 @@ const PANEL_COLOR = '#6E7680'
 
 /** fuels that read as a smokestack silhouette rather than a cooling tower */
 const STACK_FUELS = new Set(['NG', 'DFO', 'BIT', 'SUB', 'PC', 'RC', 'WDS', 'BLQ', 'LFG', 'OG'])
-const TOWER_FUELS = new Set(['NUC', 'WAT'])
+/** fuels that get BOTH a cooling tower and a secondary stack */
+const TOWER_FUELS = new Set(['NUC'])
 
 interface PlantSpec {
   x: number
@@ -80,7 +81,7 @@ function PlantCompound({ spec }: { spec: PlantSpec }) {
         <SolarRows />
       ) : STACK_FUELS.has(fuel) ? (
         <Stack position={[14, 24, 4]} />
-      ) : (
+      ) : fuel === 'WAT' ? null /* hydro powerhouse reads as the block alone */ : (
         <CoolingTower position={[-14, 17.5, 5]} />
       )}
       {TOWER_FUELS.has(fuel) && <Stack position={[15, 20, -5]} />}
@@ -125,13 +126,14 @@ export function ExistingPlants({ plants }: { plants: readonly ScenePlant[] }) {
  * combined-cycle wording -> stack; nuclear/solar keywords -> tower/panels.
  */
 function inferredFuel(p: SceneProject): string | null {
-  const text = `${p.name}`.toLowerCase()
+  const text = `${p.name} ${p.notes}`.toLowerCase()
   if (text.includes('nuclear') || text.includes('vogtle')) return 'NUC'
   if (text.includes('solar') || text.includes('pv')) return 'SUN'
   if (
     text.includes('combined-cycle') ||
     text.includes('combined cycle') ||
     text.includes('combustion') ||
+    text.includes('ngcc') ||
     text.includes('ct ') ||
     text.includes(' ct') ||
     text.includes('gas')

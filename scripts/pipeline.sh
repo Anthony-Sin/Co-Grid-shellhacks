@@ -7,7 +7,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 PY=./venv/bin/python
 
-echo "==> basemap (HIFLD raw -> basemap.geojson)"
+echo "==> gazetteer (HIFLD+OSM named facilities)"
+$PY -m src.processing.build_gazetteer
+
+echo "==> basemap (HIFLD raw + context ties -> basemap.geojson)"
 $PY -m src.processing.build_basemap
 
 echo "==> city scenes (OSM raw -> city_<scene>.json)"

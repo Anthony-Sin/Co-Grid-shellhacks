@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useThree } from '@react-three/fiber'
 import type { Vec2 } from '../../lib/projection'
 
 /**
@@ -28,6 +29,18 @@ export function useDispose(target: Disposable | Disposable[] | null) {
     },
     [target],
   )
+}
+
+/**
+ * The shadow map renders on demand only (autoUpdate=false in CityCanvas).
+ * Callers poke this once when shadow-casting geometry has mounted/changed
+ * so the one-shot bake picks it up — instead of re-baking every frame.
+ */
+export function useShadowRefresh(dep: unknown) {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    gl.shadowMap.needsUpdate = true
+  }, [gl, dep])
 }
 
 /** Absolute shoelace area of a ring in m² (winding-agnostic). */

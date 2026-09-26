@@ -30,6 +30,9 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 
+# headless UI captures (regenerable via scripts/screenshot.sh)
+shots/
+
 # OS / editor
 .DS_Store
 Thumbs.db

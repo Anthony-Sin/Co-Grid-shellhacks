@@ -1,0 +1,98 @@
+#!/usr/bin/env node
+/**
+ * Headless UI capture for CO-GRID — shoots the running app from several
+ * camera states using puppeteer-core + system chromium.
+ *
+ * Requires: dev server (127.0.0.1:3210) + API (127.0.0.1:8000) running.
+ * Software WebGL via --enable-unsafe-swiftshader (works on GPU-less boxes).
+ *
+ * Usage:
+ *   node scripts/screenshot.mjs                 # all presets -> shots/
+ *   node scripts/screenshot.mjs --out=/tmp/s    # custom output dir
+ *   node scripts/screenshot.mjs --base=http://127.0.0.1:3210
+ *   node scripts/screenshot.mjs "name|scene=augusta&select=OV-0004" ...
+ */
+import { createRequire } from 'node:module'
+import { execSync } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
+
+// puppeteer-core lives in src/ui/node_modules (devDependency there).
+const require = createRequire(new URL('../src/ui/package.json', import.meta.url))
+const puppeteer = require('puppeteer-core')
+
+const args = process.argv.slice(2)
+let OUT = 'shots'
+let BASE = 'http://127.0.0.1:3210'
+const custom = []
+for (const a of args) {
+  if (a.startsWith('--out=')) OUT = a.slice(6)
+  else if (a.startsWith('--base=')) BASE = a.slice(7)
+  else custom.push(a)
+}
+mkdirSync(OUT, { recursive: true })
+
+const CHROME =
+  execSync('command -v chromium || command -v chromium-browser || command -v google-chrome || true', {
+    shell: '/bin/bash',
+  })
+    .toString()
+    .trim()
+    .split('\n')[0]
+if (!CHROME) {
+  console.error('no chromium binary found')
+  process.exit(1)
+}
+
+// name|query presets — both scenes, map-only views, tier-1 close-ups,
+// arbitrary focus points. See src/ui/src/lib/urlParams.ts for params.
+const SHOTS = custom.length
+  ? custom
+  : [
+      'savannah_overview|scene=savannah&panel=1',
+      'savannah_map_only|scene=savannah&panel=0',
+      'augusta_overview|scene=augusta&panel=1',
+      'augusta_map_only|scene=augusta&panel=0',
+      'okatie_mcintosh_tier1|scene=savannah&select=OV-0004&panel=0',
+      'jasper_okatie_tier1|scene=savannah&select=OV-0001&panel=0',
+      'river_corridor_focus|scene=savannah&focus=-81.06,32.34&panel=0',
+    ]
+
+const browser = await puppeteer.launch({
+  executablePath: CHROME,
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-gpu',
+    '--enable-unsafe-swiftshader',
+    '--hide-scrollbars',
+    '--window-size=1600,1000',
+  ],
+  defaultViewport: { width: 1600, height: 1000 },
+})
+
+const page = await browser.newPage()
+page.on('console', (m) => {
+  const t = m.type()
+  if (t === 'error' || t === 'warning') console.log(`  [console.${t}]`, m.text().slice(0, 200))
+})
+page.on('pageerror', (e) => console.log('  [pageerror]', String(e).slice(0, 300)))
+
+for (const entry of SHOTS) {
+  const [name, query] = entry.split('|')
+  const url = `${BASE}/?${query ?? ''}`
+  console.log(`==> ${name}  (${url})`)
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    // Wait for the app's ready flag (city data + a few committed frames).
+    await page
+      .waitForFunction('window.__cogridReady === true', { timeout: 120_000, polling: 500 })
+      .catch(() => console.log('  (ready flag timed out — shooting anyway)'))
+    await new Promise((r) => setTimeout(r, 1500)) // settle camera ease
+    await page.screenshot({ path: `${OUT}/${name}.png` })
+    console.log(`  -> ${OUT}/${name}.png`)
+  } catch (e) {
+    console.log(`  (shot failed: ${name}: ${e.message})`)
+  }
+}
+await browser.close()
+console.log(`done -> ${OUT}/`)

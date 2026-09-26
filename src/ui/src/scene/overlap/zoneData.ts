@@ -17,7 +17,7 @@ import { hatchPolygon, ringCentroid, ringRadius, stripClosing } from './hatch'
 const SCENE_RELEVANCE_M = 40_000
 /** Signature diagonal hatch. */
 const HATCH_ANGLE_DEG = 45
-/** ~90m between hatch lines. */
+/** ~90m between hatch lines at small zones; grows with zone radius. */
 const HATCH_SPACING_M = 90
 
 export type ProjectsById = Map<string, GeoFeature<ProjectProps>>
@@ -61,11 +61,14 @@ export function collectLonLats(coords: unknown, out: Vec2[] = []): Vec2[] {
   return out
 }
 
-/** Compact display initials: the project's utility when short, else an acronym. */
+/**
+ * Compact display initials: the project's utility verbatim when short
+ * ("GPC", "DESC", "SCPSA" are already initials), else an acronym of the id.
+ */
 function projectLabel(projectId: string, projectsById: ProjectsById): string {
   const util = projectsById.get(projectId)?.properties?.utility
-  const source = util && util.length <= 10 ? util : projectId
-  const acronym = source
+  if (util && util.length <= 14) return util
+  const acronym = projectId
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
     .map((w) => w[0])
@@ -95,31 +98,6 @@ export function mixHex(a: string, b: string, t: number): string {
 }
 
 /**
- * Is this overlap relevant to the given scene center?
- * Either the zone footprint intersects the 40km circle around the center,
- * or any vertex of either project's geometry lies inside it.
- * (Local coords are relative to `center`, so distance = vector length.)
- */
-function isRelevant(
-  rec: OverlapRecord,
-  centroid: Vec2,
-  radiusM: number,
-  projectsById: ProjectsById,
-): boolean {
-  if (Math.hypot(centroid[0], centroid[1]) - radiusM <= SCENE_RELEVANCE_M) return true
-  for (const pid of [rec.project_a, rec.project_b]) {
-    const geom = projectsById.get(pid)?.geometry
-    if (!geom) continue
-    for (const [lon, lat] of collectLonLats(geom.coordinates)) {
-      const [x, y] = lonLatToLocal(lon, lat, [0, 0].map(() => 0) as Vec2)
-      void x
-      void y
-    }
-  }
-  return false
-}
-
-/**
  * Build the scene-local datum for one overlap record.
  * `center` is SCENE_CENTERS[activeScene] — local coords are meters from it.
  */
@@ -133,23 +111,25 @@ export function buildZoneDatum(
   const midLocal = lonLatToLocal(rec.midpoint[0], rec.midpoint[1], center)
 
   let ringLocal: Vec2[] | null = null
-  let hatch = new Float32Array(0)
+  let hatch: Float32Array = new Float32Array(0)
   let centroid: Vec2 = midLocal
-  let radiusM = Math.hypot(midLocal[0], midLocal[1]) * 0 // 0 unless a real ring exists
+  let radiusM = 0 // stays 0 unless a real zone ring exists
   const ringLL = rec.zone_geometry?.coordinates?.[0]
   if (rec.zone_geometry?.type === 'Polygon' && Array.isArray(ringLL) && ringLL.length >= 4) {
     const projected: Vec2[] = ringLL.map(([lon, lat]) => lonLatToLocal(lon, lat, center))
     ringLocal = stripClosing(projected)
     if (ringLocal.length >= 3) {
-      hatch = hatchPolygon(ringLocal, HATCH_ANGLE_DEG, HATCH_SPACING_M)
       centroid = ringCentroid(ringLocal)
       radiusM = ringRadius(ringLocal, centroid)
+      // Giant capsules get airier hatching — tight 90m lines at ~8km radius
+      // read as a moiré blanket, not markup.
+      hatch = hatchPolygon(ringLocal, HATCH_ANGLE_DEG, Math.max(HATCH_SPACING_M, radiusM / 45))
     } else {
       ringLocal = null
     }
   }
 
-  const relevant = isRelevantFast(rec, centroid, radiusM, center, projectsById)
+  const relevant = isRelevant(rec, centroid, radiusM, center, projectsById)
 
   return {
     rec,
@@ -173,7 +153,7 @@ export function buildZoneDatum(
  * Zone check: (|centroid| − radius) ≤ 40km ⇒ footprint touches the circle.
  * Project check: any geometry vertex within 40km of the scene center.
  */
-function isRelevantFast(
+function isRelevant(
   rec: OverlapRecord,
   centroid: Vec2,
   radiusM: number,

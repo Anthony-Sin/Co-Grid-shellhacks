@@ -91,13 +91,9 @@ export function hatchPolygon(
   // Rotate ring by -angle: hatch scanlines become horizontal in this frame.
   const rot: Vec2[] = pts.map(([x, y]) => [x * cos + y * sin, -x * sin + y * cos])
 
-  let minX = Infinity
-  let maxX = -Infinity
   let minY = Infinity
   let maxY = -Infinity
-  for (const [x, y] of rot) {
-    if (x < minX) minX = x
-    if (x > maxX) maxX = x
+  for (const [, y] of rot) {
     if (y < minY) minY = y
     if (y > maxY) maxY = y
   }

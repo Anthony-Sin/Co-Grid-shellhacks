@@ -121,10 +121,53 @@ export interface StatsResponse {
   timeline_matches: number
 }
 
+// ---------- /api/agent/* ----------
+export interface AgentHealth {
+  configured: boolean
+  model: string | null
+  tools: string[]
+  max_rounds: number
+}
+
+export interface AgentTrace {
+  tool: string
+  args: Record<string, unknown>
+  preview: string
+}
+
+export interface AgentReply {
+  reply: string
+  reasoning: string | null
+  tool_trace: AgentTrace[]
+  rounds: number
+  usage: Record<string, number>
+  finish_reason: string
+}
+
+export interface AgentBrief {
+  overlap_id: string
+  brief: string
+  reasoning: string | null
+  usage: Record<string, number>
+}
+
 // ---------- fetch helpers ----------
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path)
   if (!r.ok) throw new Error(`${path} -> HTTP ${r.status}`)
+  return (await r.json()) as T
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) {
+    const detail = await r.json().catch(() => ({}))
+    throw new Error(detail?.detail || `${path} -> HTTP ${r.status}`)
+  }
   return (await r.json()) as T
 }
 
@@ -135,4 +178,12 @@ export const api = {
   basemap: () => get<FeatureCollection<BasemapProps>>('/api/basemap'),
   overlaps: () => get<OverlapsResponse>('/api/overlaps'),
   stats: () => get<StatsResponse>('/api/stats'),
+
+  agentHealth: () => get<AgentHealth>('/api/agent/health'),
+  agentChat: (messages: { role: string; content: string }[], overlapId?: string | null) =>
+    post<AgentReply>('/api/agent/chat', {
+      messages,
+      ...(overlapId ? { overlap_id: overlapId } : {}),
+    }),
+  agentBrief: (overlapId: string) => get<AgentBrief>(`/api/agent/brief/${overlapId}`),
 }

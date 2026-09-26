@@ -55,8 +55,12 @@ Rules:
 ## 2. `data/processed/basemap.geojson` — existing grid (HIFLD)
 
 Same feature shape, but `properties.layer` in
-`existing_transmission_line | existing_substation | existing_power_plant`
+`existing_transmission_line | existing_substation | existing_power_plant | service_territory | existing_tie_documented`
 and `properties.utility` may be the recorded owner or `"unknown"`.
+
+`existing_tie_documented` = the REAL cross-river inter-utility ties from
+`data/seeds/context_facilities.json` (SCRTP contingency-table citations) —
+rendered emphasized, they're why the overlap zones cluster where they do.
 
 ## 3. `data/processed/city_<scene>.json` — OSM city geometry for the 3D scene
 
@@ -68,6 +72,7 @@ and `properties.utility` may be the recorded owner or `"unknown"`.
   "roads":      [{"kind":"motorway|primary|secondary|residential|rail", "line":[[x,y],...]}],
   "water":      [{"kind":"river|coast|canal|lake", "polygon":[[x,y],...]}],
   "parks":      [{"kind":"park|wood|grass|wetland", "polygon":[[x,y],...]}],
+  "pois":       [{"name":"Forsyth Park", "kind":"place|natural|amenity|waterway", "x":12.0, "y":34.0}],
   "bounds_m":   {"min_x":..,"max_x":..,"min_y":..,"max_y":..}
 }
 ```
@@ -115,9 +120,31 @@ Timeline overlap = mandatory secondary signal; overlaps list separates
 
 ## 6. API endpoints (FastAPI, port 8000)
 
-- `GET /api/health` → `{"ok": true}`
+- `GET /api/health` → `{"ok": true, "processed": [...artifact files...]}`
 - `GET /api/projects?utility=&zone=` → projects.geojson contents
 - `GET /api/basemap?zone=` → basemap.geojson contents
 - `GET /api/city/{scene}` → city_<scene>.json
+- `GET /api/regions` → scene/tile index: id, label, lon/lat bounds, center,
+  artifact name, `built` flag, size_mb (statewide entries may be `built: false`)
 - `GET /api/overlaps?tier=&timeline_only=` → overlaps.json
+- `GET /api/overlaps.csv?tier=&timeline_only=` → ranked flat CSV export
 - `GET /api/stats` → counts per utility/tier for dashboard header
+- `GET /api/raw/{path}` → raw filing (path-confined to `data/raw/`)
+
+Analysis API (`src/analysis/`, deterministic — no model):
+- `GET /api/analysis/timeline` → yearly + quarterly build bands per utility,
+  per-overlap shared-window stats, longest window, bucket histogram
+- `GET /api/analysis/impacts?top=N` → all impact rows or top-N by savings high
+- `GET /api/analysis/impact/{overlap_id}` → shared_corridor_km, row_width_m,
+  corridor/zone/shared-ROW acres, shared_window_months, crew_share_days,
+  est_savings_usd_range {low, high, basis}, assumptions[], confidence
+
+Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
+- `GET /api/agent/health` → `{configured, model, tools, max_rounds}`
+- `POST /api/agent/chat` → `{messages, overlap_id?}` →
+  `{reply, reasoning, tool_trace[{tool,args,preview}], rounds, usage, finish_reason}`
+- `GET /api/agent/brief/{overlap_id}` → `{overlap_id, brief, reasoning, usage}`
+
+Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
+`get_project`, `top_overlaps`, `get_overlap`, `projects_near`,
+`timeline_summary`, `impact_estimate`, `gazetteer`.

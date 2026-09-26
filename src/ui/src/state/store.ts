@@ -15,6 +15,8 @@ interface AppState {
   timelineOnly: boolean
   /** Project currently hovered on the map (projects.geojson `project_id`) */
   hoveredProjectId: string | null
+  /** World-space point the camera should fly to [x, z] meters (null = none) */
+  focusTarget: [number, number] | null
   /** Left opportunities panel open/collapsed */
   panelOpen: boolean
 
@@ -23,6 +25,7 @@ interface AppState {
   toggleTier: (tier: Tier) => void
   setTimelineOnly: (value: boolean) => void
   setHoveredProject: (id: string | null) => void
+  setFocusTarget: (target: [number, number] | null) => void
   setPanelOpen: (open: boolean) => void
 }
 
@@ -33,6 +36,7 @@ export const useAppStore = create<AppState>()((set) => ({
   // Timeline overlap is the mandatory secondary signal (AGENTS.md §8) — on by default
   timelineOnly: true,
   hoveredProjectId: null,
+  focusTarget: null,
   panelOpen: true,
 
   setActiveScene: (scene) => set({ activeScene: scene }),
@@ -43,5 +47,6 @@ export const useAppStore = create<AppState>()((set) => ({
     })),
   setTimelineOnly: (value) => set({ timelineOnly: value }),
   setHoveredProject: (id) => set({ hoveredProjectId: id }),
+  setFocusTarget: (target) => set({ focusTarget: target }),
   setPanelOpen: (open) => set({ panelOpen: open }),
 }))

@@ -25,6 +25,8 @@ uv pip install --python venv/bin/python -r requirements.txt
 # --- download real public data (no API keys needed) ---
 ./venv/bin/python -m src.ingestion.hifld_download   # HIFLD grid layers
 ./venv/bin/python -m src.ingestion.osm_download     # OSM city geometry
+./venv/bin/python -m src.ingestion.osm_pois         # named places (label chips)
+./venv/bin/python -m src.ingestion.osm_power        # named substations (gazetteer)
 
 # --- run the processing pipeline ---
 ./scripts/pipeline.sh                 # raw -> processed -> overlaps.json
@@ -38,6 +40,61 @@ cd src/ui && npm install && npm run dev
 ```
 
 Tests: `./venv/bin/python -m pytest tests/ -x -q`
+
+### Headless screenshots (visual regression / review)
+
+```bash
+./scripts/screenshot.sh                        # all presets -> shots/
+./scripts/screenshot.sh --out=/tmp/shots       # custom dir
+./scripts/screenshot.sh "name|scene=augusta&select=OV-0004&panel=0"
+```
+
+Requires the dev server + API running and a system `chromium` binary
+(software WebGL via `--enable-unsafe-swiftshader`, works GPU-less).
+Deep-link params (`src/ui/src/lib/urlParams.ts`):
+
+`?scene=savannah|augusta` `?select=<overlap_id>` (flies the camera)
+`?focus=<lon>,<lat>` `?panel=0|1` `?tiers=1,2,3,4` `?timeline=0|1`
+
+### AI coordination analyst (optional, server-side key)
+
+The backend exposes an agentic analyst that answers questions **by calling
+tools over the real processed data** — it never invents projects.
+
+```bash
+# .env (gitignored) — OpenAI-compatible chat-completions endpoint
+AGENT_API_KEY=<your key>
+AGENT_BASE_URL=https://api.tensormux.com/v1
+AGENT_MODEL=glm-4-7-flash
+```
+
+| Route | What |
+|---|---|
+| `GET /api/agent/health` | configured?, model, tool list, max rounds |
+| `POST /api/agent/chat` | `{messages: [{role,content}], overlap_id?}` → `{reply, reasoning, tool_trace, usage}` |
+| `GET /api/agent/brief/{overlap_id}` | one-shot coordination brief for a record |
+
+Tool layer (`src/agent/tools.py`): `stats`, `list_projects`, `get_project`,
+`top_overlaps`, `get_overlap`, `projects_near`, `timeline_summary`,
+`impact_estimate`, `gazetteer` — all read `data/processed/` only, unknown
+tools/bad args return `{error}` instead of crashing the loop. The engine
+(`src/agent/engine.py`) runs a bounded tool-call loop (native OpenAI
+`tools` + a JSON-fallback for models that can't emit `tool_calls`) and
+passes through the model's `reasoning` field when present.
+
+The UI mounts a minimal Drive-style `AgentBar` (bottom pill + quick chips)
+that sends conversation history + the selected overlap id as context.
+
+Deterministic analysis API (no model needed, `src/analysis/`):
+
+| Route | What |
+|---|---|
+| `GET /api/analysis/timeline` | yearly+quarterly build bands per utility, overlap-window stats |
+| `GET /api/analysis/impacts?top=N` | per-overlap cost/impact rows (shared-corridor km in UTM, ROW acres, savings range, crew-share days) |
+| `GET /api/analysis/impact/{id}` | one record, 404 on unknown id |
+
+Other additions: `GET /api/regions` (scene/tile index — the contract for
+statewide coverage) and `GET /api/overlaps.csv` (ranked flat export).
 
 ## 2. Data sources (all public, zero API keys)
 
@@ -64,16 +121,41 @@ src/
   spatial/           # engine.py (STRtree + closest-point), tiers.py,
                      # timeline.py, ranker.py, schema.py
   api/               # FastAPI app (port 8000)
+  analysis/          # timeline bands + impact/cost estimates (pure fns)
+  agent/             # tool-calling analyst (client/engine/routes/tools)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
 tests/               # engine unit tests (synthetic fixtures, logic only)
 docs/DATA_SCHEMA.md  # the contract every stage follows
 scripts/pipeline.sh  # one-shot regen
+scripts/screenshot.{sh,mjs}  # headless UI captures -> shots/
 ```
 
 Overlap ranking (immutable rules, `src/spatial/tiers.py`):
 T1 touching · T2 < 1.6 km shared ROW · T3 < 8 km logistics · T4 < 40 km
 crews. Timeline overlap is the mandatory secondary signal — reported
 honestly, never faked.
+
+### Visual language (sketch-the-city)
+
+The map is monochrome "pencil on paper" (ArcGIS sketch-style technique):
+translucent white building faces (~0.2 alpha) with dark jittered/overshot
+ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
+`feTurbulence` paper grain behind a transparent canvas. **Color is
+reserved for the data layer**: planned project geometry uses utility
+colors, coordination zones use tier colors with diagonal hatching.
+Large zones get airier hatching + fainter fills so markup never floods;
+the map renders the top ~40 scored zones (all 226 stay listed/selectable).
+
+### Performance notes
+
+- `frameloop="demand"` — the scene renders only on change (controls,
+  selection, data landing). A 12 fps `FrameTicker` drives ambient
+  animation; camera flights self-pump at full speed. Hidden tab ⇒ zero GPU.
+- Shadow map baked once per scene (`autoUpdate=false`; layers poke
+  `useShadowRefresh` when casters mount) instead of re-rendered per frame.
+- `dpr` capped at 1.5, merged/instanced geometry everywhere, ≤~250 draw
+  calls, per-frame `useFrame` work limited to ~40 cheap opacity lerps.
+- API payloads gzip'd (`GZipMiddleware`): the ~27 MB city scene ships ~5 MB.
 
 ## 4. Extending it (what a coding agent should do)
 
@@ -91,6 +173,9 @@ honestly, never faked.
 ## 5. Security notes
 
 - `.env` is gitignored (see `.env.example`); no keys are required for
-  any data source used here.
+  any data source used here. `AGENT_API_KEY` is read **server-side only**
+  (`src/agent/client.py`) — it never enters the frontend bundle.
 - Raw filings/GIS downloads stay out of git via `.gitignore`.
-- API is read-only GET; `/api/raw/*` is path-confined to `data/raw/`.
+- API reads from `data/processed/` + `data/seeds/`; `/api/raw/*` is
+  path-confined to `data/raw/`. Agent tools can't mutate anything —
+  each call is a pure function over cached artifacts.

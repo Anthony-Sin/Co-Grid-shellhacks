@@ -1,13 +1,10 @@
 /**
- * Shared plumbing for the grid overlay:
- *  - utility brand colors (spec-fixed; deliberately NOT added to PALETTE)
- *  - GeoJSON (WGS84 lon/lat) -> scene-local meter projection helpers
- *  - polyline resampling for pylon anchors + catenary-ish wire sag
- *  - the per-scene feature filter (a feature belongs to a scene if ANY of
- *    its coordinates land within ~35km of that scene's center)
- *
- * All rendered positions are meters; three.js placement is [x, h, -y]
- * (north = -z) per repo convention.
+ * Shared plumbing for the grid overlay: utility brand colors (spec-fixed;
+ * deliberately NOT part of PALETTE), WGS84 lon/lat -> scene-local meter
+ * helpers, polyline resampling for pylon anchors + catenary-ish wire sag,
+ * and the per-scene filter (a feature belongs to a scene when ANY of its
+ * coords lands within ~35km of that scene's center).
+ * Positions are meters; three.js placement is [x, h, -y] (north = -z).
  */
 import type { BasemapProps, FeatureCollection, GeoFeature, ProjectProps } from '../../lib/api'
 import { lonLatToLocal, SCENE_CENTERS, type SceneId, type Vec2 } from '../../lib/projection'
@@ -226,6 +223,8 @@ export interface SceneProject {
   utility: string
   confidence: string
   voltageKv: number
+  /** free-text filing notes (used for honest fuel/shape hints) */
+  notes: string
   /** local-meter polylines (empty for point-sited projects) */
   lines: Vec2[][]
   /** local-meter points (empty for pure line projects) */
@@ -316,6 +315,13 @@ export function filterToScene(
     if (!p || !geomWithinRadius(f.geometry, center, PROJECT_RADIUS_M)) continue
     const centroidLl = geomCentroid(f.geometry)
     if (!centroidLl) continue
+    const lines = geomLines(f.geometry).map((part) => projectLine(part, center))
+    // a point-sited project filed with only a route still needs a site —
+    // anchor it at the first vertex so it renders *something* honest
+    const points = geomPoints(f.geometry).map(([lon, lat]) =>
+      lonLatToLocal(lon, lat, center),
+    )
+    if (points.length === 0 && lines.length > 0) points.push(lines[0][0])
     const sp: SceneProject = {
       id: p.project_id ?? p.name ?? 'unknown',
       name: p.name ?? p.project_id ?? 'unnamed project',
@@ -323,12 +329,16 @@ export function filterToScene(
       utility: p.utility ?? '',
       confidence: p.location_confidence ?? 'approximate',
       voltageKv: p.voltage_kv ?? 0,
-      lines: geomLines(f.geometry).map((part) => projectLine(part, center)),
-      points: geomPoints(f.geometry).map(([lon, lat]) => lonLatToLocal(lon, lat, center)),
+      notes: p.notes ?? '',
+      lines,
+      points,
       centroid: lonLatToLocal(centroidLl[0], centroidLl[1], center),
     }
     grid.projects.push(sp)
-    if (LINE_KINDS.has(sp.kind)) grid.lineProjects.push(sp)
+    // corridor work is drawn as a line even when kind is 'upgrade' — the
+    // geometry is the source of truth (real filings have upgrade LineStrings)
+    if (LINE_KINDS.has(sp.kind) || (STATION_KINDS.has(sp.kind) && sp.lines.length > 0))
+      grid.lineProjects.push(sp)
     else if (STATION_KINDS.has(sp.kind)) grid.stationProjects.push(sp)
     else if (sp.kind === 'plant') grid.plantProjects.push(sp)
     // unknown kinds still get their ProjectMarkers chip via grid.projects

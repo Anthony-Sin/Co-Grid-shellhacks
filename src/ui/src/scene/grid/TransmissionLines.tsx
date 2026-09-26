@@ -39,6 +39,7 @@ export function ExistingLines({ lines }: { lines: readonly SceneLine[] }) {
     const light: V3[] = []
     const heavy: V3[] = []
     const pylonAnchors: Anchor[] = []
+    const cap2 = 40_000 * 40_000 // towers beyond the fog line aren't worth drawing
     for (const l of lines) {
       const dst = l.voltage >= 230 ? heavy : light
       const pts = l.points
@@ -46,7 +47,9 @@ export function ExistingLines({ lines }: { lines: readonly SceneLine[] }) {
         dst.push([pts[i][0], EXISTING_H, -pts[i][1]])
         dst.push([pts[i + 1][0], EXISTING_H, -pts[i + 1][1]])
       }
-      if (l.voltage >= 345) pylonAnchors.push(...resampleLine(pts, EXISTING_PYLON_SPACING))
+      if (l.voltage >= 345)
+        for (const a of resampleLine(pts, EXISTING_PYLON_SPACING))
+          if (a.x * a.x + a.y * a.y <= cap2) pylonAnchors.push(a)
     }
     return { light, heavy, pylonAnchors }
   }, [lines])
@@ -86,37 +89,31 @@ export function ExistingLines({ lines }: { lines: readonly SceneLine[] }) {
 
 interface PreparedLine {
   project: SceneProject
-  /** per-line-part anchors (vertices + ~320m resample) */
-  partAnchors: Anchor[][]
+  /** per-part wire polylines (sagged or straight, already [x,y,z]) */
+  wires: V3[][]
   /** all anchors across parts -> pylon placements */
   pylons: Anchor[]
+  dashed: boolean
 }
 
 /** A single planned corridor: sagging wire + pylons. */
 function PlannedCorridor({ prep }: { prep: PreparedLine }) {
   const color = utilityColor(prep.project.utility)
-  const dashed = prep.project.confidence === 'endpoint_only'
   return (
     <group>
-      {prep.partAnchors.map((anchors, i) => {
-        if (anchors.length < 2) return null
-        const pts = dashed
-          ? anchors.map((a): V3 => [a.x, WIRE_H, -a.y])
-          : sagWirePoints(anchors, WIRE_H)
-        return (
-          <Line
-            key={i}
-            points={pts}
-            lineWidth={3.5}
-            color={color}
-            dashed={dashed}
-            dashSize={70}
-            gapSize={45}
-            transparent
-            opacity={0.95}
-          />
-        )
-      })}
+      {prep.wires.map((pts, i) => (
+        <Line
+          key={i}
+          points={pts}
+          lineWidth={3.5}
+          color={color}
+          dashed={prep.dashed}
+          dashSize={70}
+          gapSize={45}
+          transparent
+          opacity={0.95}
+        />
+      ))}
       <PylonInstances anchors={prep.pylons} />
     </group>
   )
@@ -147,8 +144,16 @@ export function PlannedLines({ projects }: { projects: readonly SceneProject[] }
   const prepared = useMemo<PreparedLine[]>(
     () =>
       projects.map((p) => {
+        const dashed = p.confidence === 'endpoint_only'
         const partAnchors = p.lines.map((line) => resampleLine(line, PYLON_SPACING))
-        return { project: p, partAnchors, pylons: partAnchors.flat() }
+        const wires = partAnchors
+          .filter((a) => a.length >= 2)
+          .map((anchors) =>
+            dashed
+              ? anchors.map((a): V3 => [a.x, WIRE_H, -a.y])
+              : sagWirePoints(anchors, WIRE_H),
+          )
+        return { project: p, wires, pylons: partAnchors.flat(), dashed }
       }),
     [projects],
   )

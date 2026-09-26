@@ -51,12 +51,26 @@ export function ParksLayer({ parks }: { parks: CityPolygon[] }) {
     <group>
       {built.light ? (
         <mesh geometry={built.light} receiveShadow>
-          <meshStandardMaterial color={PALETTE.park.light} flatShading roughness={1} metalness={0} />
+          <meshStandardMaterial
+            color={PALETTE.park.light}
+            flatShading
+            roughness={1}
+            metalness={0}
+            transparent
+            opacity={0.6}
+          />
         </mesh>
       ) : null}
       {built.deep ? (
         <mesh geometry={built.deep} receiveShadow>
-          <meshStandardMaterial color={PALETTE.park.deep} flatShading roughness={1} metalness={0} />
+          <meshStandardMaterial
+            color={PALETTE.park.deep}
+            flatShading
+            roughness={1}
+            metalness={0}
+            transparent
+            opacity={0.6}
+          />
         </mesh>
       ) : null}
     </group>

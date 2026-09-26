@@ -1,0 +1,136 @@
+"""Unit tests for src/analysis — small synthetic in-code fixtures only
+(these test LOGIC, never rendered as data; AGENTS.md §7 unaffected)."""
+from __future__ import annotations
+
+import json
+
+from shapely.geometry import LineString, Polygon, mapping
+
+from src.analysis.impact import WORKING_DAYS_PER_MONTH, build_impacts
+from src.analysis.timeline import build_timeline, windows, yearly_band
+
+
+def _feat(pid, util, start, end, geom=None, kv=115):
+    return {
+        "type": "Feature",
+        "properties": {
+            "project_id": pid, "utility": util, "name": pid,
+            "kind": "transmission_line", "voltage_kv": kv,
+            "start_year": start, "end_year": end,
+        },
+        "geometry": mapping(geom) if geom is not None else None,
+    }
+
+
+def _ov(oid, a, b, sw, tier=3):
+    return {
+        "overlap_id": oid, "project_a": a, "project_b": b,
+        "utilities": ["GPC", "DESC"], "min_distance_km": 2.0,
+        "tier": tier, "tier_threshold_km": {1: .03, 2: 1.6, 3: 8., 4: 40.}[tier],
+        "timeline_overlap": sw is not None, "shared_window": sw,
+        "zone_geometry": None,
+    }
+
+
+# --- timeline: yearly band ----------------------------------------------------
+
+def test_yearly_band_counts_and_skips():
+    feats = [
+        _feat("A", "GPC", 2026, 2029),
+        _feat("B", "DESC", 2027, 2030),
+        _feat("C", "DESC", None, 2030),   # missing start -> skipped, honestly
+    ]
+    ovs = [_ov("OV-1", "A", "B", {"start": 2027, "end": 2029}),
+           _ov("OV-2", "A", "C", None)]
+    band = yearly_band(feats, ovs)
+    assert band["span"] == {"start": 2026, "end": 2030}
+    rows = {r["year"]: r for r in band["rows"]}
+    assert rows[2026]["total"] == 1 and rows[2026]["by_utility"] == {"GPC": 1}
+    assert rows[2028]["total"] == 2 and rows[2028]["overlaps_active"] == 1
+    assert rows[2030]["total"] == 1 and rows[2030]["overlaps_active"] == 0
+    assert band["projects_skipped_missing_dates"] == 1
+    assert band["overlaps_without_window"] == 1
+    assert len(band["rows"]) == 5
+
+
+def test_window_buckets_and_longest():
+    ovs = [
+        _ov("OV-1", "A", "B", {"start": 2027, "end": 2029}),   # len 2 -> 1-3yr
+        _ov("OV-2", "A", "B", {"start": 2028, "end": 2032}),   # len 4 -> >3yr
+        _ov("OV-3", "A", "B", {"start": 2026, "end": 2026}),   # 0yr
+        _ov("OV-4", "A", "B", None),                            # none
+    ]
+    w = windows(ovs)
+    assert w["buckets"] == {"none_or_0yr": 2, "lt_1yr": 0,
+                           "1_to_3yr": 1, "gt_3yr": 1}
+    assert w["longest_shared_window"] == {
+        "overlap_id": "OV-2", "start": 2028, "end": 2032, "length_years": 4}
+    assert w["count"] == 4
+
+
+def test_quarterly_band_even_span():
+    feats = [_feat("A", "GPC", 2026, 2027)]
+    ovs = [_ov("OV-1", "A", "B", {"start": 2027, "end": 2027})]
+    q = build_timeline({"features": feats}, {"overlaps": ovs})["quarterly"]
+    labels = [r["quarter"] for r in q["rows"]]
+    assert labels == ["2026Q1", "2026Q2", "2026Q3", "2026Q4",
+                      "2027Q1", "2027Q2", "2027Q3", "2027Q4"]
+    assert all(r["total"] == 1 for r in q["rows"])
+    by_label = {r["quarter"]: r for r in q["rows"]}
+    assert by_label["2027Q4"]["overlaps_active"] == 1
+    assert by_label["2026Q1"]["overlaps_active"] == 0
+
+
+# --- impact --------------------------------------------------------------------
+
+def _zone(lon0, lat0, lon1, lat1):
+    return mapping(Polygon([(lon0, lat0), (lon1, lat0), (lon1, lat1),
+                            (lon0, lat1), (lon0, lat0)]))
+
+
+def test_impact_shared_corridor_positive():
+    # Two parallel ~4.7 km lines ~2 km apart near Savannah (WGS84).
+    a = LineString([(-81.10, 32.30), (-81.05, 32.30)])
+    b = LineString([(-81.10, 32.318), (-81.05, 32.318)])
+    projects = {"features": [
+        _feat("A", "GPC", 2026, 2030, a, kv=230),
+        _feat("B", "DESC", 2027, 2032, b, kv=230),
+    ]}
+    ov = _ov("OV-1", "A", "B", {"start": 2027, "end": 2029}, tier=3)
+    ov["zone_geometry"] = _zone(-81.11, 32.29, -81.04, 32.33)
+    [imp] = build_impacts(projects, {"overlaps": [ov]})
+    # B's 8 km tier-radius easily contains A -> corridor ~= A's full length.
+    assert 4.0 < imp["shared_corridor_km"] < 5.5
+    assert imp["row_width_m_assumed"] == 60.0     # 230 kV wins
+    assert imp["shared_row_acres"] > 0
+    assert imp["shared_row_acres"] <= imp["zone_area_acres"]
+    assert imp["shared_window_months"] == 36      # 2027-2029 inclusive
+    assert imp["crew_share_days"] == 36 * WORKING_DAYS_PER_MONTH
+    s = imp["est_savings_usd_range"]
+    assert s["low"] > 0 and s["high"] > s["low"]
+    assert imp["confidence"] == "rough_estimate" and imp["assumptions"]
+    json.dumps(imp)  # serializable
+
+
+def test_impact_honesty_missing_inputs():
+    # No shared window + one project not in the file -> nulls, never fakes.
+    projects = {"features": [_feat("A", "GPC", 2026, 2030,
+                                   LineString([(-81.1, 32.3), (-81.0, 32.3)]))]}
+    ov = _ov("OV-9", "A", "MISSING", None, tier=4)
+    [imp] = build_impacts(projects, {"overlaps": [ov]})
+    assert imp["shared_corridor_km"] is None
+    assert imp["shared_row_acres"] is None
+    assert imp["shared_window_months"] is None
+    assert imp["crew_share_days"] is None
+    assert imp["est_savings_usd_range"] is None
+    assert imp["timeline_overlap"] is False
+    assert any("not found" in a or "No shared_window" in a
+               for a in imp["assumptions"])
+
+
+def test_build_timeline_shape_serializable():
+    feats = [_feat("A", "GPC", 2026, 2029), _feat("B", "DESC", 2027, 2030)]
+    ovs = [_ov("OV-1", "A", "B", {"start": 2027, "end": 2029})]
+    out = build_timeline({"features": feats}, {"overlaps": ovs})
+    assert set(out) >= {"yearly", "quarterly", "windows"}
+    json.dumps(out)

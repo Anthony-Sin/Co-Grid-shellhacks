@@ -22,6 +22,7 @@ import { ExistingLines, PlannedLines } from './TransmissionLines'
 import { ExistingSubstations, PlannedStations } from './Stations'
 import { ExistingPlants, PlannedPlants } from './Plants'
 import { ProjectMarkers } from './ProjectMarkers'
+import { useShadowRefresh } from '../city/cityUtils'
 
 interface GridData {
   basemap: FeatureCollection<BasemapProps>
@@ -68,6 +69,9 @@ export function GridOverlay() {
     () => (data ? filterToScene(data.basemap, data.projects, activeScene) : null),
     [data, activeScene],
   )
+
+  // Pylons/plants/substations cast shadows — re-bake once when they change.
+  useShadowRefresh(grid)
 
   if (!grid) return null
   return (
