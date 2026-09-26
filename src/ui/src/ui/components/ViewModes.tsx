@@ -234,7 +234,9 @@ function SceneSection() {
 }
 
 export function ViewModes() {
-  const [open, setOpen] = useState(true)
+  // starts collapsed — the card shares the bottom-left corner with the
+  // overlaps panel, so it only overlays that space while the user has it open
+  const [open, setOpen] = useState(false)
 
   if (!open) {
     return (

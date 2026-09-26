@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type AgentHealth, type AgentReply } from '../../lib/api'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { MsgView, type Msg, type OverlapSelectFn } from './md'
 import { useAppStore } from '../../state/store'
 
@@ -148,9 +149,13 @@ export function AgentBar() {
   const onSelectOv = useCallback<OverlapSelectFn>(
     (oid, scene) => {
       if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
+        // deep-link form carries its own authoritative scene
         setActiveScene(scene)
+        selectOverlap(oid)
+      } else {
+        // bare OV-id — resolve the record's zone → scene
+        selectOverlapInScene(oid)
       }
-      selectOverlap(oid)
     },
     [setActiveScene, selectOverlap],
   )
@@ -404,7 +409,11 @@ export function AgentBar() {
           {msgs.map((m, i) => (
             <MsgView key={i} m={m} onSelect={onSelectOv} />
           ))}
-          {busy && <div className="agent-msg assistant agent-thinking">analyzing…</div>}
+          {/* skip the generic spinner while a ⚙ progress line already
+              shows which tool is running — one indicator, not two */}
+          {busy && !msgs[msgs.length - 1]?.progress && (
+            <div className="agent-msg assistant agent-thinking">analyzing…</div>
+          )}
         </div>
       )}
 

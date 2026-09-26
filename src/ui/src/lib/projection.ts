@@ -29,14 +29,6 @@ export function lonLatToLocal(lon: number, lat: number, center: Vec2): Vec2 {
   return [x, y]
 }
 
-/** Inverse of {@link lonLatToLocal}: local meters -> [lon, lat] */
-export function localToLonLat(x: number, y: number, center: Vec2): Vec2 {
-  const [c0, c1] = center
-  const lon = c0 + x / (METERS_PER_DEG_LON_EQUATOR * Math.cos((c1 * Math.PI) / 180))
-  const lat = c1 + y / METERS_PER_DEG_LAT
-  return [lon, lat]
-}
-
 /** Mirror of src/processing/projection.py `scene_for_zone` — zone tag →
  * best-fit scene. Selecting an overlap outside the active scene must
  * switch scenes first or the camera flies to empty space. Keep in sync. */

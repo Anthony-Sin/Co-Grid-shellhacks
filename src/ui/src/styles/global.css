@@ -625,5 +625,13 @@ button {
   .vm-scene {
     transition: none;
   }
+
+  /* zone hatch breathing + camera glides honor the OS preference too */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 

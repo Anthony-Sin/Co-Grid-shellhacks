@@ -88,6 +88,7 @@ export function HeaderBar() {
             key={s.id}
             type="button"
             className={`scene-btn${s.id === activeScene ? ' is-active' : ''}`}
+            aria-pressed={s.id === activeScene}
             onClick={() => setActiveScene(s.id)}
           >
             {s.label}

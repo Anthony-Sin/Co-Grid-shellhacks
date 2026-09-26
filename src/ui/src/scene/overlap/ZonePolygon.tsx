@@ -23,6 +23,7 @@ import * as THREE from 'three'
 import { Line } from '@react-three/drei'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { PALETTE, TIER_COLORS } from '../../lib/palette'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
 import { polygonShape } from '../shapeUtils'
 import { mixHex, type ZoneDatum } from './zoneData'
@@ -116,7 +117,7 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
   // handlers keeps this component unsubscribed — `highlighted` is a prop.
   const onSelect = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
-    useAppStore.getState().selectOverlap(datum.rec.overlap_id)
+    selectOverlapInScene(datum.rec.overlap_id, datum.rec.zone)
   }
   const onHover = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()

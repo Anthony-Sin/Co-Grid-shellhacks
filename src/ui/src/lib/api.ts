@@ -247,7 +247,6 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export const api = {
-  health: () => get<{ ok: boolean; processed: string[] }>('/api/health'),
   city: (scene: SceneId) => get<CityScene>(`/api/city/${scene}`),
   projects: () => get<FeatureCollection<ProjectProps>>('/api/projects'),
   basemap: () => get<FeatureCollection<BasemapProps>>('/api/basemap'),

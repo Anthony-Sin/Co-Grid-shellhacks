@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TIERS, TIER_COLORS } from '../../lib/palette'
 import { passesListFilters } from '../../lib/overlapFilters'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
 import { useOverlaps, useProjects, useRegions } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
@@ -350,8 +351,11 @@ export function OverlapPanel() {
         const ae = document.activeElement as HTMLElement | null
         if (ae && ae !== document.body && ae.closest('button, a, input, select, textarea')) return
         e.preventDefault()
-        const id = shown[cursor].overlap_id
-        selectOverlap(selectedOverlapId === id ? null : id)
+        const rec = shown[cursor]
+        selectOverlapInScene(
+          selectedOverlapId === rec.overlap_id ? null : rec.overlap_id,
+          rec.zone,
+        )
       } else if (e.key === 'Escape') {
         if (selectedOverlapId) selectOverlap(null)
         else setPanelOpen(false)
@@ -405,7 +409,12 @@ export function OverlapPanel() {
                 selected={selectedOverlapId === o.overlap_id}
                 hovered={hoveredOverlapId === o.overlap_id}
                 onHover={setHoveredOverlap}
-                onSelect={() => selectOverlap(selectedOverlapId === o.overlap_id ? null : o.overlap_id)} />
+                onSelect={() =>
+                  selectOverlapInScene(
+                    selectedOverlapId === o.overlap_id ? null : o.overlap_id,
+                    o.zone,
+                  )
+                } />
             ))}
           </ul>
         )}

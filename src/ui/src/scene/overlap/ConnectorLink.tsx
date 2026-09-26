@@ -15,7 +15,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Html, Line } from '@react-three/drei'
 import { PALETTE, TIER_COLORS } from '../../lib/palette'
-import { useAppStore } from '../../state/store'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import type { ZoneDatum } from './zoneData'
 
 /** Height of arc endpoints + ink dots above the map. */
@@ -39,7 +39,6 @@ export interface ConnectorLinkProps {
 }
 
 export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, showChip = true }: ConnectorLinkProps) {
-  const selectOverlap = useAppStore((s) => s.selectOverlap)
   const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
 
   const a = useMemo(
@@ -101,7 +100,9 @@ export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, sho
         <Html position={chipPos} center zIndexRange={[80, 0]}>
           <button
             type="button"
-            onClick={() => selectOverlap(selected ? null : datum.rec.overlap_id)}
+            onClick={() =>
+              selectOverlapInScene(selected ? null : datum.rec.overlap_id, datum.rec.zone)
+            }
             title={datum.rec.explanation}
             style={{
               display: 'inline-flex',

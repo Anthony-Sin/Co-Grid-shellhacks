@@ -23,16 +23,32 @@ export interface ApiDataState<T> {
  * is up (honest "backend offline" state, not a cached failure forever).
  */
 const requestCache = new Map<string, Promise<unknown>>()
+const resolvedCache = new Map<string, unknown>()
 
 export function deduped<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = requestCache.get(key)
   if (hit) return hit as Promise<T>
-  const p = fetcher().catch((err: unknown) => {
-    requestCache.delete(key)
-    throw err
-  })
+  const p = fetcher()
+    .then((data) => {
+      resolvedCache.set(key, data)
+      return data
+    })
+    .catch((err: unknown) => {
+      requestCache.delete(key)
+      resolvedCache.delete(key)
+      throw err
+    })
   requestCache.set(key, p)
   return p
+}
+
+/**
+ * Synchronous read of the shared cache — for non-React code paths (e.g.
+ * selectOverlapInScene) that need already-loaded data. Returns null while
+ * the request is in flight or was never issued; never triggers a fetch.
+ */
+export function peekApiData<T>(key: string): T | null {
+  return (resolvedCache.get(key) as T | undefined) ?? null
 }
 
 /**

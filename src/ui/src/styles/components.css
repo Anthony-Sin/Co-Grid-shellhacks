@@ -184,6 +184,13 @@
      grow off the top of short viewports (children shrink/scroll) */
   max-height: calc(100vh - 80px);
   z-index: 90;
+  /* the rail's gaps are dead space — only the cards themselves take clicks,
+     so the map stays draggable between/around them */
+  pointer-events: none;
+}
+
+.right-rail > * {
+  pointer-events: auto;
 }
 
 .overlap-detail {

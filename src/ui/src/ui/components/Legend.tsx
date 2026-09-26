@@ -125,6 +125,10 @@ export function Legend() {
           )}
         </ul>
 
+        <p className="legend-note" title="the ranked list holds every record">
+          map renders top 40 zones · full list in panel
+        </p>
+
         <details className="legend-sources">
           <summary>Data sources</summary>
           <p>HIFLD · OpenStreetMap · SCRTP/SERTP &amp; GA/SC PSC filings</p>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TIER_COLORS } from '../../lib/palette'
+import { sceneForZone } from '../../lib/projection'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
 import { useImpact, useNearby, useOverlaps, useProjects } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
@@ -238,7 +240,6 @@ function ImpactFallback({ overlapId }: { overlapId: string }) {
  * yard's neighbors are one click apart. Honest: nothing until data lands. */
 function NearbyCount({ overlapId }: { overlapId: string }) {
   const nb = useNearby(overlapId, 15)
-  const selectOverlap = useAppStore((s) => s.selectOverlap)
   if (nb.loading || nb.error || !nb.data) return null
   const n = nb.data.neighbor_count
   const neighbors = nb.data.neighbors.slice(0, 6)
@@ -253,7 +254,7 @@ function NearbyCount({ overlapId }: { overlapId: string }) {
               type="button"
               className="nb-chip mono"
               title={`tier ${x.tier} · ${x.distance_km.toFixed(1)} km away — jump to site`}
-              onClick={() => selectOverlap(x.overlap_id)}
+              onClick={() => selectOverlapInScene(x.overlap_id)}
             >
               {x.overlap_id}
             </button>
@@ -362,7 +363,6 @@ function DetailBody({
 export function OverlapDetail() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
   const selectOverlap = useAppStore((s) => s.selectOverlap)
-  const activeScene = useAppStore((s) => s.activeScene)
   const setAgentPromptDraft = useAppStore((s) => s.setAgentPromptDraft)
   const overlaps = useOverlaps()
   const projects = useProjects()
@@ -405,7 +405,9 @@ export function OverlapDetail() {
   }
 
   const copyLink = () => {
-    const url = `${window.location.origin}/?scene=${activeScene}` +
+    // deep link encodes the overlap's own scene — not whichever scene the
+    // viewer happens to be in — so the link never opens the wrong corridor
+    const url = `${window.location.origin}/?scene=${sceneForZone(o?.zone)}` +
       `&select=${selectedOverlapId}&panel=0`
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(flashCopied).catch(() => {
@@ -431,7 +433,7 @@ export function OverlapDetail() {
             <button
               type="button" className="detail-navbtn" disabled={rank <= 1}
               aria-label="Previous overlap by rank" title={rank > 1 ? `#${rank - 1}` : 'first'}
-              onClick={() => selectOverlap(orderedIds[rank - 2])}
+              onClick={() => selectOverlapInScene(orderedIds[rank - 2])}
             >‹</button>
             <span className="detail-rank mono" title="rank in the engine-ordered list">
               #{rank} of {total.toLocaleString('en-US')}
@@ -439,7 +441,7 @@ export function OverlapDetail() {
             <button
               type="button" className="detail-navbtn" disabled={rank >= orderedIds.length}
               aria-label="Next overlap by rank" title={rank < orderedIds.length ? `#${rank + 1}` : 'last'}
-              onClick={() => selectOverlap(orderedIds[rank])}
+              onClick={() => selectOverlapInScene(orderedIds[rank])}
             >›</button>
           </span>
         )}
