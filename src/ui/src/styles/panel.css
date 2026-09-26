@@ -1,37 +1,137 @@
-/* OverlapPanel additions — search, presets, sort, utility chips, selection
-   banner, OV-id/rank row meta, hover brushing. Same paper/ink chrome as the
-   rest of the dashboard: 1.5px ink borders, 12px radius, hard offset
-   shadows, uppercase letter-spaced labels, .mono for numbers.
-   All class names are new and pnl- prefixed (or state modifiers on existing
-   classes) — nothing here redefines global.css/components.css rules. */
+/* OverlapPanel — TomTom-style floating drawer + dense ranked table.
+   Same paper/ink chrome as the rest of the dashboard: 1.5–2px ink borders,
+   ~12–16px radius, hard offset shadows, uppercase letter-spaced labels,
+   .mono for numbers.
 
-/* ---- panel head actions (csv export) --------------------------------------- */
+   LOAD-ORDER NOTE: component stylesheets (this file, viewmodes.css,
+   detail.css) evaluate BEFORE the main.tsx imports (global.css,
+   components.css, overrides.css), so every rule that *overrides* a base
+   rule in those sheets carries .app-shell ancestry for extra specificity.
+   Plain pnl- prefixed classes are new and conflict-free.
+   Sibling sheets for this drawer: panel-tf.css (TimeframeSlider),
+   panel-kpi.css (PanelStats), panel-table.css (OverlapTable/Row). */
 
-.pnl-head-actions {
+/* ==========================================================================
+   Drawer dock — aside + always-visible edge tab
+   ========================================================================== */
+
+.app-shell .panel-dock {
+  position: absolute;
+  top: 70px;
+  left: 14px;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
+  align-items: flex-start;
+  z-index: 90;
+  /* the dock's flex box is wider/taller than its cards (e.g. the strip
+     under the short edge tab) — only the cards themselves take clicks,
+     so the map stays draggable through the gaps (same trick as
+     .right-rail in components.css) */
+  pointer-events: none;
 }
 
-.pnl-csv {
-  padding: 2px 9px;
+.app-shell .panel-dock > * {
+  pointer-events: auto;
+}
+
+/* the aside joins the dock's flex row — global.css's absolute .panel
+   coords don't apply inside the dock */
+.app-shell .panel-dock .panel {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 344px; /* right edge 358px — stays clear of the agent-bar's 360px pin */
+  max-height: calc(100vh - 140px);
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 rgba(43, 43, 43, 0.18);
+  transition: transform 0.18s ease;
+}
+
+/* closed: the card slides fully off the left edge; visibility flips at the
+   end of the slide so hidden controls never take focus mid-transition */
+.app-shell .panel-dock.is-closed .panel {
+  transform: translateX(calc(-100% - 18px));
+  visibility: hidden;
+  transition: transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+/* edge tab — sprouts from the drawer's right ink border while open */
+.app-shell .panel-tab {
+  flex: none;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 14px;
+  margin-left: -2px; /* merge into the drawer's right border */
+  padding: 6px 10px 6px 7px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #2b2b2b;
-  text-decoration: none;
-  border: 1.5px solid #2b2b2b;
-  border-radius: 999px;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  box-shadow: 3px 3px 0 rgba(43, 43, 43, 0.18);
 }
 
-.pnl-csv:hover {
+.app-shell .panel-tab:hover {
   background: #2b2b2b;
   color: #f5f2ea;
 }
 
-/* ---- search ----------------------------------------------------------------- */
+.panel-tab-arrow {
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* closed: the tab leaves the flex row and hugs the canvas's left edge
+   (also carries .panel-reopen for the agent-bar :has() space reclaim) */
+.app-shell .panel-dock.is-closed .panel-tab {
+  position: absolute;
+  top: 14px;
+  left: -14px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* ---- scroll region + section rhythm -------------------------------------- */
+
+.app-shell .panel-body {
+  padding: 10px 12px 12px;
+}
+
+.pnl-sec {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.pnl-sec-title {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* The TIMEFRAME, KPI and dense-table rules live in their own sheets beside
+   the components that own them (panel-tf.css → TimeframeSlider,
+   panel-kpi.css → PanelStats, panel-table.css → OverlapTable) —
+   AGENTS.md §1 500-line cap. */
+
+/* ==========================================================================
+   Filter section — search, presets, toggles, utility chips, zone, sort
+   ========================================================================== */
+
+.pnl-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
 
 .pnl-search {
   width: 100%;
@@ -53,7 +153,7 @@
   color: rgba(43, 43, 43, 0.45);
 }
 
-/* ---- segmented controls (presets + sort) ------------------------------------- */
+/* segmented controls (presets + sort) */
 
 .pnl-seg {
   display: flex;
@@ -109,7 +209,7 @@
   opacity: 0.55;
 }
 
-/* ---- utility filter chips + active-filter chip -------------------------------- */
+/* utility filter chips + active-filter chip */
 
 .pnl-utils {
   display: flex;
@@ -174,7 +274,7 @@ button.pnl-chip:hover {
   opacity: 1;
 }
 
-/* ---- active-filter readout row + reset ---------------------------------------- */
+/* active-filter readout row + reset */
 
 .pnl-active-row {
   display: flex;
@@ -197,23 +297,14 @@ button.pnl-chip:hover {
   opacity: 1;
 }
 
-/* ---- keyboard hint ----------------------------------------------------------- */
-
-.pnl-keys {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  opacity: 0.45;
-  user-select: none;
-}
-
-/* ---- selection-outside-filters banner ----------------------------------------- */
+/* selection-outside-filters banner */
 
 .pnl-banner {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   padding: 7px 10px;
   font-size: 11px;
   font-weight: 600;
@@ -244,52 +335,21 @@ button.pnl-chip:hover {
   color: #f5f2ea;
 }
 
-/* ---- row left column: OV-id + engine rank -------------------------------------- */
-
-.pnl-rowmeta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding-top: 2px;
-}
-
-.pnl-ovid {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-}
-
-.pnl-ovrank {
-  font-size: 11px;
-  font-weight: 800;
-  opacity: 0.5;
-}
-
-/* ---- list<->map brushing -------------------------------------------------------
-   Same 1px ink shift as .overlap-row:hover plus a faint underline on the
-   project names so a map-hovered zone visibly matches its list row. */
-
-.overlap-row.is-hovered {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
-}
-
-.overlap-row.is-hovered .ov-names {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  text-decoration-color: rgba(43, 43, 43, 0.45);
-}
-
-/* ---- focus rings (dashed ink, same as global.css chrome) ------------------------ */
+/* ==========================================================================
+   Focus rings (dashed ink, same as global.css chrome)
+   ========================================================================== */
 
 .pnl-csv:focus-visible,
 .pnl-search:focus-visible,
 .pnl-chip:focus-visible,
 .pnl-chip-x:focus-visible,
 .pnl-reset:focus-visible,
-.pnl-banner-btn:focus-visible {
+.pnl-banner-btn:focus-visible,
+.pnl-ask:focus-visible,
+.tf-clear:focus-visible,
+.panel-tab:focus-visible,
+.ovr-h:focus-visible,
+.pnl-tier-row input:focus-visible {
   outline: 2px dashed #2b2b2b;
   outline-offset: 2px;
 }
@@ -304,79 +364,27 @@ button.pnl-chip:hover {
   outline-color: #f5f2ea;
 }
 
-/* ---- view-stats strip (KPI summary of the CURRENTLY FILTERED set) ----------
-   Congestion-dashboard blocks in paper/ink: one bordered card, micro
-   uppercase keys + mono values, tier color square keys, and the
-   "→ ask agent" affordance pinned right. Flex-wraps to a second row on
-   the narrow panel instead of truncating numbers. */
+/* ==========================================================================
+   Responsive + reduced motion
+   ========================================================================== */
 
-.pnl-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  margin-bottom: 10px;
-  padding: 7px 10px;
-  font-size: 10px;
-  color: #2b2b2b;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1.5px solid #2b2b2b;
-  border-radius: 10px;
-  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.18);
+/* the dock's % heights resolve against its own box, so viewport-relative
+   caps must be re-declared here (overrides.css's plain .panel rules lose
+   on specificity anyway) */
+@media (max-width: 859.98px) {
+  .app-shell .panel-dock .panel {
+    max-height: calc(100vh - 220px);
+  }
 }
 
-.pnl-stat {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
+@media (max-width: 700px) {
+  .app-shell .panel-dock .panel {
+    max-width: calc(100vw - 28px);
+  }
 }
 
-.pnl-stat-k {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.pnl-stat .mono {
-  font-weight: 800;
-}
-
-.pnl-stat--count .mono:first-child {
-  font-size: 12px;
-}
-
-/* tiny tier color square — deliberately square, not the circular .dot */
-.pnl-tierkey {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  align-self: center;
-  border: 1px solid rgba(43, 43, 43, 0.85);
-  border-radius: 2px;
-}
-
-.pnl-ask {
-  margin-left: auto;
-  padding: 2px 9px;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #2b2b2b;
-  background: #f5f2ea;
-  border: 1.5px solid #2b2b2b;
-  border-radius: 999px;
-}
-
-.pnl-ask:hover {
-  background: #2b2b2b;
-  color: #f5f2ea;
-}
-
-.pnl-ask:focus-visible {
-  outline: 2px dashed #2b2b2b;
-  outline-offset: 2px;
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .panel-dock .panel {
+    transition: none;
+  }
 }

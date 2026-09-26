@@ -10,9 +10,21 @@ const cx = (...c: Cls[]) => c.filter(Boolean).join(' ')
 /** tier number → human label (`o.tier_label` is the raw schema token). */
 const TIER_LABEL = new Map<number, string>(TIERS.map((t) => [t.tier, t.label]))
 
-/** 0 → "touching", else 1-decimal km (exact value lives in the detail card). */
-const fmtKm = (km: number) => (km <= 0 ? 'touching' : `${km.toFixed(1)} km`)
-const clampScore = (s: number) => Math.max(0, Math.min(100, s))
+/** Dense-column km: `0` means touching (tier 1 carries that signal); the
+ *  full-precision value lives in the tooltip + detail card. */
+const fmtKm = (km: number) => (km <= 0 ? '0' : km >= 99.95 ? km.toFixed(0) : km.toFixed(1))
+
+/** '27–'29 compact window readout — full years live in the detail card. */
+const fmtWindow = (w: { start: number; end: number }) =>
+  `'${String(w.start).slice(-2)}–'${String(w.end).slice(-2)}`
+
+/** Compact planning-level USD for the tooltip ($29.8M / $450k). */
+const fmtUsd = (n: number): string => {
+  const abs = Math.abs(n)
+  if (abs >= 1e6) return `$${(Math.round((n / 1e6) * 10) / 10).toString()}M`
+  if (abs >= 1e3) return `$${Math.round(n / 1e3)}k`
+  return `$${Math.round(n)}`
+}
 
 export interface RowProps {
   overlap: OverlapRecord; rank: number; selected: boolean; hovered: boolean
@@ -20,9 +32,11 @@ export interface RowProps {
 }
 
 /**
- * One ranked-list row: OV-id + engine rank, colored project names, human
- * tier label, timeline window chip (adjacent windows get the `→` handoff
- * glyph + honesty tooltip), score bar, and closest-point distance.
+ * One dense ranked-table row — a single line: engine rank, tier dot + T#,
+ * utility-colored project names (A ⇄ B, ellipsis-truncated), closest-point
+ * km, build window chip (adjacent windows get the `→` handoff glyph), and
+ * a tier-colored score badge. Hover/focus brushes the map
+ * (setHoveredOverlap); click toggles selection via selectOverlapInScene.
  */
 export function OverlapRow({ overlap: o, rank, selected, hovered, projectById, onSelect, onHover }: RowProps) {
   const a = projectById.get(o.project_a)
@@ -30,44 +44,60 @@ export function OverlapRow({ overlap: o, rank, selected, hovered, projectById, o
   const tierColor = TIER_COLORS[o.tier] ?? '#888888'
   const tierLabel = TIER_LABEL.get(o.tier) ?? o.tier_label.replace(/_/g, ' ')
 
+  const win =
+    o.timeline_overlap && o.shared_window
+      ? { text: fmtWindow(o.shared_window), cls: 'is-shared' }
+      : o.timeline_adjacent && o.adjacent_window
+        ? { text: `→${fmtWindow(o.adjacent_window)}`, cls: 'is-adjacent' }
+        : null
+
+  const title = [
+    `${o.overlap_id} — rank #${rank} · tier ${o.tier} (${tierLabel})`,
+    o.explanation,
+    o.cost
+      ? `est. savings ${fmtUsd(o.cost.est_savings_usd_low)}–${fmtUsd(o.cost.est_savings_usd_high)}`
+      : '',
+  ].filter(Boolean).join('\n')
+
   return (
     <li>
-      <button type="button" title={o.explanation} aria-pressed={selected} data-ovid={o.overlap_id}
-        className={cx('overlap-row', selected && 'is-selected', hovered && 'is-hovered')}
+      <button type="button" title={title} aria-pressed={selected} data-ovid={o.overlap_id}
+        className={cx('overlap-row', 'ovr', selected && 'is-selected', hovered && 'is-hovered')}
         onClick={onSelect}
         onMouseEnter={() => onHover(o.overlap_id)}
-        onMouseLeave={() => onHover(null)}>
-        <span className="pnl-rowmeta mono">
-          <span className="pnl-ovid">{o.overlap_id}</span>
-          <span className="pnl-ovrank">#{rank}</span>
+        onMouseLeave={() => onHover(null)}
+        onFocus={() => onHover(o.overlap_id)}
+        onBlur={() => onHover(null)}>
+        <span className="ovr-rank mono">{rank}</span>
+        <span className="ovr-tier" title={`tier ${o.tier} — ${tierLabel}`}>
+          <span className="dot" style={{ background: tierColor }} />
+          <span className="ovr-t mono">T{o.tier}</span>
         </span>
-        <span className="ov-main">
-          <span className="ov-tier">
-            <span className="dot" style={{ background: tierColor }} />
-            {tierLabel}
+        <span className="ovr-names">
+          <span className="ovr-name" style={{ color: utilityColor(a?.utility) }}>
+            {a?.name ?? o.project_a}
           </span>
-          <span className="ov-names">
-            <span style={{ color: utilityColor(a?.utility) }}>{a?.name ?? o.project_a}</span>
-            <span className="ov-swap" aria-hidden>⇄</span>
-            <span style={{ color: utilityColor(b?.utility) }}>{b?.name ?? o.project_b}</span>
-          </span>
-          <span className="ov-meta">
-            {o.timeline_overlap && o.shared_window ? (
-              <span className="chip-timeline mono">{o.shared_window.start}–{o.shared_window.end}</span>
-            ) : o.timeline_adjacent && o.adjacent_window ? (
-              <span className="chip-timeline is-adjacent mono" title="windows roll end-to-start — not a concurrent overlap">
-                →{o.adjacent_window.start}–{o.adjacent_window.end}
-              </span>
-            ) : (
-              <span className="chip-timeline is-none">no overlap</span>
-            )}
-            <span className="score-bar" title={`score ${o.score}`}>
-              <span className="score-fill" style={{ width: `${clampScore(o.score)}%`, background: tierColor }} />
-            </span>
-            <span className="score-num mono">{o.score.toFixed(0)}</span>
+          <span className="ov-swap" aria-hidden>⇄</span>
+          <span className="ovr-name" style={{ color: utilityColor(b?.utility) }}>
+            {b?.name ?? o.project_b}
           </span>
         </span>
-        <span className="ov-dist mono">{fmtKm(o.min_distance_km)}</span>
+        <span className="ovr-dist mono">{fmtKm(o.min_distance_km)}</span>
+        <span
+          className={cx('ovr-win mono', win ? win.cls : 'is-none')}
+          title={
+            win?.cls === 'is-adjacent'
+              ? 'windows roll end-to-start — handoff, not a concurrent overlap'
+              : win == null
+                ? 'no shared or adjacent window'
+                : 'shared build window'
+          }>
+          {win?.text ?? '—'}
+        </span>
+        <span className="ovr-score mono" style={{ color: tierColor }}
+          title={`score ${o.score.toFixed(0)}`}>
+          {o.score.toFixed(0)}
+        </span>
       </button>
     </li>
   )

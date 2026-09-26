@@ -1,13 +1,30 @@
 import { useMemo } from 'react'
-import { TIERS, TIER_COLORS } from '../../lib/palette'
+import { TIERS } from '../../lib/palette'
+import { useAppStore } from '../../state/store'
 import type { OverlapRecord, Tier } from '../../lib/api'
+import '../../styles/panel-kpi.css'
+
+type Cls = string | false | null | undefined
+const cx = (...c: Cls[]) => c.filter(Boolean).join(' ')
 
 /**
- * PanelStats — congestion-dashboard KPI strip for the CURRENTLY FILTERED
- * set (see OverlapPanel). Every number derives from `records`, never the
- * DOM-capped list and never the unfiltered total — the strip is the view's
- * honest summary (AGENTS.md §7). Renders nothing before data exists
- * (`total === 0`); an empty filter result still renders real zeros.
+ * PanelStats — the drawer's KPI block (TomTom congestion-panel style) for
+ * the CURRENTLY FILTERED set (see OverlapPanel):
+ *
+ *   ┌──────────────────────────────┐
+ *   │ COORDINATION LOAD  →ask agent │
+ *   │ 897  of 1,957 overlaps        │
+ *   │ [✓] ● touching           23   │  ← tier legend rows double as the
+ *   │ [✓] ● <1.6km shared ROW  102  │     visibleTiers toggles, and their
+ *   │ [ ] ● <8km logistics     388  │     counts ignore the tier toggle
+ *   │ [✓] ● <40km crews        384  │     itself (an off tier still shows
+ *   │ shared 812 · handoffs 85 ·…   │     how many it would contribute)
+ *   └──────────────────────────────┘
+ *
+ * Every number derives from `records`/`tierCounts`, never the DOM-capped
+ * list — the block is the view's honest summary (AGENTS.md §7). Renders
+ * nothing before data exists (`total === 0`); an empty filter result still
+ * renders a real zero.
  */
 
 /** Compact planning-level USD — mirrors HeaderBar's fmtUsd ($29.8M / $450k). */
@@ -19,8 +36,6 @@ function fmtUsd(n: number): string {
 }
 
 interface ViewStats {
-  /** records per tier — only tiers with count > 0 render a key segment */
-  tiers: Map<Tier, number>
   /** build windows intersect (the mandatory secondary signal, §8) */
   shared: number
   /** timeline_adjacent && !timeline_overlap — end-to-start handoffs */
@@ -34,17 +49,22 @@ interface ViewStats {
 }
 
 export interface PanelStatsProps {
-  /** the filtered set — NOT `shown` (the 200-row cap mustn't skew stats) */
+  /** the filtered set — NOT `shown` (the row cap mustn't skew stats) */
   records: OverlapRecord[]
   /** all.length — the "of M" denominator */
   total: number
+  /** per-tier counts of the view WITHOUT the tier toggles applied — an
+   *  unchecked tier keeps showing what it would contribute */
+  tierCounts: ReadonlyMap<Tier, number>
   /** hands the current filtered view to the analyst (store draft) */
   onAskAgent: () => void
 }
 
-export function PanelStats({ records, total, onAskAgent }: PanelStatsProps) {
+export function PanelStats({ records, total, tierCounts, onAskAgent }: PanelStatsProps) {
+  const visibleTiers = useAppStore((s) => s.visibleTiers)
+  const toggleTier = useAppStore((s) => s.toggleTier)
+
   const s = useMemo<ViewStats>(() => {
-    const tiers = new Map<Tier, number>()
     let shared = 0
     let handoffs = 0
     let costN = 0
@@ -52,7 +72,6 @@ export function PanelStats({ records, total, onAskAgent }: PanelStatsProps) {
     let costHigh = 0
     let nearest: number | null = null
     for (const o of records) {
-      tiers.set(o.tier, (tiers.get(o.tier) ?? 0) + 1)
       if (o.timeline_overlap) shared += 1
       else if (o.timeline_adjacent) handoffs += 1 // adjacent ∧ !overlap
       if (o.cost) {
@@ -64,60 +83,69 @@ export function PanelStats({ records, total, onAskAgent }: PanelStatsProps) {
         nearest = o.min_distance_km
       }
     }
-    return { tiers, shared, handoffs, costN, costLow, costHigh, nearest }
+    return { shared, handoffs, costN, costLow, costHigh, nearest }
   }, [records])
 
   if (total === 0) return null
 
   return (
-    <div className="pnl-stats" aria-label="Stats for the current filtered view">
-      <span className="pnl-stat pnl-stat--count" title="records passing the current filters">
-        <b className="mono">{records.length}</b>
-        <span className="pnl-stat-k">of</span>
-        <b className="mono">{total}</b>
-      </span>
+    <section className="pnl-kpi" aria-label="Coordination load for the current filtered view">
+      <div className="pnl-kpi-top">
+        <span className="pnl-sec-title">coordination load</span>
+        <button type="button" className="pnl-ask" onClick={onAskAgent}
+          title="ask the analyst about the current filtered set">
+          → ask agent
+        </button>
+      </div>
 
-      {TIERS.map((t) => {
-        const n = s.tiers.get(t.tier) ?? 0
-        if (n === 0) return null
-        return (
-          <span key={t.tier} className="pnl-stat pnl-stat--tier"
-            title={`tier ${t.tier} — ${t.hint}`}>
-            <i className="pnl-tierkey" style={{ background: TIER_COLORS[t.tier] }} aria-hidden />
-            <span className="pnl-stat-k">t{t.tier}</span>
-            <b className="mono">{n}</b>
-          </span>
-        )
-      })}
+      <div className="pnl-kpi-big" title="records passing the current filters">
+        <b className="mono">{records.length.toLocaleString('en-US')}</b>
+        <span className="pnl-kpi-of">of {total.toLocaleString('en-US')} overlaps</span>
+      </div>
 
-      <span className="pnl-stat" title="build windows intersect — joint work is schedulable">
-        <span className="pnl-stat-k">shared windows</span>
-        <b className="mono">{s.shared}</b>
-      </span>
-      <span className="pnl-stat" title="end-to-start adjacent windows — crew handoffs, not overlaps">
-        <span className="pnl-stat-k">handoffs</span>
-        <b className="mono">{s.handoffs}</b>
-      </span>
-      <span className="pnl-stat"
-        title={s.costN > 0
-          ? `summed over records with cost models (${s.costN} of ${records.length} in view)`
-          : 'no records in the current view carry a cost model'}>
-        <span className="pnl-stat-k">est. savings</span>
-        <b className="mono">
-          {s.costN > 0 ? `${fmtUsd(s.costLow)}–${fmtUsd(s.costHigh)}` : '—'}
-        </b>
-      </span>
-      <span className="pnl-stat" title="smallest closest-point distance in view">
-        <span className="pnl-stat-k">nearest</span>
-        <b className="mono">
-          {s.nearest === null ? '—' : s.nearest <= 0 ? 'touching' : `${s.nearest.toFixed(1)} km`}
-        </b>
-      </span>
+      <div className="pnl-kpi-tiers" role="group" aria-label="Toggle tiers">
+        {TIERS.map((t) => {
+          const on = visibleTiers[t.tier]
+          return (
+            <label key={t.tier} className={cx('pnl-tier-row', !on && 'is-off')}
+              title={`tier ${t.tier} — ${t.hint}`}>
+              <input type="checkbox" checked={on} onChange={() => toggleTier(t.tier)} />
+              <span className="dot" style={{ background: t.color }} />
+              <span className="pnl-tier-name">{t.label}</span>
+              <b className="pnl-tier-n mono">
+                {(tierCounts.get(t.tier) ?? 0).toLocaleString('en-US')}
+              </b>
+            </label>
+          )
+        })}
+      </div>
 
-      <button type="button" className="pnl-ask" onClick={onAskAgent}
-        title="ask the analyst about the current filtered set">
-        → ask agent
-      </button>
-    </div>
+      <div className="pnl-kpi-sub">
+        <span className="pnl-kpi-substat" title="build windows intersect — joint work is schedulable">
+          <span className="k">shared</span>
+          <b className="mono">{s.shared.toLocaleString('en-US')}</b>
+        </span>
+        <span className="pnl-kpi-substat"
+          title="end-to-start adjacent windows — crew handoffs, not overlaps">
+          <span className="k">handoffs</span>
+          <b className="mono">{s.handoffs.toLocaleString('en-US')}</b>
+        </span>
+        <span className="pnl-kpi-substat"
+          title={s.costN > 0
+            ? `summed over records with cost models (${s.costN} of ${records.length} in view)`
+            : 'no records in the current view carry a cost model'}>
+          <span className="k">savings</span>
+          <b className="mono">
+            {s.costN > 0 ? `${fmtUsd(s.costLow)}–${fmtUsd(s.costHigh)}` : '—'}
+          </b>
+        </span>
+        <span className="pnl-kpi-substat" title="smallest closest-point distance in view">
+          <span className="k">nearest</span>
+          <b className="mono">
+            {s.nearest === null ? '—' : s.nearest <= 0 ? 'touching' : `${s.nearest.toFixed(1)} km`}
+          </b>
+        </span>
+      </div>
+    </section>
   )
 }

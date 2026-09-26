@@ -5,52 +5,26 @@ import { passesListFilters } from '../../lib/overlapFilters'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
 import { useOverlaps, useProjects, useRegions } from '../hooks/useApiData'
-import { OverlapRow, type ProjectMap } from './OverlapRow'
+import { OverlapTable } from './OverlapTable'
+import type { ProjectMap } from './OverlapRow'
 import { PanelStats } from './PanelStats'
+import { TimeframeSlider } from './TimeframeSlider'
 import { utilityColor } from './utilityColors'
-import type { OverlapRecord, ProjectProps } from '../../lib/api'
+import { SORT_OPTIONS, SORTERS, type SortKey } from './overlapSort'
+import type { OverlapRecord, ProjectProps, Tier } from '../../lib/api'
 import '../../styles/panel.css'
 
-// max DOM rows in the ranked list — the engine order already surfaces
+// max DOM rows in the ranked table — the engine order already surfaces
 // the highest-value records first, so the cap never hides better data.
-const MAX_LIST_ROWS = 200
+const MAX_LIST_ROWS = 150
 
 type Cls = string | false | null | undefined
 const cx = (...c: Cls[]) => c.filter(Boolean).join(' ')
 
-/** Client-side re-orderings. `rank` is the API/engine order itself — the
- * row's #number stays the engine rank no matter which sort is on. */
-type SortKey = 'rank' | 'distance' | 'window' | 'score' | 'savings'
-
-const SORT_OPTIONS: readonly { key: SortKey; label: string; hint: string }[] = [
-  { key: 'rank', label: 'rank', hint: 'engine rank — tier, then distance' },
-  { key: 'distance', label: 'dist', hint: 'closest first, farthest last' },
-  { key: 'window', label: 'window', hint: 'shared/adjacent window start, earliest first' },
-  { key: 'score', label: 'score', hint: 'highest score first' },
-  { key: 'savings', label: 'save $', hint: 'highest est. savings first' },
-]
-const SORT_LABELS: Record<SortKey, string> = {
-  rank: 'rank', distance: 'distance', window: 'window start',
-  score: 'score', savings: 'est. savings',
-}
-
-
-/** Row comparator — missing/non-finite keys always sort last; dir 1 asc, -1 desc. */
-function byKey(get: (o: OverlapRecord) => number | null | undefined, dir: 1 | -1) {
-  return (a: OverlapRecord, b: OverlapRecord): number => {
-    const va = get(a)
-    const vb = get(b)
-    if (va == null || !Number.isFinite(va)) return vb == null || !Number.isFinite(vb) ? 0 : 1
-    return vb == null || !Number.isFinite(vb) ? -1 : dir * (va - vb)
-  }
-}
-
-const SORTERS: Record<Exclude<SortKey, 'rank'>, (a: OverlapRecord, b: OverlapRecord) => number> = {
-  distance: byKey((o) => o.min_distance_km, 1),
-  window: byKey((o) => o.shared_window?.start ?? o.adjacent_window?.start, 1),
-  score: byKey((o) => o.score, -1),
-  savings: byKey((o) => o.cost?.est_savings_usd_high, -1),
-}
+/** All tiers visible — used for the KPI per-tier counts so an unchecked
+ *  tier still reports how many records it would contribute (TomTom-style
+ *  category counts describe the whole set, not the toggled subset). */
+const ALL_TIERS_ON: Record<number, boolean> = { 1: true, 2: true, 3: true, 4: true }
 
 const Empty = ({ title, note }: { title: ReactNode; note: ReactNode }) => (
   <div className="empty-state">
@@ -73,9 +47,12 @@ const Seg = ({ aria, items }: { aria: string; items: SegItem[] }) => (
   </div>
 )
 
-/** Left panel: ranked REAL coordination opportunities from /api/overlaps
- * (engine order: tier asc, then distance). Filters share the map's
- * predicates (passesListFilters) — all states honest (AGENTS.md §7). */
+/** Left drawer: ranked REAL coordination opportunities from /api/overlaps
+ * (engine order: tier asc, then distance), TomTom-style — slide-out paper
+ * card with an always-visible edge tab, a TIMEFRAME build-window range on
+ * top, the KPI/tier-legend block, compact filters, and a dense one-line
+ * ranked table. Filters share the map's predicates (passesListFilters) —
+ * all states honest (AGENTS.md §7). */
 export function OverlapPanel() {
   const visibleTiers = useAppStore((s) => s.visibleTiers)
   const toggleTier = useAppStore((s) => s.toggleTier)
@@ -148,6 +125,14 @@ export function OverlapPanel() {
     return m
   }, [all, projectById])
 
+  // every non-tier predicate, shared by `filtered` and the KPI tier counts
+  const passesNonTier = useMemo(
+    () => (o: OverlapRecord) =>
+      (!adjacentOnly || (!!o.timeline_adjacent && !o.timeline_overlap)) &&
+      (!q || (searchIndex.get(o.overlap_id) ?? '').includes(q)),
+    [adjacentOnly, q, searchIndex],
+  )
+
   const filtered = useMemo(
     () =>
       all.filter(
@@ -155,12 +140,27 @@ export function OverlapPanel() {
           passesListFilters(o, {
             visibleTiers, zone: zoneFilter, utilityFilter,
             yearRange: yearFilter, timelineOnly,
-          }) &&
-          (!adjacentOnly || (!!o.timeline_adjacent && !o.timeline_overlap)) &&
-          (!q || (searchIndex.get(o.overlap_id) ?? '').includes(q)),
+          }) && passesNonTier(o),
       ),
-    [all, visibleTiers, zoneFilter, utilityFilter, yearFilter, timelineOnly, adjacentOnly, q, searchIndex],
+    [all, visibleTiers, zoneFilter, utilityFilter, yearFilter, timelineOnly, passesNonTier],
   )
+
+  // per-tier counts of the same view WITHOUT the tier toggles — the KPI
+  // legend rows describe the whole category, not the enabled subset
+  const tierCounts = useMemo(() => {
+    const m = new Map<Tier, number>()
+    for (const o of all) {
+      if (
+        passesListFilters(o, {
+          visibleTiers: ALL_TIERS_ON, zone: zoneFilter, utilityFilter,
+          yearRange: yearFilter, timelineOnly,
+        }) && passesNonTier(o)
+      ) {
+        m.set(o.tier, (m.get(o.tier) ?? 0) + 1)
+      }
+    }
+    return m
+  }, [all, zoneFilter, utilityFilter, yearFilter, timelineOnly, passesNonTier])
 
   const sorted = useMemo(
     () => (sort === 'rank' ? filtered : [...filtered].sort(SORTERS[sort])),
@@ -331,145 +331,159 @@ export function OverlapPanel() {
     return () => document.removeEventListener('keydown', onKey)
   }, [panelOpen, shown, cursor, selectedOverlapId, selectOverlap, setPanelOpen])
 
-  if (!panelOpen) {
-    return (
-      <button type="button" className="panel-reopen" aria-label="Open coordination opportunities panel"
-        onClick={() => setPanelOpen(true)}>overlaps&nbsp;»</button>
-    )
-  }
-
-  let body: ReactNode
+  let listArea: ReactNode
   if (overlaps.loading) {
-    body = <Empty title="Loading overlaps…" note="Fetching ranked opportunities from /api/overlaps." />
+    listArea = <Empty title="Loading overlaps…" note="Fetching ranked opportunities from /api/overlaps." />
   } else if (overlaps.error) {
-    body = <Empty title="backend offline — start uvicorn :8000" note={<code>{overlaps.error}</code>} />
+    listArea = <Empty title="backend offline — start uvicorn :8000" note={<code>{overlaps.error}</code>} />
   } else if (all.length === 0) {
-    body = <Empty title="0 overlaps found" note="The spatial engine found no project pairs within 40 km in the current dataset." />
+    listArea = <Empty title="0 overlaps found" note="The spatial engine found no project pairs within 40 km in the current dataset." />
+  } else if (shown.length === 0) {
+    listArea = (
+      <Empty
+        title={q ? `0 matches for '${search.trim()}'.` : `All ${all.length} overlaps filtered out.`}
+        note={q ? 'Clear the search or broaden the filters above.'
+                : 'Re-enable a tier above or turn off the timeline filter.'}
+      />
+    )
   } else {
-    body = (
+    listArea = (
       <>
-        <PanelStats records={filtered} total={all.length} onAskAgent={askAgentAboutView} />
         {showOutsideBanner && (
           <div className="pnl-banner" role="status">
             <span><span className="mono">{selectedOverlapId}</span> selected — outside current filters</span>
             <button type="button" className="pnl-banner-btn" onClick={revealSelected}>show anyway</button>
           </div>
         )}
-        <div className="panel-count mono">
-          {q && `${filtered.length} match${filtered.length === 1 ? '' : 'es'} · `}
-          {filtered.length > MAX_LIST_ROWS
-            ? `top ${shown.length} of ${filtered.length}${q ? ' shown' : ` (${all.length} total)`}`
-            : `${shown.length} of ${all.length} shown`}
-          {sort !== 'rank' && ` · by ${SORT_LABELS[sort]}`}
-        </div>
-        {shown.length === 0 ? (
-          <Empty
-            title={q ? `0 matches for '${search.trim()}'.` : `All ${all.length} overlaps filtered out.`}
-            note={q ? 'Clear the search or broaden the filters above.'
-                    : 'Re-enable a tier above or turn off the timeline filter.'}
-          />
-        ) : (
-          <ul className="overlap-list" ref={listRef}>
-            {shown.map((o) => (
-              <OverlapRow key={o.overlap_id} overlap={o} projectById={projectById}
-                rank={rankById.get(o.overlap_id) ?? 0}
-                selected={selectedOverlapId === o.overlap_id}
-                hovered={hoveredOverlapId === o.overlap_id}
-                onHover={setHoveredOverlap}
-                onSelect={() =>
-                  selectOverlapInScene(
-                    selectedOverlapId === o.overlap_id ? null : o.overlap_id,
-                    o.zone,
-                  )
-                } />
-            ))}
-          </ul>
-        )}
+        <OverlapTable
+          shown={shown}
+          filteredCount={filtered.length}
+          totalCount={all.length}
+          sort={sort}
+          onSort={setSort}
+          rankById={rankById}
+          projectById={projectById}
+          selectedOverlapId={selectedOverlapId}
+          hoveredOverlapId={hoveredOverlapId}
+          onHover={setHoveredOverlap}
+          onToggle={(o) =>
+            selectOverlapInScene(
+              selectedOverlapId === o.overlap_id ? null : o.overlap_id,
+              o.zone,
+            )
+          }
+          listRef={listRef} />
       </>
     )
   }
 
   return (
-    <aside className="panel">
-      <div className="panel-head">
-        <h2>Coordination opportunities</h2>
-        <div className="pnl-head-actions">
-          <a className="pnl-csv mono" href={csvHref} download title="Download filtered results as CSV">csv</a>
-          <button type="button" className="panel-collapse" onClick={() => setPanelOpen(false)} aria-label="Collapse panel">×</button>
-        </div>
-      </div>
-
-      <div className="panel-filters">
-        <input type="search" className="pnl-search" value={search}
-          placeholder="search id, project, utility…"
-          aria-label="Search overlaps by id, project, or utility"
-          onChange={(e) => setSearch(e.target.value)} />
-
-        <Seg aria="Filter presets" items={presets} />
-
-        {TIERS.map((t) => (
-          <label key={t.tier} className="filter-row" title={t.hint}>
-            <input type="checkbox" checked={visibleTiers[t.tier]} onChange={() => toggleTier(t.tier)} />
-            <span className="dot" style={{ background: t.color }} />
-            <span className="filter-label">{t.label}</span>
-          </label>
-        ))}
-
-        <label className="filter-row filter-row--timeline">
-          <input type="checkbox" checked={timelineOnly} onChange={(e) => onTimelineOnlyChange(e.target.checked)} />
-          <span className="filter-label">Timeline overlap only</span>
-        </label>
-
-        {utilities.length > 0 && (
-          <div className="pnl-utils" role="group" aria-label="Filter by utility">
-            {utilities.map(({ utility, n }) => (
-              <button key={utility} type="button" aria-pressed={utilityFilter.includes(utility)}
-                className={cx('pnl-chip', utilityFilter.includes(utility) && 'is-active')}
-                title={`${n} overlap${n === 1 ? '' : 's'} involve ${utility}`}
-                onClick={() => toggleUtilityFilter(utility)}>
-                <span className="dot" style={{ background: utilityColor(utility) }} />
-                {utility}
-                <span className="pnl-chip-n mono">{n}</span>
-              </button>
-            ))}
-            {utilityFilter.length > 0 && (
-              <button type="button" className="pnl-chip pnl-chip--clear" onClick={clearUtilityFilter}
-                aria-label="Clear utility filter" title="Clear utility filter">×</button>
-            )}
+    <div className={cx('panel-dock', panelOpen ? 'is-open' : 'is-closed')}>
+      <aside className="panel" aria-hidden={!panelOpen}>
+        <div className="panel-head">
+          <h2>Coordination opportunities</h2>
+          <div className="pnl-head-actions">
+            <a className="pnl-csv mono" href={csvHref} download title="Download filtered results as CSV">csv</a>
+            <button type="button" className="panel-collapse" onClick={() => setPanelOpen(false)} aria-label="Collapse panel">×</button>
           </div>
-        )}
-
-        {zones.length > 0 && (
-          <label className="filter-row filter-row--zone">
-            <span className="filter-label">Region</span>
-            <select className="zone-select" value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}>
-              <option value="">All regions</option>
-              {zones.map((z) => <option key={z.id} value={z.id}>{z.id.replace(/_/g, ' ')} ({z.overlaps})</option>)}
-            </select>
-          </label>
-        )}
-
-        <div className="pnl-sort">
-          <span className="pnl-label">sort</span>
-          <Seg aria="Sort order" items={sortItems} />
         </div>
 
-        {(yearFilter || filtersModified) && (
-          <div className="pnl-active-row">
-            {yearFilter && (
-              <span className="pnl-chip pnl-chip--static mono">window {yearFilter.start}–{yearFilter.end}
-                <button type="button" className="pnl-chip-x" onClick={() => setYearFilter(null)}
-                  aria-label="Clear year window filter" title="Clear year window filter">×</button>
-              </span>
+        <div className="panel-body">
+          <section className="pnl-sec" aria-label="Build-window timeframe">
+            <TimeframeSlider />
+          </section>
+
+          {!overlaps.loading && !overlaps.error && all.length > 0 && (
+            <PanelStats records={filtered} total={all.length}
+              tierCounts={tierCounts} onAskAgent={askAgentAboutView} />
+          )}
+
+          <section className="pnl-sec pnl-filters" aria-label="List filters">
+            <input type="search" className="pnl-search" value={search}
+              placeholder="search id, project, utility…"
+              aria-label="Search overlaps by id, project, or utility"
+              onChange={(e) => setSearch(e.target.value)} />
+
+            <Seg aria="Filter presets" items={presets} />
+
+            <label className="filter-row filter-row--timeline">
+              <input type="checkbox" checked={timelineOnly} onChange={(e) => onTimelineOnlyChange(e.target.checked)} />
+              <span className="filter-label">Timeline overlap only</span>
+            </label>
+
+            {utilities.length > 0 && (
+              <div className="pnl-utils" role="group" aria-label="Filter by utility">
+                {utilities.map(({ utility, n }) => (
+                  <button key={utility} type="button" aria-pressed={utilityFilter.includes(utility)}
+                    className={cx('pnl-chip', utilityFilter.includes(utility) && 'is-active')}
+                    title={`${n} overlap${n === 1 ? '' : 's'} involve ${utility}`}
+                    onClick={() => toggleUtilityFilter(utility)}>
+                    <span className="dot" style={{ background: utilityColor(utility) }} />
+                    {utility}
+                    <span className="pnl-chip-n mono">{n}</span>
+                  </button>
+                ))}
+                {utilityFilter.length > 0 && (
+                  <button type="button" className="pnl-chip pnl-chip--clear" onClick={clearUtilityFilter}
+                    aria-label="Clear utility filter" title="Clear utility filter">×</button>
+                )}
+              </div>
             )}
-            {filtersModified && <button type="button" className="pnl-reset" onClick={resetFilters}>reset filters</button>}
-          </div>
+
+            {zones.length > 0 && (
+              <label className="filter-row filter-row--zone">
+                <span className="filter-label">Region</span>
+                <select className="zone-select" value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}>
+                  <option value="">All regions</option>
+                  {zones.map((z) => <option key={z.id} value={z.id}>{z.id.replace(/_/g, ' ')} ({z.overlaps})</option>)}
+                </select>
+              </label>
+            )}
+
+            <div className="pnl-sort">
+              <span className="pnl-label">sort</span>
+              <Seg aria="Sort order" items={sortItems} />
+            </div>
+
+            {(yearFilter || filtersModified) && (
+              <div className="pnl-active-row">
+                {yearFilter && (
+                  <span className="pnl-chip pnl-chip--static mono">window {yearFilter.start}–{yearFilter.end}
+                    <button type="button" className="pnl-chip-x" onClick={() => setYearFilter(null)}
+                      aria-label="Clear year window filter" title="Clear year window filter">×</button>
+                  </span>
+                )}
+                {filtersModified && <button type="button" className="pnl-reset" onClick={resetFilters}>reset filters</button>}
+              </div>
+            )}
+          </section>
+
+          {listArea}
+        </div>
+      </aside>
+
+      {/* edge tab — always visible on the canvas edge; ‹ collapses the
+          drawer, › reopens it. `panel-reopen` keeps overrides.css's
+          :has() agent-bar reclaim working in the closed state. */}
+      <button type="button"
+        className={cx('panel-tab', !panelOpen && 'panel-reopen')}
+        aria-expanded={panelOpen}
+        aria-label={panelOpen
+          ? 'Collapse coordination opportunities panel'
+          : 'Open coordination opportunities panel'}
+        onClick={() => setPanelOpen(!panelOpen)}>
+        {panelOpen ? (
+          <>
+            <span className="panel-tab-arrow" aria-hidden>‹</span>
+            <span className="panel-tab-label">overlaps</span>
+          </>
+        ) : (
+          <>
+            <span className="panel-tab-label">overlaps</span>
+            <span className="panel-tab-arrow" aria-hidden>›</span>
+          </>
         )}
-
-        <div className="pnl-keys mono">j/k move · enter select · esc back</div>
-      </div>
-
-      <div className="panel-body">{body}</div>
-    </aside>
+      </button>
+    </div>
   )
 }

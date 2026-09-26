@@ -1,0 +1,143 @@
+/* PanelStats — the drawer's KPI block (TomTom congestion-panel style):
+   big "N of M" count, tier checkbox legend rows with counts, secondary
+   micro-stats, and the "→ ask agent" handoff. Paper/ink chrome.
+   Imported by PanelStats.tsx — plain pnl-kpi/pnl-tier classes. */
+
+.pnl-kpi {
+  margin-bottom: 10px;
+  padding: 8px 10px 9px;
+  font-size: 10px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.18);
+}
+
+.pnl-kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pnl-kpi-big {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 4px 0 7px;
+}
+
+.pnl-kpi-big b {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.pnl-kpi-of {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+/* tier legend rows — checkbox + color dot + label + count; off rows dim
+   but keep their count (an unchecked tier still exists in the view) */
+.pnl-kpi-tiers {
+  display: flex;
+  flex-direction: column;
+}
+
+.pnl-tier-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -4px;
+  padding: 3px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pnl-tier-row:hover {
+  background: rgba(43, 43, 43, 0.07);
+}
+
+.pnl-tier-row.is-off {
+  opacity: 0.45;
+}
+
+.pnl-tier-row input[type='checkbox'] {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #2b2b2b;
+  cursor: pointer;
+}
+
+.pnl-tier-row .dot {
+  width: 9px;
+  height: 9px;
+  border-width: 1.5px;
+}
+
+.pnl-tier-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pnl-tier-n {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* secondary micro-stats strip */
+.pnl-kpi-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin-top: 6px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.pnl-kpi-substat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pnl-kpi-substat .k {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.pnl-kpi-substat .mono {
+  font-weight: 800;
+}
+
+.pnl-ask {
+  margin-left: auto;
+  padding: 2px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #2b2b2b;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+.pnl-ask:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}

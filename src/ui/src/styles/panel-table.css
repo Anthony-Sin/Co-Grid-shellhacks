@@ -1,0 +1,188 @@
+/* OverlapTable + OverlapRow — the drawer's dense ranked table: one line
+   per record — rank | tier | A ⇄ B projects | km | window | score.
+   Imported by OverlapTable.tsx.
+
+   Base card chrome (border, shadow, hover press, selected tint) comes
+   from components.css's .overlap-row — which loads AFTER this sheet
+   (component CSS evaluates before the main.tsx sheets), so every rule
+   that overrides a base rule carries .app-shell ancestry for extra
+   specificity. Plain ovr- classes are new and conflict-free. */
+
+.app-shell .overlap-list.ovl-dense {
+  gap: 3px;
+}
+
+/* header cells share the row grid — sticky so columns stay labeled while
+   the list scrolls under a solid paper-toned strip */
+.ovr-head {
+  position: sticky;
+  top: -10px; /* covers .panel-body's top padding — sticks flush */
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 26px 34px minmax(0, 1fr) 34px 42px 26px;
+  column-gap: 6px;
+  align-items: end;
+  margin: 0 0 4px;
+  padding: 10px 8px 3px; /* the 10px top pad is what gets clipped when stuck */
+  background: #eee9db; /* opaque so rows scrolling under don't bleed */
+  border-bottom: 1.5px solid rgba(43, 43, 43, 0.5);
+}
+
+.ovr-h {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0;
+}
+
+button.ovr-h:hover,
+.ovr-h.is-active {
+  opacity: 1;
+}
+
+.ovr-h--r {
+  text-align: right;
+}
+
+.app-shell .overlap-row.ovr {
+  display: grid;
+  grid-template-columns: 26px 34px minmax(0, 1fr) 34px 42px 26px;
+  gap: 0 6px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.85);
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.app-shell .overlap-row.ovr:hover,
+.app-shell .overlap-row.ovr.is-hovered {
+  background: #eee7d3;
+}
+
+/* map brushing — a brushed zone's row keeps the press shift and adds a
+   faint names underline so the two surfaces visibly agree */
+.app-shell .overlap-row.ovr.is-hovered .ovr-name {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(43, 43, 43, 0.45);
+}
+
+.ovr-rank {
+  font-size: 9px;
+  font-weight: 800;
+  opacity: 0.5;
+  overflow: hidden;
+}
+
+.ovr-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ovr-tier .dot {
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
+}
+
+.ovr-t {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.ovr-names {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+}
+
+.ovr-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovr-names .ov-swap {
+  margin: 0 3px;
+  font-size: 9px;
+  flex: none;
+}
+
+.ovr-dist {
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ovr-win {
+  font-size: 9px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ovr-win.is-adjacent {
+  opacity: 0.6;
+}
+
+.ovr-win.is-none {
+  opacity: 0.4;
+}
+
+/* tier-colored score badge — est. savings ride along in the row tooltip */
+.ovr-score {
+  justify-self: end;
+  padding: 0 5px;
+  font-size: 9.5px;
+  font-weight: 800;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* "showing N of M" footer + keys hint */
+.ovr-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.ovr-foot-keys {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* ultra-narrow: drop the T# text (the colored dot + legend carry it) */
+@media (max-width: 420px) {
+  .ovr-t {
+    display: none;
+  }
+  .ovr-head,
+  .app-shell .overlap-row.ovr {
+    grid-template-columns: 24px 18px minmax(0, 1fr) 32px 40px 26px;
+  }
+}
