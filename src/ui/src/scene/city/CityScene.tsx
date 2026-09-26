@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useAppStore } from '../../state/store'
 import { useCity } from './useCity'
+import { useCorridorDetail, type CorridorDetail } from './corridorComposite'
+import type { CityScene as CitySceneData } from '../../lib/api'
 import { BuildingsLayer } from './BuildingsLayer'
 import { RoadsLayer } from './RoadsLayer'
 import { WaterLayer } from './WaterLayer'
@@ -27,6 +29,34 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const activeScene = useAppStore((s) => s.activeScene)
   const { data } = useCity(activeScene)
 
+  // Fold corridor detail into the statewide sheet: city_state.json ships
+  // no buildings/parks, so the Savannah + Augusta artifacts (the only
+  // building extracts) are re-projected into state-local meters and
+  // merged into the same arrays the layers already render — one merged
+  // array keeps the zone-tint math (state center) aligned. Corridor
+  // roads/water are NOT merged: the state artifact already has them.
+  const corridor = useCorridorDetail(activeScene === 'state')
+  const merged = useMemo<CorridorDetail | null>(() => {
+    if (!data) return null
+    if (activeScene !== 'state' || !corridor) {
+      return { buildings: data.buildings, parks: data.parks, pois: data.pois ?? [] }
+    }
+    return {
+      buildings: data.buildings.length
+        ? [...data.buildings, ...corridor.buildings]
+        : corridor.buildings,
+      parks: [...data.parks, ...corridor.parks],
+      pois: [...(data.pois ?? []), ...corridor.pois],
+    }
+  }, [data, corridor, activeScene])
+
+  // LabelChips reads a whole CityScene (pois + named-building fallback) —
+  // hand it the merged arrays so real corridor names land at true spots.
+  const labelData = useMemo<CitySceneData | null>(
+    () => (data && merged ? { ...data, buildings: merged.buildings, pois: merged.pois } : null),
+    [data, merged],
+  )
+
   // Ready flag for headless captures (scripts/screenshot.mjs waits on it).
   // Set after data lands + a few committed frames so geometry is on-screen.
   useEffect(() => {
@@ -46,18 +76,20 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   }, [data])
 
   // All city casters mount together when `data` lands — one shadow bake.
-  useShadowRefresh(data)
+  // `merged` also flips once when corridor detail lands, re-baking for
+  // the late-mounting ~148k corridor casters.
+  useShadowRefresh(merged)
 
-  if (!data) return null
+  if (!data || !merged || !labelData) return null
 
   return (
     <group>
-      <ParksLayer parks={data.parks} />
+      <ParksLayer parks={merged.parks} />
       <WaterLayer water={data.water} />
       <RoadsLayer roads={data.roads} />
-      <BuildingsLayer buildings={data.buildings} />
-      <TreesLayer parks={data.parks} />
-      {showLabels && <LabelChips data={data} />}
+      <BuildingsLayer buildings={merged.buildings} />
+      <TreesLayer parks={merged.parks} />
+      {showLabels && <LabelChips data={labelData} />}
     </group>
   )
 }

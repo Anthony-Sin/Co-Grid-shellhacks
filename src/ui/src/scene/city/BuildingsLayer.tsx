@@ -10,7 +10,8 @@ import { useAppStore } from '../../state/store'
 import { useOverlaps } from '../../ui/hooks/useApiData'
 import { mixHex } from '../overlap/zoneData'
 import { polygonShape } from '../shapeUtils'
-import { cleanRing, useDispose } from './cityUtils'
+import { cleanRing, useDispose, useShadowRefresh } from './cityUtils'
+import { useCorridorZoomGate } from './corridorComposite'
 import {
   OVERLAY_LIFT_M,
   buildOverlayGeometry,
@@ -220,6 +221,17 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
   const built = useMemo(() => buildBuildings(buildings), [buildings])
   useDispose(built.disposables)
 
+  // Zoom gate: in the statewide scene the merged array carries ~148k
+  // corridor buildings — at overview zoom they're invisible vertex noise
+  // that still costs GPU, so the base meshes + ink unmount below the
+  // hysteresis band (geometries stay memoized; remount is cheap).
+  // The zone-tint TintShells below are NOT gated — a selected zone's
+  // "these buildings coordinate" wash is honest signal at ANY zoom.
+  const detailVisible = useCorridorZoomGate()
+  const gated = useAppStore((s) => s.activeScene === 'state')
+  const showBase = !gated || detailVisible
+  useShadowRefresh(showBase) // re-bake when the caster set toggles
+
   // ---- contextual zone tint (ref_img/color_coded_3d_buildign.png) ----
   // Buildings inside the selected overlap's filed zone get a tier-color
   // wash; the hovered overlap gets a fainter second wash (list brushing).
@@ -241,7 +253,9 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
    *  honest absence), and records with no filed zone_geometry yield no
    *  mask rather than an invented radius. */
   const masks = useMemo(() => {
-    if (!zonesOn || !overlapsData) return { sel: null, hov: null }
+    // zones layer off → still tint the SELECTED overlap's footprint (the
+    // zone polygon itself renders in that case); hover wash needs the layer
+    if (!overlapsData || (!zonesOn && !selectedOverlapId)) return { sel: null, hov: null }
     const center = SCENE_CENTERS[activeScene]
     const filters = { visibleTiers, utilityFilter, yearRange: yearFilter }
     const resolve = (id: string | null, exclude?: string | null) => {
@@ -253,7 +267,7 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
     }
     return {
       sel: resolve(selectedOverlapId),
-      hov: resolve(hoveredOverlapId, selectedOverlapId),
+      hov: zonesOn ? resolve(hoveredOverlapId, selectedOverlapId) : null,
     }
   }, [
     zonesOn,
@@ -288,7 +302,7 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
 
   return (
     <group>
-      {built.meshes.map((m, i) => (
+      {showBase ? built.meshes.map((m, i) => (
         <mesh key={i} geometry={m.geometry} castShadow receiveShadow>
           {/* Sketch faces: white, barely-there — like the ArcGIS sketch
               renderer's [255,255,255,0.1] fill. Shadows still land. */}
@@ -301,7 +315,7 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
             opacity={0.2}
           />
         </mesh>
-      ))}
+      )) : null}
       {selShell && masks.sel ? (
         <TintShell
           geometry={selShell.geometry}
@@ -316,7 +330,7 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
           opacity={0.5}
         />
       ) : null}
-      {built.ink ? (
+      {showBase && built.ink ? (
         <>
           <lineSegments geometry={built.ink}>
             <lineBasicMaterial color={PALETTE.ink} transparent opacity={0.8} />
