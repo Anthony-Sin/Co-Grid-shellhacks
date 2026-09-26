@@ -303,3 +303,80 @@ button.pnl-chip:hover {
 .pnl-seg-btn.is-active:focus-visible {
   outline-color: #f5f2ea;
 }
+
+/* ---- view-stats strip (KPI summary of the CURRENTLY FILTERED set) ----------
+   Congestion-dashboard blocks in paper/ink: one bordered card, micro
+   uppercase keys + mono values, tier color square keys, and the
+   "→ ask agent" affordance pinned right. Flex-wraps to a second row on
+   the narrow panel instead of truncating numbers. */
+
+.pnl-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  font-size: 10px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 10px;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.18);
+}
+
+.pnl-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pnl-stat-k {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.pnl-stat .mono {
+  font-weight: 800;
+}
+
+.pnl-stat--count .mono:first-child {
+  font-size: 12px;
+}
+
+/* tiny tier color square — deliberately square, not the circular .dot */
+.pnl-tierkey {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  align-self: center;
+  border: 1px solid rgba(43, 43, 43, 0.85);
+  border-radius: 2px;
+}
+
+.pnl-ask {
+  margin-left: auto;
+  padding: 2px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #2b2b2b;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+.pnl-ask:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-ask:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}

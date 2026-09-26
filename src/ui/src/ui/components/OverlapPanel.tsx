@@ -6,6 +6,7 @@ import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
 import { useOverlaps, useProjects, useRegions } from '../hooks/useApiData'
 import { OverlapRow, type ProjectMap } from './OverlapRow'
+import { PanelStats } from './PanelStats'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
 import '../../styles/panel.css'
@@ -91,6 +92,7 @@ export function OverlapPanel() {
   const clearUtilityFilter = useAppStore((s) => s.clearUtilityFilter)
   const yearFilter = useAppStore((s) => s.yearFilter)
   const setYearFilter = useAppStore((s) => s.setYearFilter)
+  const setAgentPromptDraft = useAppStore((s) => s.setAgentPromptDraft)
 
   const overlaps = useOverlaps()
   const projects = useProjects()
@@ -245,6 +247,30 @@ export function OverlapPanel() {
     setForceRevealId(selectedRec.overlap_id)
   }
 
+  /** Hand the CURRENT view to the analyst — encodes only the filters that
+   * are actually set so the agent can reproduce the set with find_overlaps
+   * + rollups instead of guessing a different slice (AGENTS.md §7). */
+  const askAgentAboutView = () => {
+    const f: string[] = []
+    const onTiers = TIERS.filter((t) => visibleTiers[t.tier]).map((t) => t.tier)
+    if (onTiers.length < TIERS.length) f.push(`tiers=${onTiers.join(',')}`)
+    if (zoneFilter) f.push(`zone='${zoneFilter}'`)
+    // list semantics: ANY selected utility passes — say so honestly
+    if (utilityFilter.length === 1) f.push(`utility=${utilityFilter[0]}`)
+    else if (utilityFilter.length > 1) f.push(`utility in (${utilityFilter.join(', ')})`)
+    if (yearFilter) f.push(`window=${yearFilter.start}-${yearFilter.end}`)
+    if (timelineOnly) f.push('timeline_only')
+    if (adjacentOnly) f.push('adjacent_only')
+    if (q) f.push(`search='${search.trim()}'`)
+    let prompt =
+      `Analyze the currently filtered coordination set — ${filtered.length} of ${all.length} records` +
+      `; filters: ${f.length > 0 ? f.join(', ') : 'none'}. ` +
+      'Use find_overlaps with matching filters + savings_rollup/zone_report as needed; ' +
+      'summarize what coordination stands out.'
+    if (selectedOverlapId) prompt += ` Focus on selected overlap ${selectedOverlapId} if relevant.`
+    setAgentPromptDraft(prompt)
+  }
+
   const presets: SegItem[] = [
     { key: 'all', label: 'all', active: allActive, onClick: applyAll, hint: 'Clear every filter — show all records' },
     { key: 'must', label: 'must coord.', active: mustActive, onClick: applyMustCoordinate, hint: 'Tier 1 touching + concurrent build windows' },
@@ -322,6 +348,7 @@ export function OverlapPanel() {
   } else {
     body = (
       <>
+        <PanelStats records={filtered} total={all.length} onAskAgent={askAgentAboutView} />
         {showOutsideBanner && (
           <div className="pnl-banner" role="status">
             <span><span className="mono">{selectedOverlapId}</span> selected — outside current filters</span>
