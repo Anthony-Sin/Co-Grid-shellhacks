@@ -1,0 +1,305 @@
+/* OverlapPanel additions — search, presets, sort, utility chips, selection
+   banner, OV-id/rank row meta, hover brushing. Same paper/ink chrome as the
+   rest of the dashboard: 1.5px ink borders, 12px radius, hard offset
+   shadows, uppercase letter-spaced labels, .mono for numbers.
+   All class names are new and pnl- prefixed (or state modifiers on existing
+   classes) — nothing here redefines global.css/components.css rules. */
+
+/* ---- panel head actions (csv export) --------------------------------------- */
+
+.pnl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.pnl-csv {
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2b2b2b;
+  text-decoration: none;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+.pnl-csv:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* ---- search ----------------------------------------------------------------- */
+
+.pnl-search {
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 8px;
+  outline: none;
+}
+
+.pnl-search:focus {
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+}
+
+.pnl-search::placeholder {
+  color: rgba(43, 43, 43, 0.45);
+}
+
+/* ---- segmented controls (presets + sort) ------------------------------------- */
+
+.pnl-seg {
+  display: flex;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.2);
+}
+
+.pnl-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 2px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pnl-seg-btn + .pnl-seg-btn {
+  border-left: 1.5px solid #2b2b2b;
+}
+
+.pnl-seg-btn:hover {
+  background: rgba(43, 43, 43, 0.08);
+}
+
+.pnl-seg-btn.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pnl-sort .pnl-seg {
+  flex: 1;
+  min-width: 0;
+}
+
+.pnl-label {
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* ---- utility filter chips + active-filter chip -------------------------------- */
+
+.pnl-utils {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pnl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #2b2b2b;
+  background: rgba(245, 242, 234, 0.9);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+button.pnl-chip:hover {
+  background: #ece2c8;
+}
+
+.pnl-chip.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-width: 1px;
+}
+
+.pnl-chip-n {
+  font-size: 9px;
+  opacity: 0.55;
+}
+
+.pnl-chip--clear {
+  padding: 2px 7px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.pnl-chip--static {
+  cursor: default;
+}
+
+.pnl-chip-x {
+  margin-left: 3px;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.pnl-chip-x:hover {
+  opacity: 1;
+}
+
+/* ---- active-filter readout row + reset ---------------------------------------- */
+
+.pnl-active-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pnl-reset {
+  padding: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  border-bottom: 1px dashed rgba(43, 43, 43, 0.6);
+}
+
+.pnl-reset:hover {
+  opacity: 1;
+}
+
+/* ---- keyboard hint ----------------------------------------------------------- */
+
+.pnl-keys {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  opacity: 0.45;
+  user-select: none;
+}
+
+/* ---- selection-outside-filters banner ----------------------------------------- */
+
+.pnl-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: rgba(243, 167, 18, 0.14);
+  border: 1.5px dashed rgba(43, 43, 43, 0.55);
+  border-radius: 10px;
+}
+
+.pnl-banner .mono {
+  font-weight: 800;
+}
+
+.pnl-banner-btn {
+  margin-left: auto;
+  padding: 1px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  background: #f5f2ea;
+}
+
+.pnl-banner-btn:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* ---- row left column: OV-id + engine rank -------------------------------------- */
+
+.pnl-rowmeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding-top: 2px;
+}
+
+.pnl-ovid {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pnl-ovrank {
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.5;
+}
+
+/* ---- list<->map brushing -------------------------------------------------------
+   Same 1px ink shift as .overlap-row:hover plus a faint underline on the
+   project names so a map-hovered zone visibly matches its list row. */
+
+.overlap-row.is-hovered {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+}
+
+.overlap-row.is-hovered .ov-names {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(43, 43, 43, 0.45);
+}
+
+/* ---- focus rings (dashed ink, same as global.css chrome) ------------------------ */
+
+.pnl-csv:focus-visible,
+.pnl-search:focus-visible,
+.pnl-chip:focus-visible,
+.pnl-chip-x:focus-visible,
+.pnl-reset:focus-visible,
+.pnl-banner-btn:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}
+
+.pnl-seg-btn:focus-visible {
+  /* .pnl-seg has overflow:hidden — draw the ring inside the pill */
+  outline: 2px dashed #2b2b2b;
+  outline-offset: -2px;
+}
+
+.pnl-seg-btn.is-active:focus-visible {
+  outline-color: #f5f2ea;
+}
