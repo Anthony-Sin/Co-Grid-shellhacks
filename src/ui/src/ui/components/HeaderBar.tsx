@@ -6,8 +6,6 @@ import type { SceneId } from '../../lib/projection'
 
 const SCENES: { id: SceneId; label: string; sub: string }[] = [
   { id: 'state', label: 'GA + SC', sub: 'Georgia + South Carolina' },
-  { id: 'savannah', label: 'Savannah', sub: 'Savannah River Corridor' },
-  { id: 'augusta', label: 'Augusta', sub: 'Augusta / Central Savannah River' },
 ]
 
 const fmtInt = (n: number): string => n.toLocaleString('en-US')
@@ -82,19 +80,23 @@ export function HeaderBar() {
         </span>
       </div>
 
-      <nav className="scene-switch" aria-label="Scene switcher">
-        {SCENES.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`scene-btn${s.id === activeScene ? ' is-active' : ''}`}
-            aria-pressed={s.id === activeScene}
-            onClick={() => setActiveScene(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </nav>
+      {/* scene switcher only exists when there is more than one scene —
+          this build ships the single statewide GA+SC view */}
+      {SCENES.length > 1 && (
+        <nav className="scene-switch" aria-label="Scene switcher">
+          {SCENES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`scene-btn${s.id === activeScene ? ' is-active' : ''}`}
+              aria-pressed={s.id === activeScene}
+              onClick={() => setActiveScene(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {/* Live counts from /api/stats — hidden while loading or when the
           backend is unreachable (panel surfaces the offline state).

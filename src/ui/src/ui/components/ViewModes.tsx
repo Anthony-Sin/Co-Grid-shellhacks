@@ -26,8 +26,6 @@ const LAYERS: { key: keyof LayerFlags; label: string; hint: string }[] = [
 
 const SCENES: { id: SceneId; label: string }[] = [
   { id: 'state', label: 'GA+SC' },
-  { id: 'savannah', label: 'Savannah' },
-  { id: 'augusta', label: 'Augusta' },
 ]
 
 /** Debounce window for year-range writes while a thumb is dragging. */
@@ -276,10 +274,13 @@ export function ViewModes() {
           <summary className="vm-sec-title">Build window</summary>
           <BuildWindow />
         </details>
-        <details className="vm-sec" open>
-          <summary className="vm-sec-title">Scene</summary>
-          <SceneSection />
-        </details>
+        {/* single-scene build — the section only exists with >1 scene */}
+        {SCENES.length > 1 && (
+          <details className="vm-sec" open>
+            <summary className="vm-sec-title">Scene</summary>
+            <SceneSection />
+          </details>
+        )}
       </div>
     </div>
   )

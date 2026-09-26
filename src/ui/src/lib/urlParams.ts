@@ -16,11 +16,12 @@ export function applyUrlParams() {
   const q = new URLSearchParams(window.location.search)
   const s = useAppStore.getState()
 
+  // single-scene build — every recognized corridor value resolves to the
+  // statewide view (old agent/deep links with scene=savannah still work)
   const scene = q.get('scene')
-  let activeScene: SceneId = s.activeScene
+  const activeScene: SceneId = s.activeScene
   if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
-    s.setActiveScene(scene as SceneId)
-    activeScene = scene as SceneId  // s is a stale snapshot after set()
+    s.setActiveScene('state')
   }
 
   const panel = q.get('panel')

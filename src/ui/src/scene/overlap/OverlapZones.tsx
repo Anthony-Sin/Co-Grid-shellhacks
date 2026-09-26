@@ -80,6 +80,10 @@ export function OverlapZones() {
   // layers.projects gates connectors too (store contract) — arcs reference
   // project endpoints that aren't drawn when the project layer is off
   const showProjects = useAppStore((s) => s.layers.projects)
+  // zones layer is opt-in (default off): when off, only the explicitly
+  // selected record renders — the map stays clean but a click still
+  // answers "where is this overlap?"
+  const zonesOn = useAppStore((s) => s.layers.zones)
 
   const [data, setData] = useState<LoadedData | null>(null)
   const [failed, setFailed] = useState(false)
@@ -123,8 +127,12 @@ export function OverlapZones() {
   /** Hard filters (tier/utility/year — same predicate as the ranked list)
    *  fully hide a record; the timeline filter only restyles it.
    *  Capped at MAX_RENDERED by score — the selected record always survives
-   *  the cap, but NOT the filters (filtered-out = honestly absent). */
+   *  the cap, but NOT the filters (filtered-out = honestly absent).
+   *  With the zones layer off only the selected record renders at all. */
   const rendered = useMemo(() => {
+    if (!zonesOn) {
+      return datums.filter((d) => d.rec.overlap_id === selectedOverlapId)
+    }
     const eligible = datums.filter((d) =>
       passesMapFilters(d.rec, { visibleTiers, utilityFilter, yearRange: yearFilter }),
     )
@@ -145,7 +153,7 @@ export function OverlapZones() {
     }
     console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
     return top
-  }, [datums, visibleTiers, utilityFilter, yearFilter, selectedOverlapId])
+  }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, selectedOverlapId])
 
   /** Top-3 scored records eligible for floating labels (timeline-honest). */
   const labelIds = useMemo(() => {

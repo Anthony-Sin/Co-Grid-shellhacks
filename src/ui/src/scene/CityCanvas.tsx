@@ -22,12 +22,21 @@ const USE_REAL_CITY = true
  */
 function FrameTicker({ fps = 12 }: { fps?: number }) {
   const invalidate = useThree((s) => s.invalidate)
+  // The beat exists ONLY to animate zone breathing/selection pulses —
+  // nothing else uses it. Ticking unconditionally meant re-rendering the
+  // whole (~5.7M-vert) scene 12×/s even fully idle, which is what made the
+  // map feel heavy. Run the beat only while the zones layer is on AND an
+  // overlap is selected or hovered — every other moment stays at 0 fps.
+  const beating = useAppStore(
+    (s) => s.layers.zones && (s.selectedOverlapId != null || s.hoveredOverlapId != null),
+  )
   useEffect(() => {
+    if (!beating) return
     const id = window.setInterval(() => {
       if (!document.hidden) invalidate()
     }, 1000 / fps)
     return () => window.clearInterval(id)
-  }, [invalidate, fps])
+  }, [invalidate, fps, beating])
   return null
 }
 
@@ -68,7 +77,7 @@ function SceneCamera() {
   const invalidate = useThree((s) => s.invalidate)
 
   useEffect(() => {
-    const v = SCENE_VIEWS[activeScene] ?? SCENE_VIEWS.savannah
+    const v = SCENE_VIEWS[activeScene] ?? SCENE_VIEWS.state
     camera.position.set(v.position[0], v.position[1], v.position[2])
     if ('zoom' in camera) {
       ;(camera as { zoom: number }).zoom = v.zoom
@@ -89,6 +98,9 @@ function SceneCamera() {
 export function CityCanvas() {
   const activeScene = useAppStore((s) => s.activeScene)
   const layers = useAppStore((s) => s.layers)
+  // zones layer off by default — but an explicit selection still draws its
+  // own zone polygon so the map answers "where is this overlap?"
+  const hasSelection = useAppStore((s) => s.selectedOverlapId != null)
 
   return (
     <div className="canvas-wrap">
@@ -100,8 +112,8 @@ export function CityCanvas() {
         dpr={[1, 1.5]}
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         camera={{
-          position: [1400, 3200, 2500],
-          zoom: 0.06,
+          position: SCENE_VIEWS.state.position as unknown as [number, number, number],
+          zoom: SCENE_VIEWS.state.zoom,
           near: 1,
           far: 60000,
         }}
@@ -140,7 +152,7 @@ export function CityCanvas() {
             <DevPreviewScene key={activeScene} seed={`dev-${activeScene}`} showLabels={layers.labels} />
           ))}
         {layers.projects && <GridOverlay key={`grid-${activeScene}`} />}
-        {layers.zones && <OverlapZones key={`zones-${activeScene}`} />}
+        {(layers.zones || hasSelection) && <OverlapZones key={`zones-${activeScene}`} />}
         <FocusRig />
         <SceneCamera />
         <StaticShadows />
@@ -150,7 +162,7 @@ export function CityCanvas() {
           makeDefault
           enableDamping
           dampingFactor={0.09}
-          target={[1400, 0, 2500]}
+          target={[0, 0, 0]}
           minPolarAngle={0}
           maxPolarAngle={0.55}
           minZoom={0.0008}

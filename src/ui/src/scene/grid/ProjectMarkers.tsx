@@ -26,7 +26,7 @@ const CHIP_ALTITUDE = 90
 const TOOLTIP_ALTITUDE = 170
 const HIT_RADIUS = 150
 /** Max text chips on the statewide scene — beyond this they overlap unreadably. */
-const MAX_STATE_CHIPS = 28
+const MAX_STATE_CHIPS = 14
 
 function truncate(name: string, max = 30): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name

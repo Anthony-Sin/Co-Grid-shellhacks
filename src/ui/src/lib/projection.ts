@@ -29,12 +29,9 @@ export function lonLatToLocal(lon: number, lat: number, center: Vec2): Vec2 {
   return [x, y]
 }
 
-/** Mirror of src/processing/projection.py `scene_for_zone` — zone tag →
- * best-fit scene. Selecting an overlap outside the active scene must
- * switch scenes first or the camera flies to empty space. Keep in sync. */
-export function sceneForZone(zone: string | null | undefined): SceneId {
-  const z = (zone ?? '').toLowerCase()
-  if (z.includes('savannah')) return 'savannah'
-  if (z.includes('augusta')) return 'augusta'
+/** Single-scene build: every zone renders in the statewide GA+SC view, so
+ * zone→scene always resolves 'state'. Kept as a function (backend parity
+ * with projection.scene_for_zone) so callers don't need to know. */
+export function sceneForZone(_zone: string | null | undefined): SceneId {
   return 'state'
 }

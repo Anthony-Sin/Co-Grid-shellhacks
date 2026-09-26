@@ -66,7 +66,9 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>()((set) => ({
-  activeScene: 'savannah',
+  // one-scene build: the statewide GA+SC view is the whole map — corridor
+  // deep links (scene=savannah|augusta) resolve here via urlParams
+  activeScene: 'state',
   selectedOverlapId: null,
   selectedProjectId: null,
   visibleTiers: { 1: true, 2: true, 3: true, 4: true },
@@ -75,7 +77,9 @@ export const useAppStore = create<AppState>()((set) => ({
   hoveredProjectId: null,
   focusTarget: null,
   panelOpen: true,
-  layers: { basemap: true, projects: true, zones: true, labels: true },
+  // zones default OFF — the circles are opt-in via "map view »" (a selected
+  // overlap still renders its own zone even with the layer off)
+  layers: { basemap: true, projects: true, zones: false, labels: true },
   yearFilter: null,
   agentPromptDraft: null,
   hoveredOverlapId: null,
