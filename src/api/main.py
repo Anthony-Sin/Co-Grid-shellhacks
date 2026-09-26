@@ -151,7 +151,29 @@ def regions() -> dict:
         "city_scene": (PROCESSED / "city_state.json").exists(),
         "coverage": "existing grid statewide; planned projects corridor-focused",
     })
-    return {"regions": out}
+    # zone rollup — region tags carried by the data itself (projects.zones
+    # and the derived overlap.zone labels) so a picker can scope by region.
+    projs = _fresh("projects.geojson").get("features", [])
+    ovs = _fresh("overlaps.json").get("overlaps", [])
+    zones: dict[str, dict] = {}
+    for f in projs:
+        for z in f["properties"].get("zones") or []:
+            zones.setdefault(z, {"id": z, "projects": 0, "overlaps": 0})
+            zones[z]["projects"] += 1
+    for o in ovs:
+        for z in (o.get("zone") or "").split(" / "):
+            if z in zones:
+                zones[z]["overlaps"] += 1
+    return {"regions": out, "zones": sorted(zones.values(), key=lambda z: -z["overlaps"])}
+
+
+_OVERLAP_SORTS = {
+    "score": lambda r: (-r.get("score", 0)),
+    "distance": lambda r: (r.get("min_distance_km") or 1e9, -r.get("score", 0)),
+    "year": lambda r: (
+        (r.get("shared_window") or {}).get("start") or 9999,
+        -r.get("score", 0)),
+}
 
 
 @app.get("/api/overlaps")
@@ -159,11 +181,17 @@ def overlaps(
     tier: Optional[int] = Query(None, ge=1, le=4),
     timeline_only: bool = Query(False),
     q: Optional[str] = Query(None, description="substring match on ids, project names, utilities"),
+    zone: Optional[str] = Query(None, description="region tag — matches zone labels incl. 'a / b' pairs"),
+    sort: Optional[str] = Query(None, description="score | distance | year"),
+    limit: Optional[int] = Query(None, ge=1, le=500),
 ) -> dict:
     data = _fresh("overlaps.json")
     rows = data.get("overlaps", [])
     if tier is not None:
         rows = [r for r in rows if r["tier"] == tier]
+    if zone:
+        z = zone.strip().lower()
+        rows = [r for r in rows if z in (r.get("zone") or "").lower()]
     if timeline_only:
         rows = [r for r in rows if r["timeline_overlap"]]
     if q:
@@ -173,6 +201,10 @@ def overlaps(
             "b": r.get("project_b"), "u": r.get("utilities"),
             "x": r.get("explanation"),
         }).lower()]
+    if sort in _OVERLAP_SORTS:
+        rows = sorted(rows, key=_OVERLAP_SORTS[sort])
+    if limit is not None:
+        rows = rows[:limit]
     return {**data, "overlaps": rows}
 
 

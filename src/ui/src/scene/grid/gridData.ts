@@ -17,6 +17,11 @@ export const UTILITY_COLORS = {
   GPC: '#D97B29', // warm orange
   DESC: '#2E86AB', // steel blue
   SANTEE: '#7A9E43',
+  GTC: '#8E44AD',
+  MEAG: '#B03A2E',
+  DUKEC: '#117A65',
+  DUKEP: '#7D6608',
+  DU: '#4A5A6A',
   OTHER: '#6B7280',
 } as const
 
@@ -26,7 +31,13 @@ export function utilityColor(utility: string | null | undefined): string {
   if (u === 'GPC' || u.includes('GEORGIA POWER')) return UTILITY_COLORS.GPC
   if (u === 'DESC' || u.includes('SCE&G') || u.includes('SOUTH CAROLINA ELECTRIC'))
     return UTILITY_COLORS.DESC
-  if (u.includes('SANTEE')) return UTILITY_COLORS.SANTEE
+  if (u.includes('SANTEE') || u === 'SCPSA' || u.includes('PUBLIC SERVICE AUTHORITY'))
+    return UTILITY_COLORS.SANTEE
+  if (u === 'GTC' || u.includes('GEORGIA TRANSMISSION')) return UTILITY_COLORS.GTC
+  if (u === 'MEAG') return UTILITY_COLORS.MEAG
+  if (u === 'DUKECAROLINAS' || u === 'DUKE PROGRESS CAROLINAS') return UTILITY_COLORS.DUKEC
+  if (u === 'DUKEPROGRESS') return UTILITY_COLORS.DUKEP
+  if (u === 'DU' || u.includes('DALTON')) return UTILITY_COLORS.DU
   return UTILITY_COLORS.OTHER
 }
 

@@ -43,7 +43,8 @@ class ApiRoutesTest(unittest.TestCase):
     def test_analysis_endpoints(self):
         for path in ("/api/analysis/timeline", "/api/analysis/calendar",
                      "/api/analysis/clusters", "/api/analysis/playbook",
-                     "/api/analysis/conflicts", "/api/meta"):
+                     "/api/analysis/conflicts", "/api/meta",
+                     "/api/analysis/matrix", "/api/analysis/nearby/OV-0004"):
             r = client.get(path)
             assert r.status_code == 200, path
             assert r.json(), path

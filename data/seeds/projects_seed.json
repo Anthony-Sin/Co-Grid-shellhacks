@@ -1,5 +1,5 @@
 {
-  "_readme": "Curated seed of REAL, publicly-filed planned projects — Savannah River corridor (Savannah + Augusta scenes). Every record cites a public source (SCRTP/SERTP plan docs, SC PSC dockets, GA ITS ten-year plan, IRPs). Coordinates verified against OSM power=* features and/or HIFLD junction analysis; see data/raw/filings/PROJECTS_EXTRACT.md for the underlying extraction and raw PDFs. location_confidence: verified = named facility coordinate confirmed; endpoint_only = straight line between verified endpoint substations; approximate = town/site centroid, exact pad site unpublished. NO fabricated entries.",
+  "_readme": "Curated seed of REAL, publicly-filed planned projects — Savannah River corridor (Savannah + Augusta scenes) plus statewide GA/SC coverage (Charleston, Columbia, lowcountry, Pee Dee, upstate SC; Athens, Atlanta, Macon, Columbus, central & south GA). Every record cites a public source (SCRTP/SERTP plan docs, SC PSC dockets, GA ITS ten-year plan, IRPs). Coordinates verified against OSM power=* features and/or HIFLD junction analysis; see data/raw/filings/PROJECTS_EXTRACT.md for the underlying extraction and raw PDFs. location_confidence: verified = named facility coordinate confirmed; endpoint_only = straight line between verified endpoint substations; approximate = town/site centroid or unnamed OSM yard nearest the filed site, exact pad site unpublished. NO fabricated entries.",
   "projects": [
     {
       "project_id": "DESC-JASPER-OKATIE-230-2",
@@ -7,7 +7,7 @@
       "kind": "transmission_line", "voltage_kv": 230,
       "start_year": 2025, "end_year": 2026, "status": "under_construction",
       "location_confidence": "endpoint_only",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 13 of 54, ISD 12/01/2026, 6.64 mi)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 12 of 54, ISD 12/01/2026, 6.64 mi)",
       "notes": "New 230 kV B1272 ACSR line, Jasper Sub (Hardeeville SC) -> Okatie 230/115 Sub. Endpoints: OSM Jasper Substation + 230kV junction cluster at -81.032,32.335.",
       "zones": ["savannah"],
       "line": [[-81.1242, 32.3607], [-81.0324, 32.3345]]
@@ -18,7 +18,7 @@
       "kind": "substation", "voltage_kv": 230,
       "start_year": 2025, "end_year": 2026, "status": "under_construction",
       "location_confidence": "verified",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 12 of 54, ISD 12/31/2026)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 11 of 54, ISD 12/31/2026)",
       "notes": "Okatie Transmission sub expansion, 230-115 autobank; folds Jasper–Yemassee #1 in (becomes Jasper–Okatie #1 + Okatie–Yemassee). Junction cluster anchor.",
       "zones": ["savannah"],
       "point": [-81.0324, 32.3345]
@@ -29,7 +29,7 @@
       "kind": "transmission_line", "voltage_kv": 230,
       "start_year": 2025, "end_year": 2026, "status": "under_construction",
       "location_confidence": "approximate",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 14 of 54, ISD 12/01/2026)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 13 of 54, ISD 12/01/2026)",
       "notes": "230 kV tap from Okatie to RiverPort industrial park, Hardeeville SC. RiverPort pad site unpublished — river-side industrial area approx.",
       "zones": ["savannah"],
       "line": [[-81.0324, 32.3345], [-81.09, 32.305]]
@@ -40,7 +40,7 @@
       "kind": "upgrade", "voltage_kv": 115,
       "start_year": 2027, "end_year": 2028, "status": "planned",
       "location_confidence": "endpoint_only",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 42 of 54, ISD 12/31/2028); SCRTP 2024-10-30 deck p.19 DESC5",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 41 of 54, ISD 12/31/2028); SCRTP 2024-10-30 deck p.19 DESC5",
       "notes": "9% series reactor on the DESC<->GPC Okatie–McIntosh 115 kV tie + new Deerfield Switching Station. THE cross-river tie corridor — Okatie SC to Plant McIntosh GA.",
       "zones": ["savannah"],
       "line": [[-81.0324, 32.3345], [-81.06, 32.335], [-81.1751, 32.3521]]
@@ -95,7 +95,7 @@
       "kind": "transmission_line", "voltage_kv": 115,
       "start_year": 2025, "end_year": 2026, "status": "under_construction",
       "location_confidence": "endpoint_only",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 8 of 54, ISD 8/12/2026, 12.5 mi)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 7 of 54, ISD 8/12/2026, 12.5 mi)",
       "notes": "477 ACSR -> 1272 ACSR SPDC, Urquhart Sub (Beech Island SC) -> Toolebeck (Aiken Co SC).",
       "zones": ["augusta"],
       "line": [[-81.9092, 33.4334], [-81.6693, 33.5346]]
@@ -106,7 +106,7 @@
       "kind": "transmission_line", "voltage_kv": 46,
       "start_year": 2026, "end_year": 2027, "status": "planned",
       "location_confidence": "approximate",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 27 of 54, ISD 12/31/2027, 4.5 mi)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 26 of 54, ISD 12/31/2027, 4.5 mi)",
       "notes": "Urquhart -> Aiken PSA tap section rebuild. Aiken PSA endpoint approx at Aiken SC.",
       "zones": ["augusta"],
       "line": [[-81.9092, 33.4334], [-81.72, 33.56]]
@@ -117,7 +117,7 @@
       "kind": "substation", "voltage_kv": 115,
       "start_year": 2027, "end_year": 2028, "status": "planned",
       "location_confidence": "approximate",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 25 of 54, ISD 12/31/2028, 28 MVA)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 24 of 54, ISD 12/31/2028, 28 MVA)",
       "notes": "New distribution sub on Atomic Road corridor, Beech Island/Jackson SC.",
       "zones": ["augusta"],
       "point": [-81.84, 33.41]
@@ -128,7 +128,7 @@
       "kind": "substation", "voltage_kv": 115,
       "start_year": 2027, "end_year": 2028, "status": "planned",
       "location_confidence": "approximate",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 34 of 54, ISD 12/31/2028)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 33 of 54, ISD 12/31/2028)",
       "notes": "New dist. sub replacing Jackson 46 kV sub; Jackson SC on the Savannah River by SRS.",
       "zones": ["augusta"],
       "point": [-81.789, 33.333]
@@ -139,7 +139,7 @@
       "kind": "transmission_line", "voltage_kv": 115,
       "start_year": 2026, "end_year": 2027, "status": "planned",
       "location_confidence": "approximate",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 23 of 54, ISD 12/31/2027)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 22 of 54, ISD 12/31/2027)",
       "notes": "115 kV tap off Edmund Switching Station–Owens Corning line to new Wagener dist. sub. At north edge of Augusta scene.",
       "zones": ["augusta"],
       "line": [[-81.3606, 33.6501], [-81.38, 33.63]]
@@ -150,7 +150,7 @@
       "kind": "transmission_line", "voltage_kv": 115,
       "start_year": 2028, "end_year": 2029, "status": "planned",
       "location_confidence": "endpoint_only",
-      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 50 of 54, ISD 12/31/2029, ~15 mi, hurricane-damaged early-60s line)",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 49 of 54, ISD 12/31/2029, ~15 mi, hurricane-damaged early-60s line)",
       "notes": "Stevens Creek (DESC hydro site on Savannah River) -> Graniteville SC. Graniteville endpoint = unnamed sub cluster at -81.806,33.5835 (OSM).",
       "zones": ["augusta"],
       "line": [[-82.0514, 33.5626], [-81.806, 33.5835]]
@@ -462,6 +462,347 @@
       "notes": "Formal joint study evaluating NEW 230 kV and 500 kV GA<->SC lines in the low country — the challenge's premise is a real ongoing process. Location approximate at the Jasper/ Hardeeville interface; timeline unpublished.",
       "zones": ["savannah"],
       "point": [-81.13, 32.34]
+    },
+    {
+      "project_id": "DESC-CHURCHCK-CHARLESTON-230",
+      "utility": "DESC", "name": "Church Creek – Faber Place – Charleston Transmission 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2025, "end_year": 2027, "status": "under_construction",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 16 of 54, ISD 5/1/2027)",
+      "notes": "New 230 kV line Church Creek -> Charleston Transmission; Church Creek–Faber Place 230/115 kV lines rebuilt, 230 kV added Faber Place->Charleston + 230/115 transformer at Charleston Transmission. Endpoints: OSM Church Creek + Faber Place subs; Charleston Transmission = peninsula Charlotte Street 115 kV yard.",
+      "zones": ["charleston"],
+      "line": [[-80.0703, 32.8303], [-80.0146, 32.8501], [-79.9282, 32.7906]]
+    },
+    {
+      "project_id": "DESC-CAINHOY-HAMLIN-115",
+      "utility": "DESC", "name": "Cainhoy – Hamlin 115 kV rebuild + Cainhoy – Hamlin 115 kV #2 (new)",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2024, "end_year": 2026, "status": "under_construction",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 9 of 54, ISD 12/02/26)",
+      "notes": "954 ACSR -> B795 rebuild + parallel new Cainhoy–Hamlin #2 circuit + terminal adds at both subs; Mount Pleasant load-growth driver. OSM Cainhoy + Hamlin substations.",
+      "zones": ["charleston"],
+      "line": [[-79.8423, 32.9414], [-79.7884, 32.8599]]
+    },
+    {
+      "project_id": "DESC-YEMASSEE-RITTER-230",
+      "utility": "DESC", "name": "Yemassee – Ritter 230 kV #1 & #2 SPDC",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2024, "end_year": 2027, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 17 of 54, ISD 6/1/2027)",
+      "notes": "B1272 SPDC on both circuits; existing 230 kV converts to 115 kV; 230 kV bus tie at Ritter + Yemassee bus-tie upgrade. Yemassee sub OSM-verified; Ritter end = unnamed OSM 230/115 kV yard in Colleton Co — the only 230/115 site on the corridor.",
+      "zones": ["lowcountry"],
+      "line": [[-80.6206, 32.8232], [-80.8638, 32.6979]]
+    },
+    {
+      "project_id": "DESC-BURTON-STHELENA-115",
+      "utility": "DESC", "name": "Burton – St. Helena 115 kV rebuild (Frogmore – St. Helena section)",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2025, "end_year": 2027, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 21 of 54, ISD 12/31/2027)",
+      "notes": "Wood poles -> self-supporting steel + 1272 ACSR on the Frogmore Transmission – St. Helena section + Gaillard Tap. Burton + Frogmore subs OSM-verified; St. Helena end approx on St. Helena Island.",
+      "zones": ["beaufort"],
+      "line": [[-80.721, 32.4366], [-80.5711, 32.3991], [-80.56, 32.365]]
+    },
+    {
+      "project_id": "DESC-COIT-GILLSCREEK-115",
+      "utility": "DESC", "name": "Coit – Gills Creek 115 kV conversion + Gills Creek terminal",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2025, "end_year": 2026, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 10 of 54, ISD 12/31/2026, ~1.25 mi conversion)",
+      "notes": "Convert Coit–Gills Creek 33 kV to 115 kV (~1.25 mi) + new Gills Creek terminal at Coit Bus #1. Coit GT peaker HIFLD-verified; Gills Creek end = unnamed OSM 115 kV yard nearest the Gills Creek corridor, SE Columbia.",
+      "zones": ["columbia"],
+      "line": [[-81.0407, 33.9803], [-81.0116, 33.9723]]
+    },
+    {
+      "project_id": "DESC-EASTOVER-SUMTER-115-DEPTIE",
+      "utility": "DESC", "name": "Eastover – Sumter 115 kV DEP tie rebuild (DESC section)",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2025, "end_year": 2026, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 4 of 54, ISD 5/31/2026, ~1 mi DESC section)",
+      "notes": "397.5 ACSR Ibis -> 1272 on DESC's ~1 mi side of the Eastover–Sumter DEP tie; Duke Progress East rebuilds the Sumter-side 5.82 mi (SERTP 2026) — same tie, two owners. Sumter sub OSM-verified; Eastover end = unnamed OSM 115 kV yard nearest Eastover.",
+      "zones": ["midlands"],
+      "line": [[-80.7432, 33.8699], [-80.324, 33.8977]]
+    },
+    {
+      "project_id": "DESC-WINNSBORO-WEST-230115",
+      "utility": "DESC", "name": "Winnsboro West 230-115 kV substation + fold-in",
+      "kind": "substation", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2028, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 30 of 54, ISD 1/31/2028)",
+      "notes": "New 230-115 kV sub folding Parr–Winnsboro 115 kV #1 + VCS1–Killian 230 kV; driven by Parr GT1/GT2 uprates (DESC transitional cluster study). Site = unnamed OSM 230/69 kV yard W of Winnsboro on that corridor; pad unpublished.",
+      "zones": ["midlands"],
+      "point": [-81.1421, 34.3532]
+    },
+    {
+      "project_id": "DESC-MODOC-MCCORMICK-11546",
+      "utility": "DESC", "name": "Modoc – McCormick 115/46 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2027, "end_year": 2029, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 48 of 54, ISD 12/31/29)",
+      "notes": "SPDC 115 kV-insulated rebuild Modoc (Edgefield Co) -> McCormick; system hardening. OSM Modoc + McCormick substations.",
+      "zones": ["west_sc"],
+      "line": [[-82.2015, 33.7363], [-82.2928, 33.9065]]
+    },
+    {
+      "project_id": "SCPSA-MARION-CONWAY-230",
+      "utility": "SanteeCooper", "name": "Conway 230 kV switching station + Marion – Conway 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2024, "end_year": 2025, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24 + project slides pp.51-52, ISD 12/1/2025, ~34 mi)",
+      "notes": "New Conway 230 kV SS folds Hemingway–Red Bluff 230 kV; ~34 mi Marion 230-115-69 sub -> Conway SS (existing Marion–Conway 115 kV rebuilt for 230/115 double circuit). South Marion sub OSM-verified; Conway SS = unnamed OSM 230 kV yard SW of Conway on the corridor.",
+      "zones": ["peedee"],
+      "line": [[-79.4133, 34.1566], [-78.9897, 33.7482]]
+    },
+    {
+      "project_id": "SCPSA-CROSS-WASSAMASSAW-230-2",
+      "utility": "SanteeCooper", "name": "Cross – Wassamassaw 230 kV #2 line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24 + project slides pp.55-56, ISD 6/1/2027, ~18.3 mi)",
+      "notes": "Second 230 kV line Cross 230 kV Switchyard -> Wassamassaw 230-115 kV sub on existing double-circuit ROW. Cross end = HIFLD Cross plant switchyard; Wassamassaw pad site unpublished — Wassamassaw community, Berkeley Co.",
+      "zones": ["charleston"],
+      "line": [[-80.1119, 33.3692], [-80.05, 33.14]]
+    },
+    {
+      "project_id": "SCPSA-INDIANFIELD-WASSAMASSAW-230",
+      "utility": "SanteeCooper", "name": "Indian Field – Wassamassaw 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2024, "end_year": 2026, "status": "under_construction",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24 + project slides pp.59-60, ISD 11/1/2026)",
+      "notes": "New 230 kV line proposed Indian Field 230-115 sub -> Wassamassaw 230-115 sub; part of the Southern-area buildout paired with Varnville–Indian Field. Indian Field end = unnamed OSM 115 kV site on the filed Harleyville–St. George fold-in corridor; Wassamassaw approx at community.",
+      "zones": ["charleston"],
+      "line": [[-80.5307, 33.1735], [-80.05, 33.14]]
+    },
+    {
+      "project_id": "SCPSA-VARNVILLE-INDIANFIELD-230",
+      "utility": "SanteeCooper", "name": "Varnville – Indian Field 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2028, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24 + project slides pp.63-65, ISD 11/1/2028, ~38 mi)",
+      "notes": "~38 mi new 230 kV line Varnville 230-115 sub -> Indian Field sub, linking the Hampton and Dorchester buildouts. Varnville end = unnamed OSM 46 kV yard adjacent to the existing Varnville sub site; Indian Field end as above. Drawn length ~38.8 mi vs filed ~38 mi.",
+      "zones": ["lowcountry"],
+      "line": [[-81.0805, 32.8439], [-80.5307, 33.1735]]
+    },
+    {
+      "project_id": "SCPSA-KINGSTREE-HEMINGWAY-230115",
+      "utility": "SanteeCooper", "name": "Kingstree – Hemingway 115 kV line rebuild as double-circuit 230/115 kV",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2027, "end_year": 2029, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24, ISD 6/1/2029, ~22 mi)",
+      "notes": "~22 mi rebuild of Kingstree–Hemingway 115 kV as 230/115 double circuit — second 230 kV source into the Hemingway/Conway area. OSM Kingstree + Hemingway substations.",
+      "zones": ["peedee"],
+      "line": [[-79.8004, 33.6682], [-79.4265, 33.7497]]
+    },
+    {
+      "project_id": "SCPSA-MARION-REDBLUFF-230",
+      "utility": "SanteeCooper", "name": "Marion – Red Bluff 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2028, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24, ISD 11/1/2028)",
+      "notes": "New 230 kV line Marion 230-115-69 sub -> Red Bluff 230 kV sub, closing the Pee Dee 230 kV loop with the Conway switching-station project. OSM South Marion + Red Bluff substations.",
+      "zones": ["peedee"],
+      "line": [[-79.4133, 34.1566], [-78.8527, 33.93]]
+    },
+    {
+      "project_id": "DUKEPROGRESS-SUMTER-EASTOVER-115",
+      "utility": "DukeProgress", "name": "Sumter – DESC Eastover 115 kV rebuild (Gold Kist Tap – Kings Hwy section)",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Progress East BA, in-service 2027, 5.82 mi)",
+      "notes": "3-1272 MCM 45/7 ACSR rebuild of the DEP-side 5.82 mi (Sumter Gold Kist Tap -> Sumter Kings Hwy section) of the Sumter–DESC Eastover tie; DESC rebuilds its ~1 mi side (SCRTP Project 4). Sumter sub OSM-verified; Kings Hwy tap end approx along US-378.",
+      "zones": ["midlands"],
+      "line": [[-80.324, 33.8977], [-80.42, 33.899]]
+    },
+    {
+      "project_id": "DUKE-LAWSONSFORK-WSPARTAN-100",
+      "utility": "DukeCarolinas", "name": "Lawsons Fork Tie – West Spartanburg Tie 100 kV line rebuild",
+      "kind": "transmission_line", "voltage_kv": 100,
+      "start_year": 2027, "end_year": 2028, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028, ~4.0 mi)",
+      "notes": "Rebuild the Lawsons Fork Tie – Una Retail section (~4 mi) of the Lawsons Fork–West Spartanburg 100 kV line, 1272 ACSR 120°C. Endpoints = unnamed OSM 100 kV yards nearest the Lawsons Fork and W. Spartanburg tie sites — tie subs unnamed in public GIS.",
+      "zones": ["spartanburg"],
+      "line": [[-81.8707, 34.9163], [-81.9782, 34.9557]]
+    },
+    {
+      "project_id": "DUKE-NGREENVILLE-PISGAH-100",
+      "utility": "DukeCarolinas", "name": "North Greenville Tie – Pisgah Tie 100 kV line rebuild (N Greenville – Marietta section)",
+      "kind": "transmission_line", "voltage_kv": 100,
+      "start_year": 2027, "end_year": 2028, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028, 11.5 mi section)",
+      "notes": "Rebuild North Greenville Tie -> Marietta Tie section (11.5 of 12.8 mi) of the N Greenville–Pisgah 100 kV line, 1272 ACSR 120°C. North Greenville Tie HIFLD-verified; Marietta Tie = unnamed OSM 100/44 kV yard at Marietta, Greenville Co.",
+      "zones": ["greenville"],
+      "line": [[-82.4374, 34.8904], [-82.5311, 35.0252]]
+    },
+    {
+      "project_id": "GPC-ATHENA-EWATKINSVILLE-115",
+      "utility": "GPC", "name": "Athena – East Watkinsville 115 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027, 8.47 mi)",
+      "notes": "Athena -> East Watkinsville 115 kV rebuild, 1033 ACSR 100°C — drawn length 8.2 mi vs filed 8.47 mi. HIFLD/OSM Athena + E. Watkinsville substations.",
+      "zones": ["athens"],
+      "line": [[-83.3461, 33.9766], [-83.3845, 33.8604]]
+    },
+    {
+      "project_id": "GPC-ELLENWOOD-MORROW-115",
+      "utility": "GPC", "name": "Ellenwood Area Network Improvements (Austin Drive – Morrow 115 kV rebuild)",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027)",
+      "notes": "Austin Drive–Morrow 115 kV -> 1351 ACSS Martin 200°C + limiting-element upgrades at Austin Drive sub (Ellenwood network package). Morrow sub OSM-verified; Austin Drive end placed at OSM 'Ellenwood Substation' on the Austin Dr corridor — pad name unpublished.",
+      "zones": ["atlanta"],
+      "line": [[-84.3021, 33.6086], [-84.3335, 33.6059]]
+    },
+    {
+      "project_id": "GPC-SANDERSVILLE-WADLEY-115",
+      "utility": "GPC", "name": "Sandersville #1 – Wadley Primary 115 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027, ~24.3 mi)",
+      "notes": "1351 ACSR Drake rebuild Washington -> Jefferson Co + limiting-element replacements; drawn 24.9 mi vs filed 24.3 mi. OSM Sandersville #1 + Wadley substations.",
+      "zones": ["central_ga"],
+      "line": [[-82.8019, 32.9985], [-82.4159, 32.8847]]
+    },
+    {
+      "project_id": "GPC-HATCH-WADLEY-500",
+      "utility": "GPC", "name": "Hatch – Wadley 500 kV line (strategic project)",
+      "kind": "transmission_line", "voltage_kv": 500,
+      "start_year": 2028, "end_year": 2031, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2031)",
+      "notes": "New 500 kV line Plant Hatch -> Wadley Primary, (3) 1113 ACSR 100°C — backbone corridor through central-south GA. OSM Hatch + Wadley substations.",
+      "zones": ["central_ga"],
+      "line": [[-82.3452, 31.9335], [-82.4159, 32.8847]]
+    },
+    {
+      "project_id": "GPC-JESUP-OFFERMAN-115",
+      "utility": "GPC", "name": "Jesup – Offerman 115 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027, ~20 mi)",
+      "notes": "795 ACSR Drake rebuild Wayne -> Pierce Co. OSM Jesup + Offerman substations.",
+      "zones": ["south_ga"],
+      "line": [[-81.9249, 31.6031], [-82.1437, 31.423]]
+    },
+    {
+      "project_id": "GPC-BROADWAY-ECHECONNEE-115",
+      "utility": "GPC", "name": "Broadway – Echeconnee 115 kV line rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2029, "end_year": 2030, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2030, ~11.5 mi Griffin Rd – Broadway section)",
+      "notes": "Rebuild Griffin Rd – Broadway section of the Broadway–Echeconnee 115 kV line, 1351 ACSS 200°C (companion 2027 reconductor covers Griffin Rd – Echeconnee, 4.9 mi). Pad sites unpublished: Broadway approx on the Broadway Ave corridor, Macon; Echeconnee = unnamed OSM 115 kV yard E of I-75, S Macon.",
+      "zones": ["macon"],
+      "line": [[-83.66, 32.835], [-83.5678, 32.8042]]
+    },
+    {
+      "project_id": "GTC-BONAIRE-ECHECONNEE-115",
+      "utility": "GTC", "name": "Bonaire Primary – Echeconnee 115 kV line rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2030, "end_year": 2031, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2031, ~19 mi)",
+      "notes": "~19 mi rebuild Bonaire Primary -> Echeconnee, 1351 ACSS 200°C, Houston -> Bibb Co. Bonaire Primary OSM-verified; Echeconnee end = unnamed OSM 115 kV yard, S Macon.",
+      "zones": ["macon"],
+      "line": [[-83.5996, 32.5651], [-83.5678, 32.8042]]
+    },
+    {
+      "project_id": "GTC-OHARA-SGRIFFIN-230",
+      "utility": "GTC", "name": "O'Hara – South Griffin 230 kV line reconductor",
+      "kind": "reconductor", "voltage_kv": 230,
+      "start_year": 2028, "end_year": 2029, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2029, 23 mi)",
+      "notes": "1351 ACSS 200°C reconductor, Fayette -> Spalding Co. O'Hara sub OSM-verified; South Griffin end = unnamed OSM 115 kV yard S of Griffin (site of MEAG's new 230/115 sub project).",
+      "zones": ["atlanta"],
+      "line": [[-84.3673, 33.482], [-84.2794, 33.2156]]
+    },
+    {
+      "project_id": "GTC-DAWSONX-NELSON-BLACK-115",
+      "utility": "GTC", "name": "Dawson Crossing – Nelson (Black) 115 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2028, "end_year": 2029, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2029, ~7.5 mi section)",
+      "notes": "Rebuild Nelson – McClain Mountain – Big Canoe section (~7.5 mi) of the Dawson Crossing–Nelson BLACK circuit, 795 ACSS 200°C. Parallel WHITE circuit is Dalton Utilities' 2030 rebuild — same corridor, literal shared ROW. OSM Dawson Crossing + Nelson substations.",
+      "zones": ["atlanta"],
+      "line": [[-84.1336, 34.3781], [-84.3788, 34.3866]]
+    },
+    {
+      "project_id": "DU-DAWSONX-NELSON-WHITE-115",
+      "utility": "DU", "name": "Dawson Crossing – Nelson (White) 115 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 115,
+      "start_year": 2029, "end_year": 2030, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/DU Dalton Utilities, in-service 2030, ~15.7 mi)",
+      "notes": "1351 ACSS Martin rebuild of the parallel WHITE circuit, Dawson Co -> Pickens Co; same corridor as GTC's BLACK-circuit rebuild (2029). OSM Dawson Crossing + Nelson substations.",
+      "zones": ["atlanta"],
+      "line": [[-84.1336, 34.3781], [-84.3788, 34.3866]]
+    },
+    {
+      "project_id": "GTC-ROCKVILLE-TIGERCRK-WARTHEN-500",
+      "utility": "GTC", "name": "Rockville – Tiger Creek – Warthen 500 kV lines + Tiger Creek 500/230 yard",
+      "kind": "transmission_line", "voltage_kv": 500,
+      "start_year": 2028, "end_year": 2030, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2030, ~20 mi + ~9 mi)",
+      "notes": "New Rockville – Tiger Creek (~20 mi) + Tiger Creek – Warthen (~9 mi) 500 kV, 1113 ACSR Bluejay; new 500 kV yard + 500/230 autobank at Tiger Creek. Rockville end = point on the HIFLD Scherer–Warthen 500 kV route at Rockville GA (the filed loop-in site); Tiger Creek + Warthen OSM-verified.",
+      "zones": ["central_ga"],
+      "line": [[-83.2124, 33.3246], [-82.9816, 33.0945], [-82.8594, 33.1199]]
+    },
+    {
+      "project_id": "GTC-EMOULTRIE-HWY112-230",
+      "utility": "GTC", "name": "East Moultrie – Highway 112 230 kV line",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2027, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2027, ~27 mi)",
+      "notes": "New ~27 mi 230 kV line HWY 112 -> East Moultrie, 1351 ACSS 160°C. East Moultrie sub OSM-verified; Highway 112 end = unnamed OSM 115 kV yard nearest the Hwy 112 corridor, Worth Co (pad unpublished).",
+      "zones": ["south_ga"],
+      "line": [[-83.7435, 31.2422], [-83.8691, 31.5324]]
+    },
+    {
+      "project_id": "MEAG-NEWSGRIFFIN-230115",
+      "utility": "MEAG", "name": "New South Griffin 230/115 kV substation",
+      "kind": "substation", "voltage_kv": 230,
+      "start_year": 2026, "end_year": 2028, "status": "planned",
+      "location_confidence": "approximate",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/MEAG, in-service 2028)",
+      "notes": "New 230/115 kV sub relocating all lines except South Coweta + Griffin #1 from the existing South Griffin sub; terminates the converted Hampton 230 kV line. Site approx at unnamed OSM 115 kV yard S of Griffin — existing pad name unpublished.",
+      "zones": ["atlanta"],
+      "point": [-84.2794, 33.2156]
+    },
+    {
+      "project_id": "MEAG-FORTSON-TALBOT-230",
+      "utility": "MEAG", "name": "Fortson – Talbot County #2 230 kV rebuild",
+      "kind": "transmission_line", "voltage_kv": 230,
+      "start_year": 2029, "end_year": 2030, "status": "planned",
+      "location_confidence": "endpoint_only",
+      "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/MEAG, in-service 2030)",
+      "notes": "1351 ACSS 200°C rebuild + jumper replacements, Muscogee Co -> Talbot County Energy switchyard. OSM Fortson + Talbot County Energy substations.",
+      "zones": ["columbus"],
+      "line": [[-84.9156, 32.6102], [-84.6932, 32.5888]]
     }
   ]
 }

@@ -1,14 +1,19 @@
 # CO-GRID — Savannah River Corridor + Statewide
 
+![CO-GRID state scene — GA + SC, monochrome sketch map, 73 planned projects, 246 ranked overlaps](docs/screenshot.png)
+
 **Gridlock Challenge (Sperry Tech × Shell Hacks 2026).** Finds where two
 electric utilities' *planned* construction projects overlap geographically
 (≤ 40 km, closest-points) and in time, then ranks coordination
 opportunities into tiers and renders them on a stylized 3D map.
 
 Utilities tracked: **Georgia Power (GPC)** and **Dominion Energy South
-Carolina (DESC)** (+ Santee Cooper/SCPSA) — planned projects cluster in
-the Savannah River corridor (Savannah metro + Augusta), while the
-existing-grid basemap and a dedicated **GA+SC state scene** cover the
+Carolina (DESC)** as the core pair, plus co-planners mined from the same
+public filings: **Santee Cooper, GTC, MEAG, Duke Carolinas, Duke Progress,
+Dalton Utilities** — 73 filed projects, 246 ranked overlaps, densest in
+the Savannah River corridor (Savannah metro + Augusta) with statewide
+coverage (Charleston, Columbia, Atlanta, Macon, Pee Dee, upstate).
+The existing-grid basemap and a dedicated **GA+SC state scene** cover the
 full two-state envelope: 15.7k real HIFLD features, state/county borders,
 interstate corridors, named rivers, 508 real places.
 
@@ -151,7 +156,7 @@ ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
 reserved for the data layer**: planned project geometry uses utility
 colors, coordination zones use tier colors with diagonal hatching.
 Large zones get airier hatching + fainter fills so markup never floods;
-the map renders the top ~40 scored zones (all 226 stay listed/selectable).
+the map renders the top ~40 scored zones (all 246 stay listed/selectable).
 
 ### Performance notes
 

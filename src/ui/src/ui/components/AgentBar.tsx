@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type AgentHealth, type AgentReply } from '../../lib/api'
+import { renderMarkdown } from './md'
 import { useAppStore } from '../../state/store'
 
 /**
@@ -17,6 +18,7 @@ interface Msg {
   content: string
   reasoning?: string | null
   tools?: string[]
+  progress?: boolean // transient live-tool line — replaced by the real reply
 }
 
 const QUICK_ACTIONS = [
@@ -94,10 +96,11 @@ export function AgentBar() {
           // live progress line under the log while the chain runs
           setMsgs((m) => {
             const last = m[m.length - 1]
-            if (last?.role === 'assistant' && last.content.startsWith('⚙ ')) {
-              return [...m.slice(0, -1), { role: 'assistant', content: `⚙ ${liveTools.join(' · ')}` }]
+            if (last?.progress) {
+              return [...m.slice(0, -1),
+                      { role: 'assistant', content: `⚙ ${liveTools.join(' · ')}`, progress: true }]
             }
-            return [...m, { role: 'assistant', content: `⚙ ${name}` }]
+            return [...m, { role: 'assistant', content: `⚙ ${name}`, progress: true }]
           })
         },
       )
@@ -107,7 +110,7 @@ export function AgentBar() {
       ))
       setMsgs((m) => [
         // replace the transient ⚙ progress line with the real answer
-        ...(m[m.length - 1]?.content.startsWith('⚙ ') ? m.slice(0, -1) : m),
+        ...(m[m.length - 1]?.progress ? m.slice(0, -1) : m),
         {
           role: 'assistant',
           content: reply.reply,
@@ -117,7 +120,7 @@ export function AgentBar() {
       ])
     } catch (e) {
       setMsgs((m) => [
-        ...(m[m.length - 1]?.content.startsWith('⚙ ') ? m.slice(0, -1) : m),
+        ...(m[m.length - 1]?.progress ? m.slice(0, -1) : m),
         { role: 'assistant', content: `agent error: ${e instanceof Error ? e.message : e}` },
       ])
     } finally {
@@ -154,11 +157,13 @@ export function AgentBar() {
       {msgs.length > 0 && (
         <div className="agent-log" ref={listRef}>
           {msgs.map((m, i) => (
-            <div key={i} className={`agent-msg ${m.role}`}>
+            <div key={i} className={`agent-msg ${m.role}${m.progress ? ' agent-progress' : ''}`}>
               {m.tools && m.tools.length > 0 && (
                 <div className="agent-tools">⚙ {m.tools.join(' · ')}</div>
               )}
-              {m.content}
+              {m.role === 'assistant' && !m.progress
+                ? renderMarkdown(m.content)
+                : m.content}
               {m.reasoning && (
                 <details className="agent-reasoning">
                   <summary>thinking</summary>

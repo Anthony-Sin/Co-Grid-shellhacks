@@ -78,9 +78,11 @@ def tool_stats() -> dict:
     projs, ovs = projects(), overlaps()
     by_util: dict[str, int] = {}
     by_tier: dict[str, int] = {}
+    zones: set[str] = set()
     for f in projs:
         u = f["properties"].get("utility", "?")
         by_util[u] = by_util.get(u, 0) + 1
+        zones.update(f["properties"].get("zones") or [])
     for o in ovs:
         t = str(o["tier"])
         by_tier[t] = by_tier.get(t, 0) + 1
@@ -90,6 +92,7 @@ def tool_stats() -> dict:
         "overlaps": len(ovs),
         "by_tier": by_tier,
         "timeline_matches": sum(1 for o in ovs if o["timeline_overlap"]),
+        "zones_available": sorted(zones),
     }
 
 

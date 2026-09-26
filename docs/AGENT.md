@@ -52,12 +52,12 @@ Pass `overlap_id` when a zone is selected on the map — the agent injects
 the record's real fields (tier, distance, window, impact estimate) into
 the system context so "explain this" resolves correctly.
 
-## Tools (13)
+## Tools (14)
 
 `stats` · `list_projects` · `get_project` · `top_overlaps` ·
 `get_overlap` · `projects_near` · `timeline_summary` · `impact_estimate`
 · `gazetteer` · `data_health` · `staging_clusters` · `playbook` ·
-`outage_conflicts` · `define`
+`outage_conflicts` · `utility_matrix` · `define`
 
 ## Deterministic analysis (no model)
 

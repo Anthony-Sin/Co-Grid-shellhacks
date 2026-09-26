@@ -110,29 +110,38 @@ if (process.env.AGENT_E2E === '1') {
       if (btn) btn.click()
     })
     await new Promise((r) => setTimeout(r, 800))
+    // type a minimal prompt — one `define` tool call, fast round-trip.
+    // (Quick chips kick off multi-round chains that can run minutes on a
+    // thinking model; E2E verifies the path, not the benchmark.)
     const clicked = await page.evaluate(() => {
-      const chip = [...document.querySelectorAll('.agent-chips button')]
-        .filter((b) => !b.classList.contains('agent-hide'))
-      if (!chip.length) return false
-      chip[0].click() // "Top opportunities"
+      const input = document.querySelector('.agent-input input')
+      const form = document.querySelector('.agent-input')
+      if (!input || !form) return false
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value').set
+      setter.call(input, 'what is SERTP? one sentence')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
       return true
     })
-    if (!clicked) throw new Error('no agent chips rendered')
+    if (!clicked) throw new Error('agent input not rendered')
+    await new Promise((r) => setTimeout(r, 400)) // let React enable submit
+    await page.evaluate(() => {
+      document.querySelector('.agent-input button[type=submit]')?.click()
+    })
     // SSE reply can take 30-90s through multi-round tool chains; done when
     // the transient 'analyzing…' placeholder is gone and a real reply sits
     // in the log (⚙ progress lines don't count).
     const ok = await page
       .waitForFunction(
         `!document.querySelector('.agent-thinking') &&
-         [...document.querySelectorAll('.agent-msg.assistant')]
-           .some((m) => !m.textContent.startsWith('⚙'))`,
+         !document.querySelector('.agent-progress') &&
+         document.querySelectorAll('.agent-msg.assistant').length > 0`,
         { timeout: 360_000, polling: 1000 },
       )
       .then(() => true)
       .catch(() => false)
     const last = await page.evaluate(() => {
       const msgs = [...document.querySelectorAll('.agent-msg.assistant')]
-        .filter((m) => !m.textContent.startsWith('⚙'))
       return msgs.length ? msgs[msgs.length - 1].textContent.slice(0, 400) : null
     })
     console.log(`  agent reply: ${ok ? 'RECEIVED' : 'TIMED OUT'} — ${last ?? 'none'}`)

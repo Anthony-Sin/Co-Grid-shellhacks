@@ -138,6 +138,28 @@ def tool_playbook(radius_km: float = 40.0, top: int = 5) -> dict:
     return res
 
 
+def tool_utility_matrix() -> dict:
+    """Utility-pair × tier matrix — which utility pairs overlap most."""
+    records = overlaps()
+    pairs: dict[str, dict] = {}
+    for r in records:
+        utils = sorted(set(r.get("utilities") or []))
+        key = " × ".join(utils) if utils else "unknown"
+        cell = pairs.setdefault(key, {
+            "utilities": utils, "overlaps": 0,
+            "by_tier": {"1": 0, "2": 0, "3": 0, "4": 0},
+            "timeline_matches": 0, "best_distance_km": None,
+        })
+        cell["overlaps"] += 1
+        cell["by_tier"][str(r["tier"])] += 1
+        if r.get("timeline_overlap"):
+            cell["timeline_matches"] += 1
+        d = r.get("min_distance_km")
+        if d is not None and (cell["best_distance_km"] is None or d < cell["best_distance_km"]):
+            cell["best_distance_km"] = round(d, 3)
+    return {"pairs": sorted(pairs.values(), key=lambda c: -c["overlaps"])}
+
+
 def tool_outage_conflicts() -> dict:
     """Must-coordinate subset: tier-1 touching/crossing overlaps whose
     build windows intersect — mandatory joint outage scheduling."""

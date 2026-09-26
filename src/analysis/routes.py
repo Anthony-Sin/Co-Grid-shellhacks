@@ -99,6 +99,77 @@ def playbook(radius_km: float = Query(40.0, ge=5.0, le=200.0),
     return build_playbook(_fresh("overlaps.json"), radius_km, top)
 
 
+@router.get("/matrix")
+def matrix() -> dict:
+    """Utility-pair × tier overlap matrix — which pairs coordinate most."""
+    records = _fresh("overlaps.json").get("overlaps") or []
+    pairs: dict[str, dict] = {}
+    for r in records:
+        utils = sorted(set(r.get("utilities") or []))
+        key = " × ".join(utils) if utils else "unknown"
+        cell = pairs.setdefault(key, {
+            "utilities": utils, "overlaps": 0,
+            "by_tier": {"1": 0, "2": 0, "3": 0, "4": 0},
+            "timeline_matches": 0, "best_distance_km": None,
+            "best_overlap": None,
+        })
+        cell["overlaps"] += 1
+        cell["by_tier"][str(r["tier"])] += 1
+        if r.get("timeline_overlap"):
+            cell["timeline_matches"] += 1
+        d = r.get("min_distance_km")
+        if d is not None and (cell["best_distance_km"] is None or d < cell["best_distance_km"]):
+            cell["best_distance_km"] = round(d, 3)
+            cell["best_overlap"] = r["overlap_id"]
+    rows = sorted(pairs.values(), key=lambda c: -c["overlaps"])
+    return {"pairs": rows, "pair_count": len(rows)}
+
+
+@router.get("/nearby/{overlap_id}")
+def nearby(overlap_id: str,
+           radius_km: float = Query(40.0, ge=1.0, le=200.0)) -> dict:
+    """Other overlaps whose midpoints sit within `radius_km` of this one's —
+    the site's staging neighborhood (what a shared yard also reaches)."""
+    import math
+    data = _fresh("overlaps.json")
+    records = data.get("overlaps") or []
+    anchor = next((r for r in records if r.get("overlap_id") == overlap_id), None)
+    if not anchor:
+        raise HTTPException(404, f"no overlap {overlap_id!r}")
+    mp = anchor.get("midpoint")
+    if not mp:
+        return {"overlap_id": overlap_id, "neighbors": [],
+                "note": "anchor record has no midpoint"}
+    ax, ay = mp[0], mp[1]
+    out = []
+    for r in records:
+        if r.get("overlap_id") == overlap_id:
+            continue
+        m2 = r.get("midpoint")
+        if not m2:
+            continue
+        p1, p2 = math.radians(ay), math.radians(m2[1])
+        dlat, dlon = p2 - p1, math.radians(m2[0] - ax)
+        d = 6371.0 * 2 * math.asin(math.sqrt(
+            math.sin(dlat / 2) ** 2
+            + math.cos(p1) * math.cos(p2) * math.sin(dlon / 2) ** 2))
+        if d <= radius_km:
+            out.append({
+                "overlap_id": r["overlap_id"], "distance_km": round(d, 2),
+                "tier": r["tier"], "utilities": r.get("utilities"),
+                "timeline_overlap": r.get("timeline_overlap"),
+                "shared_window": r.get("shared_window"),
+            })
+    out.sort(key=lambda x: x["distance_km"])
+    return {
+        "overlap_id": overlap_id,
+        "midpoint": mp,
+        "radius_km": radius_km,
+        "neighbor_count": len(out),
+        "neighbors": out[:60],
+    }
+
+
 @router.get("/conflicts")
 def conflicts() -> dict:
     """Must-coordinate subset: tier-1 touching + shared window, bucketed

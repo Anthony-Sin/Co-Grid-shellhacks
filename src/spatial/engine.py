@@ -80,6 +80,18 @@ def find_overlaps(
         pts = gpd.GeoSeries([pa_m, pb_m, mid_m], crs=TARGET_CRS).to_crs(_SOURCE_CRS)
         pt_a, pt_b, mid = pts.iloc[0], pts.iloc[1], pts.iloc[2]
         t_ok, shared = windows_overlap(a.start_year, a.end_year, b.start_year, b.end_year)
+        # per-record zone: shared tag if the two projects share one, else
+        # the honest pair label ('savannah / lowcountry'); 'statewide' when
+        # the projects carry no zone tags.
+        za = set(a.zones or []) if hasattr(a, 'zones') else set()
+        zb = set(b.zones or []) if hasattr(b, 'zones') else set()
+        both = sorted(za & zb)
+        if both:
+            rec_zone = both[0]
+        elif za or zb:
+            rec_zone = " / ".join(sorted(za | zb))
+        else:
+            rec_zone = zone
         # Coordination zone: capsule bridging the two closest points,
         # half-width = max(1.2 km, 60% of the gap) so it reads as an area.
         bridge_m = LineString([pa_m, pb_m]).buffer(
@@ -103,7 +115,7 @@ def find_overlaps(
                 closest_point_b=(round(pt_b.x, 6), round(pt_b.y, 6)),
                 midpoint=(round(mid.x, 6), round(mid.y, 6)),
                 score=0.0,  # filled by ranker.score_overlaps
-                zone=zone,
+                zone=rec_zone,
                 zone_geometry=zone_geo.iloc[0].__geo_interface__,
             )
         )

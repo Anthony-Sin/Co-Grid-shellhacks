@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from .tool_analysis import (
     tool_define, tool_impact_estimate, tool_outage_conflicts, tool_playbook,
-    tool_staging_clusters, tool_timeline_summary,
+    tool_staging_clusters, tool_timeline_summary, tool_utility_matrix,
 )
 from .tool_data import (
     tool_data_health, tool_gazetteer, tool_get_overlap, tool_get_project,
@@ -81,6 +81,12 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "season-years covering all windowed sites + peak concurrent "
         "workload (crew sizing).",
         {"radius_km": "float 5-200 (optional)", "top": "int <=20 (optional)"},
+    ),
+    "utility_matrix": (
+        tool_utility_matrix,
+        "Overlap counts per utility pair with tier split — who coordinates "
+        "with whom, ranked by volume.",
+        {},
     ),
     "outage_conflicts": (
         tool_outage_conflicts,
