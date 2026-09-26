@@ -163,6 +163,10 @@ Analysis API (`src/analysis/`, deterministic — no model):
 - `GET /api/analysis/clusters?radius_km=` → staging clusters (union-find on
   overlap midpoints): centroid, span, utilities, tiers, member overlap_ids
 - `GET /api/analysis/calendar` → overlaps grouped by shared-window start year
+- `GET /api/analysis/playbook?radius_km=&top=` → minimal season-years per
+  staging cluster, peak concurrent sites (crew sizing)
+- `GET /api/analysis/conflicts` → tier-1 + shared-window subset — the
+  mandatory joint-outage scheduling list, bucketed by season year
 
 Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 - `GET /api/agent/health` → `{configured, model, tools, max_rounds}`
@@ -174,4 +178,4 @@ Agent API (`src/agent/`, needs `AGENT_API_KEY` env — server-side only):
 Agent tools (names exactly as emitted to the model): `stats`, `list_projects`,
 `get_project`, `top_overlaps`, `get_overlap`, `projects_near`,
 `timeline_summary`, `impact_estimate`, `gazetteer`, `data_health`,
-`staging_clusters`, `define`.
+`staging_clusters`, `playbook`, `outage_conflicts`, `define`.

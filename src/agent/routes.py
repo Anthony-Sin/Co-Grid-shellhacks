@@ -10,9 +10,11 @@ The key stays server-side; the frontend only sees replies + traces.
 from __future__ import annotations
 
 import json
+import time
+from collections import defaultdict, deque
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -24,6 +26,22 @@ router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 MAX_MESSAGES = 40
 MAX_CONTENT_CHARS = 8000
+
+# cheap in-process rate limiting: each paid call burns provider tokens.
+_RATE_WINDOW_S = 60.0
+_RATE_LIMIT = 20          # paid calls per IP per minute
+_calls: dict[str, deque] = defaultdict(deque)
+
+
+def _rate_limit(req: Request) -> None:
+    ip = req.client.host if req.client else "?"
+    now = time.monotonic()
+    q = _calls[ip]
+    while q and now - q[0] > _RATE_WINDOW_S:
+        q.popleft()
+    if len(q) >= _RATE_LIMIT:
+        raise HTTPException(429, "rate limit — try again in a moment")
+    q.append(now)
 
 
 class ChatMessage(BaseModel):
@@ -58,8 +76,9 @@ def health() -> dict:
 
 
 @router.post("/chat")
-def chat(req: ChatRequest) -> dict[str, Any]:
+def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
     cfg = _config_or_503()
+    _rate_limit(request)
     history = []
     for m in req.messages:
         if m.role not in ("user", "assistant"):
@@ -82,11 +101,12 @@ def _sse(event: str, data: dict) -> bytes:
 
 
 @router.post("/chat/stream")
-def chat_stream(req: ChatRequest):
+def chat_stream(req: ChatRequest, request: Request):
     """SSE version of /chat: emits `tool` events as each call completes so
     the UI can show live progress during multi-round chains, then a `final`
     event with the same payload shape as /chat, then `done`."""
     cfg = _config_or_503()
+    _rate_limit(request)
     history = []
     for m in req.messages:
         if m.role not in ("user", "assistant"):
@@ -118,8 +138,9 @@ def chat_stream(req: ChatRequest):
 
 
 @router.get("/brief/{overlap_id}")
-def brief(overlap_id: str) -> dict[str, Any]:
+def brief(overlap_id: str, request: Request) -> dict[str, Any]:
     cfg = _config_or_503()
+    _rate_limit(request)
     try:
         out = run_brief(cfg, overlap_id)
     except ChatError as e:

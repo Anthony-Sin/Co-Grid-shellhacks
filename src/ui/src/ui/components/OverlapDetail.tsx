@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { TIER_COLORS } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
-import { useOverlaps, useProjects } from '../hooks/useApiData'
+import { useImpact, useOverlaps, useProjects } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
 
@@ -67,6 +67,44 @@ function ProjectLine({
   )
 }
 
+/** Fallback when a record has no stored cost — the analysis API derives
+ * shared-ROW acres / savings range from real geometry on demand, so every
+ * overlap can show a rough estimate rather than a dead end. */
+function ImpactFallback({ overlapId }: { overlapId: string }) {
+  const imp = useImpact(overlapId)
+  if (imp.loading) return <p className="detail-basis">Deriving estimate…</p>
+  const d = imp.data
+  if (imp.error || !d || !d.est_savings_usd_range) {
+    return <p className="detail-basis">No cost estimate published for this pair.</p>
+  }
+  const r = d.est_savings_usd_range
+  return (
+    <>
+      {d.shared_row_acres != null && (
+        <div className="kv">
+          <span className="k">shared ROW</span>
+          <span className="v mono">{d.shared_row_acres.toFixed(1)} acres</span>
+        </div>
+      )}
+      {d.crew_share_days != null && (
+        <div className="kv">
+          <span className="k">crew-share window</span>
+          <span className="v mono">{d.crew_share_days} days</span>
+        </div>
+      )}
+      <div className="kv">
+        <span className="k">est. savings</span>
+        <span className="v mono">
+          {r.low != null && r.high != null
+            ? `${fmtUsd(r.low)} – ${fmtUsd(r.high)}`
+            : 'n/a'}
+        </span>
+      </div>
+      <p className="detail-basis">{r.basis} ({d.confidence})</p>
+    </>
+  )
+}
+
 function DetailBody({
   o,
   projectById,
@@ -121,7 +159,7 @@ function DetailBody({
             <p className="detail-basis">{o.cost.basis}</p>
           </>
         ) : (
-          <p className="detail-basis">No cost estimate published for this pair.</p>
+          <ImpactFallback overlapId={o.overlap_id} />
         )}
       </div>
 

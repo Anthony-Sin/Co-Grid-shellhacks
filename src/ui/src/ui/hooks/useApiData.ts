@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
 import type {
   FeatureCollection,
+  ImpactEstimate,
   OverlapsResponse,
   ProjectProps,
   StatsResponse,
@@ -79,4 +80,13 @@ export function useOverlaps(): ApiDataState<OverlapsResponse> {
 /** /api/projects — FeatureCollection<ProjectProps> for project_id → name/utility resolution */
 export function useProjects(): ApiDataState<FeatureCollection<ProjectProps>> {
   return useApiData('projects', api.projects)
+}
+
+/** /api/analysis/impact/{id} — geometry-derived sharing estimate for one overlap */
+export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate> {
+  const fetcher = useMemo(
+    () => () => api.impact(overlapId ?? '__none__'),
+    [overlapId],
+  )
+  return useApiData(`impact:${overlapId ?? 'none'}`, fetcher)
 }

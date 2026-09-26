@@ -99,6 +99,14 @@ def playbook(radius_km: float = Query(40.0, ge=5.0, le=200.0),
     return build_playbook(_fresh("overlaps.json"), radius_km, top)
 
 
+@router.get("/conflicts")
+def conflicts() -> dict:
+    """Must-coordinate subset: tier-1 touching + shared window, bucketed
+    by season year — the joint-outage scheduling list."""
+    from .conflicts import build_conflicts
+    return build_conflicts(_fresh("overlaps.json"))
+
+
 @router.get("/clusters")
 def clusters(radius_km: float = Query(40.0, ge=5.0, le=200.0)) -> dict:
     """Staging clusters — overlap groups shareable from one crew yard

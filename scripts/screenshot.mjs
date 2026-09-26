@@ -94,5 +94,55 @@ for (const entry of SHOTS) {
     console.log(`  (shot failed: ${name}: ${e.message})`)
   }
 }
+
+// ---- E2E agent check (opt-in): clicks the first quick-action chip and
+// waits for a real assistant reply through the SSE path, then shoots the
+// conversation. Exercises backend agent + proxy + SSE + UI in one pass.
+if (process.env.AGENT_E2E === '1') {
+  console.log('==> agent_e2e  (chat round-trip)')
+  try {
+    await page.goto(`${BASE}/?scene=savannah`, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction('window.__cogridReady === true', { timeout: 120_000, polling: 500 })
+      .catch(() => {})
+    // open the agent bar
+    await page.evaluate(() => {
+      const btn = document.querySelector('.agent-bar-toggle')
+      if (btn) btn.click()
+    })
+    await new Promise((r) => setTimeout(r, 800))
+    const clicked = await page.evaluate(() => {
+      const chip = [...document.querySelectorAll('.agent-chips button')]
+        .filter((b) => !b.classList.contains('agent-hide'))
+      if (!chip.length) return false
+      chip[0].click() // "Top opportunities"
+      return true
+    })
+    if (!clicked) throw new Error('no agent chips rendered')
+    // SSE reply can take 30-90s through multi-round tool chains; done when
+    // the transient 'analyzing…' placeholder is gone and a real reply sits
+    // in the log (⚙ progress lines don't count).
+    const ok = await page
+      .waitForFunction(
+        `!document.querySelector('.agent-thinking') &&
+         [...document.querySelectorAll('.agent-msg.assistant')]
+           .some((m) => !m.textContent.startsWith('⚙'))`,
+        { timeout: 360_000, polling: 1000 },
+      )
+      .then(() => true)
+      .catch(() => false)
+    const last = await page.evaluate(() => {
+      const msgs = [...document.querySelectorAll('.agent-msg.assistant')]
+        .filter((m) => !m.textContent.startsWith('⚙'))
+      return msgs.length ? msgs[msgs.length - 1].textContent.slice(0, 400) : null
+    })
+    console.log(`  agent reply: ${ok ? 'RECEIVED' : 'TIMED OUT'} — ${last ?? 'none'}`)
+    await page.screenshot({ path: `${OUT}/agent_e2e.png` })
+    console.log(`  -> ${OUT}/agent_e2e.png`)
+    if (!ok) process.exitCode = 2
+  } catch (e) {
+    console.log(`  (agent e2e failed: ${e.message})`)
+    process.exitCode = 2
+  }
+}
 await browser.close()
 console.log(`done -> ${OUT}/`)

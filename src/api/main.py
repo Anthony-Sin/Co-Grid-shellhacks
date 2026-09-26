@@ -23,6 +23,7 @@ load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "data" / "processed"
+RAW = ROOT / "data" / "raw"
 
 app = FastAPI(title="CO-GRID API", version="0.1.0")
 app.add_middleware(
@@ -65,10 +66,28 @@ def health() -> dict:
     return {"ok": True, "processed": sorted(p.name for p in PROCESSED.glob("*"))}
 
 
+@app.get("/api/meta")
+def meta() -> dict:
+    """Artifact freshness — when each processed file was built and its size.
+    Lets the UI show 'data generated <ts>' honestly."""
+    import datetime as _dt
+    files = {}
+    for p in sorted(PROCESSED.glob("*")):
+        st = p.stat()
+        files[p.name] = {
+            "bytes": st.st_size,
+            "built_utc": _dt.datetime.fromtimestamp(
+                st.st_mtime, tz=_dt.timezone.utc).isoformat(timespec="seconds"),
+        }
+    return {"processed": files,
+            "raw_files": sum(1 for p in RAW.glob("**/*") if p.is_file()) if RAW.exists() else 0}
+
+
 @app.get("/api/projects")
 def projects(
     utility: Optional[str] = Query(None),
     zone: Optional[str] = Query(None),
+    q: Optional[str] = Query(None, description="substring match on id, name, utility, source"),
 ) -> dict:
     fc = _fresh("projects.geojson")
     feats = fc.get("features", [])
@@ -76,6 +95,10 @@ def projects(
         feats = [f for f in feats if f["properties"].get("utility") == utility]
     if zone:
         feats = [f for f in feats if zone in f["properties"].get("zones", [zone])]
+    if q:
+        needle = q.strip().lower()
+        feats = [f for f in feats if needle in json.dumps(
+            f.get("properties", {})).lower()]
     return {**fc, "features": feats}
 
 
@@ -210,13 +233,42 @@ def stats() -> dict:
     for o in ovs:
         t = str(o["tier"])
         by_tier[t] = by_tier.get(t, 0) + 1
-    return {
+    out = {
         "projects": len(projs),
         "by_utility": by_util,
         "overlaps": len(ovs),
         "by_tier": by_tier,
         "timeline_matches": sum(1 for o in ovs if o["timeline_overlap"]),
     }
+    # program-level rollup — staging regions + busiest shared season
+    try:
+        from src.analysis.clusters import build_clusters
+        from src.analysis.optimize import build_playbook
+        cl = build_clusters({"overlaps": ovs}, 40.0)
+        pb = build_playbook({"overlaps": ovs}, 40.0, 5)
+        seasons = [s for c in pb.get("clusters", []) for s in c.get("seasons", [])]
+        out["staging_regions"] = cl.get("cluster_count", 0)
+        out["peak_season"] = max(seasons, key=lambda s: s["site_count"], default=None)
+    except Exception:
+        out["staging_regions"] = None
+        out["peak_season"] = None
+    # per-utility coverage: filed projects participating in >=1 overlap
+    proj_ids = {
+        f["properties"].get("project_id"): f["properties"].get("utility", "?")
+        for f in projs
+    }
+    covered: dict[str, set] = {}
+    for o in ovs:
+        for pid in (o.get("project_a"), o.get("project_b")):
+            u = proj_ids.get(pid)
+            if u:
+                covered.setdefault(u, set()).add(pid)
+    out["coverage"] = {
+        u: {"projects": by_util.get(u, 0),
+            "in_overlaps": len(ids)}
+        for u, ids in covered.items()
+    }
+    return out
 
 
 @app.get("/api/raw/{path:path}")

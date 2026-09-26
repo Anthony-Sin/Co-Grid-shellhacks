@@ -157,6 +157,17 @@ export interface AgentReply {
   finish_reason: string
 }
 
+export interface ImpactEstimate {
+  overlap_id: string
+  shared_corridor_km: number | null
+  shared_row_acres: number | null
+  shared_window_months: number | null
+  crew_share_days: number | null
+  est_savings_usd_range: { low: number | null; high: number | null; basis: string } | null
+  confidence: string
+  assumptions: string[]
+}
+
 export interface AgentBrief {
   overlap_id: string
   brief: string
@@ -199,4 +210,6 @@ export const api = {
       ...(overlapId ? { overlap_id: overlapId } : {}),
     }),
   agentBrief: (overlapId: string) => get<AgentBrief>(`/api/agent/brief/${overlapId}`),
+
+  impact: (overlapId: string) => get<ImpactEstimate>(`/api/analysis/impact/${overlapId}`),
 }

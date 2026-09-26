@@ -72,6 +72,14 @@ class TestToolsAgainstRealData:
         r = run_tool("define", {"term": "bogus term xyz"})
         assert "error" in r["result"] or "error" in r
 
+    def test_playbook_returns_seasons(self):
+        r = run_tool("playbook", {})
+        assert r["ok"], r.get("error")
+        res = r["result"]
+        assert res["clusters"], res
+        top = res["clusters"][0]
+        assert top["seasons"] and top["peak_concurrent_sites"] >= 1
+
     def test_projects_near_finds_okatie_cluster(self):
         # Okatie/McIntosh area — the densest real cluster in the corridor.
         r = run_tool("projects_near", {"lon": -81.06, "lat": 32.34, "km": 15})
