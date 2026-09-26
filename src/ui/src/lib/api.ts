@@ -142,7 +142,14 @@ export interface StatsResponse {
   /** estimated staging yards needed (disk-cover, each ≤40 km radius) */
   staging_yards?: number | null
   staging_corridors?: number | null
-  peak_season?: { season: string; site_count: number } | null
+  /** peak build year (backend returns `year`, not `season`) */
+  peak_season?: {
+    year: number
+    site_count: number
+    value_score?: number
+    overlap_ids?: string[]
+    tiers?: number[]
+  } | null
   coverage?: Record<string, number>
 }
 
