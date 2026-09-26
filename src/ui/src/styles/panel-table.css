@@ -139,6 +139,10 @@ button.ovr-h:hover,
   overflow: hidden;
 }
 
+.ovr-win.is-shared {
+  color: #33511f; /* filed-window green — same signal as the detail card's chip-timeline */
+}
+
 .ovr-win.is-adjacent {
   opacity: 0.6;
 }

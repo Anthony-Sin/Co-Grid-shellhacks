@@ -97,6 +97,16 @@
   padding-left: 16px;
 }
 
+/* panel head actions — csv export + collapse kept on one baseline
+   (the × button is display:grid/block-level; without this flex wrap it
+   drops under the csv pill and doubles the header height) */
+.pnl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
 /* ---- scroll region + section rhythm -------------------------------------- */
 
 .app-shell .panel-body {
