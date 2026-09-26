@@ -248,6 +248,9 @@ export interface SceneProject {
   utility: string
   confidence: string
   voltageKv: number
+  /** filed construction window — null when the filing omits a year */
+  startYear: number | null
+  endYear: number | null
   /** free-text filing notes (used for honest fuel/shape hints) */
   notes: string
   /** local-meter polylines (empty for point-sited projects) */
@@ -355,6 +358,8 @@ export function filterToScene(
       utility: p.utility ?? '',
       confidence: p.location_confidence ?? 'approximate',
       voltageKv: p.voltage_kv ?? 0,
+      startYear: p.start_year ?? null,
+      endYear: p.end_year ?? null,
       notes: p.notes ?? '',
       lines,
       points,

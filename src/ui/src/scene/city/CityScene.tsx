@@ -19,8 +19,11 @@ import { useShadowRefresh } from './cityUtils'
  * Layer stack (bottom → top): parks → water → roads → buildings/trees.
  * y-ordering is baked into the layer heights (~0.10 parks < 0.12 water <
  * 0.15–0.35 roads by rank < extruded buildings).
+ *
+ * `showLabels` (the layers.labels toggle) gates only the floating name
+ * chips — the basemap geometry itself is controlled by layers.basemap.
  */
-export function CityScene() {
+export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const activeScene = useAppStore((s) => s.activeScene)
   const { data } = useCity(activeScene)
 
@@ -54,7 +57,7 @@ export function CityScene() {
       <RoadsLayer roads={data.roads} />
       <BuildingsLayer buildings={data.buildings} />
       <TreesLayer parks={data.parks} />
-      <LabelChips data={data} />
+      {showLabels && <LabelChips data={data} />}
     </group>
   )
 }

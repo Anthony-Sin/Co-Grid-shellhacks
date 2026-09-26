@@ -88,6 +88,7 @@ function SceneCamera() {
  */
 export function CityCanvas() {
   const activeScene = useAppStore((s) => s.activeScene)
+  const layers = useAppStore((s) => s.layers)
 
   return (
     <div className="canvas-wrap">
@@ -129,14 +130,17 @@ export function CityCanvas() {
           <shadowMaterial transparent opacity={0.14} />
         </mesh>
 
-        {/* Real pipeline layers (each owned by a separate agent) */}
-        {USE_REAL_CITY ? (
-          <CityScene key={`city-${activeScene}`} />
-        ) : (
-          <DevPreviewScene key={activeScene} seed={`dev-${activeScene}`} />
-        )}
-        <GridOverlay key={`grid-${activeScene}`} />
-        <OverlapZones key={`zones-${activeScene}`} />
+        {/* Real pipeline layers — each gated by its ViewModes layer flag;
+            `labels` cascades into chips (city labels, zone labels, connector
+            pills) without hiding their underlying geometry */}
+        {layers.basemap &&
+          (USE_REAL_CITY ? (
+            <CityScene key={`city-${activeScene}`} showLabels={layers.labels} />
+          ) : (
+            <DevPreviewScene key={activeScene} seed={`dev-${activeScene}`} showLabels={layers.labels} />
+          ))}
+        {layers.projects && <GridOverlay key={`grid-${activeScene}`} />}
+        {layers.zones && <OverlapZones key={`zones-${activeScene}`} />}
         <FocusRig />
         <SceneCamera />
         <StaticShadows />

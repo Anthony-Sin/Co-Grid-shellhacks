@@ -8,14 +8,21 @@
  *  - an invisible hit sphere at the centroid wired to the store:
  *    hover -> setHoveredProject(id), click -> selectOverlap(null)
  *    (clicks on empty project space just dismiss the overlap selection)
+ *  - ONE hover tooltip chip (hoveredProjectId from the store) floating
+ *    above the name chip with the filed kind/voltage/window details —
+ *    null-safe: missing fields are omitted, never rendered as "undefined"
  */
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Html } from '@react-three/drei'
+import { PALETTE } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
+import { utilityColor as tooltipUtilityColor } from '../../ui/components/utilityColors'
 import type { SceneProject } from './gridData'
 import { utilityColor } from './gridData'
 
 const CHIP_ALTITUDE = 90
+/** Tooltip floats well above the always-on name chip so they don't stack. */
+const TOOLTIP_ALTITUDE = 170
 const HIT_RADIUS = 150
 /** Max text chips on the statewide scene — beyond this they overlap unreadably. */
 const MAX_STATE_CHIPS = 28
@@ -44,10 +51,80 @@ function ProjectChip({ project }: { project: SceneProject }) {
   )
 }
 
+/**
+ * Hover detail chip — the ConnectorLink pill restyled as a readout:
+ * name (bold) / dot + `kind · voltage · window` / honesty sub-line when
+ * the filing's location confidence isn't 'verified'. Every segment is
+ * conditional so missing fields simply vanish (never "undefined").
+ */
+function ProjectTooltip({ project }: { project: SceneProject }) {
+  const color = tooltipUtilityColor(project.utility)
+  const years = [project.startYear, project.endYear]
+    .filter((y): y is number => y != null)
+    .join('–')
+  const meta = [
+    project.kind || null,
+    project.voltageKv > 0 ? `${project.voltageKv} kV` : null,
+    years || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const confidence = project.confidence
+  const showConfidence = !!confidence && confidence !== 'verified'
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        gap: 3,
+        padding: '7px 14px',
+        background: PALETTE.chipBg,
+        color: PALETTE.chipText,
+        borderLeft: `4px solid ${color}`,
+        borderRadius: 999,
+        boxShadow: '2px 3px 0 rgba(43, 43, 43, 0.25)',
+        whiteSpace: 'nowrap',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        pointerEvents: 'none',
+        userSelect: 'none',
+      }}
+    >
+      <span style={{ fontWeight: 800 }}>{truncate(project.name, 44)}</span>
+      {(meta || project.utility) && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {project.utility && (
+            <span
+              title={project.utility}
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: color,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {meta}
+        </span>
+      )}
+      {showConfidence && (
+        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.72 }}>
+          location: {confidence.replace(/_/g, ' ')}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function ProjectMarkers({ projects }: { projects: readonly SceneProject[] }) {
   const setHoveredProject = useAppStore((s) => s.setHoveredProject)
   const selectOverlap = useAppStore((s) => s.selectOverlap)
   const activeScene = useAppStore((s) => s.activeScene)
+  const hoveredProjectId = useAppStore((s) => s.hoveredProjectId)
 
   // don't leave a stale hover behind when the layer remounts per scene
   useEffect(() => () => setHoveredProject(null), [setHoveredProject])
@@ -59,6 +136,13 @@ export function ProjectMarkers({ projects }: { projects: readonly SceneProject[]
     activeScene === 'state'
       ? new Set(projects.slice(0, MAX_STATE_CHIPS).map((p) => p.id))
       : null
+
+  // The one hovered project (hit spheres own the id) — may be absent from
+  // this scene's slice, in which case no tooltip renders (honest, no crash).
+  const hovered = useMemo(
+    () => projects.find((p) => p.id === hoveredProjectId) ?? null,
+    [projects, hoveredProjectId],
+  )
 
   return (
     <group>
@@ -100,6 +184,18 @@ export function ProjectMarkers({ projects }: { projects: readonly SceneProject[]
           )}
         </group>
       ))}
+
+      {/* single hover tooltip — non-interactive, floats above the name chip */}
+      {hovered && (
+        <Html
+          position={[hovered.centroid[0], TOOLTIP_ALTITUDE, -hovered.centroid[1]]}
+          center
+          zIndexRange={[70, 0]}
+          style={{ pointerEvents: 'none' }}
+        >
+          <ProjectTooltip project={hovered} />
+        </Html>
+      )}
     </group>
   )
 }

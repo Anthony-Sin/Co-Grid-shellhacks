@@ -8,12 +8,15 @@
  * /api/projects for scene relevance + chip labels. On failure the layer
  * renders nothing and warns once — never fakes content (AGENTS.md §7).
  *
- * Filters (zustand store):
+ * Filters (zustand store — shared with the ranked list via passesMapFilters):
  *   visibleTiers[tier] = false → record not rendered at all
+ *   utilityFilter / yearFilter → hard filters, same predicate as the list
  *   timelineOnly && !timeline_overlap → rendered as thin dashed outline +
  *     faint dashed arc (flagged, not erased)
  *   selectedOverlapId → that zone raises/pops full-opacity + beacon column,
  *     everything else dims to ~40%
+ *   hoveredOverlapId → brushed highlight (~70% of selected) from list or map
+ *   layers.labels → gates ZoneLabel chips + connector pill chips
  *
  * Top-3 scored visible records also get a floating ZoneLabel chip.
  */
@@ -21,6 +24,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { api, type OverlapRecord } from '../../lib/api'
 import { deduped } from '../../ui/hooks/useApiData'
+import { passesMapFilters } from '../../lib/overlapFilters'
 import { TIER_COLORS } from '../../lib/palette'
 import { SCENE_CENTERS } from '../../lib/projection'
 import { STATE_RELEVANCE_M } from './zoneData'
@@ -69,6 +73,13 @@ export function OverlapZones() {
   const visibleTiers = useAppStore((s) => s.visibleTiers)
   const timelineOnly = useAppStore((s) => s.timelineOnly)
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
+  const hoveredOverlapId = useAppStore((s) => s.hoveredOverlapId)
+  const utilityFilter = useAppStore((s) => s.utilityFilter)
+  const yearFilter = useAppStore((s) => s.yearFilter)
+  const showLabels = useAppStore((s) => s.layers.labels)
+  // layers.projects gates connectors too (store contract) — arcs reference
+  // project endpoints that aren't drawn when the project layer is off
+  const showProjects = useAppStore((s) => s.layers.projects)
 
   const [data, setData] = useState<LoadedData | null>(null)
   const [failed, setFailed] = useState(false)
@@ -91,6 +102,13 @@ export function OverlapZones() {
     }
   }, [])
 
+  // Don't leave a stale brush behind when the layer remounts per scene
+  // (mirrors ProjectMarkers' hoveredProjectId cleanup).
+  useEffect(
+    () => () => useAppStore.getState().setHoveredOverlap(null),
+    [],
+  )
+
   /** Scene-local datums for overlaps relevant to this scene (~40km rule;
    * the statewide scene covers the whole GA+SC envelope). */
   const datums = useMemo(() => {
@@ -102,11 +120,18 @@ export function OverlapZones() {
       .filter((d) => d.relevant)
   }, [data, activeScene])
 
-  /** Tier filter fully hides a record; timeline filter only restyles it.
-   *  Capped at MAX_RENDERED by score — the selected record always survives. */
+  /** Hard filters (tier/utility/year — same predicate as the ranked list)
+   *  fully hide a record; the timeline filter only restyles it.
+   *  Capped at MAX_RENDERED by score — the selected record always survives
+   *  the cap, but NOT the filters (filtered-out = honestly absent). */
   const rendered = useMemo(() => {
-    const eligible = datums.filter((d) => visibleTiers[d.rec.tier])
-    if (eligible.length <= MAX_RENDERED) return eligible
+    const eligible = datums.filter((d) =>
+      passesMapFilters(d.rec, { visibleTiers, utilityFilter, yearRange: yearFilter }),
+    )
+    if (eligible.length <= MAX_RENDERED) {
+      console.debug(`[OverlapZones] rendering ${eligible.length} of ${datums.length} scene-relevant overlaps`)
+      return eligible
+    }
     const top = eligible
       .slice()
       .sort((a, b) => b.rec.score - a.rec.score)
@@ -118,8 +143,9 @@ export function OverlapZones() {
       const sel = eligible.find((d) => d.rec.overlap_id === selectedOverlapId)
       if (sel) top.push(sel)
     }
+    console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
     return top
-  }, [datums, visibleTiers, selectedOverlapId])
+  }, [datums, visibleTiers, utilityFilter, yearFilter, selectedOverlapId])
 
   /** Top-3 scored records eligible for floating labels (timeline-honest). */
   const labelIds = useMemo(() => {
@@ -142,6 +168,7 @@ export function OverlapZones() {
     <group>
       {rendered.map((d) => {
         const selected = d.rec.overlap_id === selectedOverlapId
+        const highlighted = d.rec.overlap_id === hoveredOverlapId
         const dimmed = selectedDatum !== null && !selected
         const outlineOnly = timelineOnly && !d.rec.timeline_overlap
         return (
@@ -150,15 +177,22 @@ export function OverlapZones() {
               datum={d}
               dimmed={dimmed}
               selected={selected}
+              highlighted={highlighted}
               outlineOnly={outlineOnly}
             />
-            <ConnectorLink
-              datum={d}
-              dimmed={dimmed}
-              selected={selected}
-              faint={outlineOnly}
-            />
-            {labelIds.has(d.rec.overlap_id) && <ZoneLabel datum={d} />}
+            {showProjects && (
+              <ConnectorLink
+                datum={d}
+                dimmed={dimmed}
+                selected={selected}
+                highlighted={highlighted}
+                faint={outlineOnly}
+                showChip={showLabels}
+              />
+            )}
+            {showLabels && labelIds.has(d.rec.overlap_id) && (
+              <ZoneLabel datum={d} />
+            )}
           </Fragment>
         )
       })}

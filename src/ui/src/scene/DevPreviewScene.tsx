@@ -59,7 +59,7 @@ function TreeBlob({ tree }: { tree: DevTree }) {
   )
 }
 
-export function DevPreviewScene({ seed }: { seed: string }) {
+export function DevPreviewScene({ seed, showLabels = true }: { seed: string; showLabels?: boolean }) {
   const city = useMemo(() => generateDevCity(seed), [seed])
 
   return (
@@ -87,8 +87,9 @@ export function DevPreviewScene({ seed }: { seed: string }) {
         <TreeBlob key={t.id} tree={t} />
       ))}
 
-      {/* floating label chips (screen-space via drei Html) */}
-      {city.labels.map((l) => (
+      {/* floating label chips (screen-space via drei Html) — gated by the
+          layers.labels toggle like the real scene's LabelChips */}
+      {showLabels && city.labels.map((l) => (
         <Html
           key={l.id}
           position={[l.position[0], 110, -l.position[1]]}
