@@ -4,6 +4,22 @@ import type { SceneId } from '../lib/projection'
 
 export type { SceneId }
 
+/** Map layer toggles — the ViewModes overlay controls which scene
+ * layers render. `projects` also gates overlap zones' connectors. */
+export interface LayerFlags {
+  basemap: boolean
+  projects: boolean
+  zones: boolean
+  labels: boolean
+}
+
+/** Year-window filter — overlaps whose shared/adjacent window
+ * intersects [start,end] stay visible (list + map). null = no filter. */
+export interface YearRange {
+  start: number
+  end: number
+}
+
 interface AppState {
   /** Which corridor scene is being viewed */
   activeScene: SceneId
@@ -19,6 +35,12 @@ interface AppState {
   focusTarget: [number, number] | null
   /** Left opportunities panel open/collapsed */
   panelOpen: boolean
+  /** Scene layer visibility (ViewModes overlay) */
+  layers: LayerFlags
+  /** Year-window filter shared by list + map */
+  yearFilter: YearRange | null
+  /** Draft text the agent bar should prefill (e.g. "ask about this" buttons) */
+  agentPromptDraft: string | null
 
   setActiveScene: (scene: SceneId) => void
   selectOverlap: (id: string | null) => void
@@ -27,6 +49,9 @@ interface AppState {
   setHoveredProject: (id: string | null) => void
   setFocusTarget: (target: [number, number] | null) => void
   setPanelOpen: (open: boolean) => void
+  toggleLayer: (layer: keyof LayerFlags) => void
+  setYearFilter: (range: YearRange | null) => void
+  setAgentPromptDraft: (text: string | null) => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -38,6 +63,9 @@ export const useAppStore = create<AppState>()((set) => ({
   hoveredProjectId: null,
   focusTarget: null,
   panelOpen: true,
+  layers: { basemap: true, projects: true, zones: true, labels: true },
+  yearFilter: null,
+  agentPromptDraft: null,
 
   setActiveScene: (scene) => set({ activeScene: scene }),
   // clearing focusTarget here: a deep-link ?focus= target is a one-shot —
@@ -52,4 +80,8 @@ export const useAppStore = create<AppState>()((set) => ({
   setHoveredProject: (id) => set({ hoveredProjectId: id }),
   setFocusTarget: (target) => set({ focusTarget: target }),
   setPanelOpen: (open) => set({ panelOpen: open }),
+  toggleLayer: (layer) =>
+    set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })),
+  setYearFilter: (range) => set({ yearFilter: range }),
+  setAgentPromptDraft: (text) => set({ agentPromptDraft: text }),
 }))
