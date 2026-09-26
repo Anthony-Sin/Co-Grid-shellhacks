@@ -16,6 +16,9 @@ $PY -m src.processing.build_basemap
 echo "==> city scenes (OSM raw -> city_<scene>.json)"
 $PY -m src.processing.build_city savannah augusta
 
+echo "==> state scene (borders/corridors/rivers/places -> city_state.json)"
+$PY -m src.processing.build_state
+
 echo "==> projects (seeds + HIFLD anchors -> projects.geojson)"
 $PY -m src.processing.build_projects
 

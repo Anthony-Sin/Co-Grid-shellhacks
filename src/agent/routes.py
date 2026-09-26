@@ -2,19 +2,22 @@
 
   GET  /api/agent/health            -> configured?, model, tool count
   POST /api/agent/chat              -> {reply, reasoning, tool_trace, usage}
+  POST /api/agent/chat/stream       -> SSE: tool events as they run + final
   GET  /api/agent/brief/{overlap_id}-> generated coordination brief
 
 The key stays server-side; the frontend only sees replies + traces.
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .client import ChatError, load_config
-from .engine import MAX_ROUNDS, run_brief, run_chat
+from .engine import MAX_ROUNDS, iter_chat, run_brief, run_chat
 from .tools import TOOLS
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -72,6 +75,46 @@ def chat(req: ChatRequest) -> dict[str, Any]:
         return run_chat(cfg, history)
     except ChatError as e:
         raise HTTPException(502, str(e)) from e
+
+
+def _sse(event: str, data: dict) -> bytes:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
+
+
+@router.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    """SSE version of /chat: emits `tool` events as each call completes so
+    the UI can show live progress during multi-round chains, then a `final`
+    event with the same payload shape as /chat, then `done`."""
+    cfg = _config_or_503()
+    history = []
+    for m in req.messages:
+        if m.role not in ("user", "assistant"):
+            continue
+        history.append({"role": m.role, "content": m.content[:MAX_CONTENT_CHARS]})
+    if not history or history[-1]["role"] != "user":
+        raise HTTPException(400, "last message must be a user message")
+    if req.overlap_id:
+        history[-1]["content"] += f"\n\n[context: user selected {req.overlap_id}]"
+
+    def events():
+        try:
+            gen = iter_chat(cfg, history)
+            while True:
+                try:
+                    kind, payload = next(gen)
+                except StopIteration as stop:
+                    yield _sse("final", stop.value)
+                    yield _sse("done", {})
+                    return
+                yield _sse(kind, payload)
+        except ChatError as e:
+            yield _sse("error", {"message": str(e)})
+            yield _sse("done", {})
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
 
 
 @router.get("/brief/{overlap_id}")

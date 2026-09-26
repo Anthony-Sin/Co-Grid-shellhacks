@@ -193,10 +193,22 @@ export function sagWirePoints(
 /* per-scene filtering                                                 */
 /* ------------------------------------------------------------------ */
 
-/** Feature belongs to a scene if ANY coord lands within this of center. */
+/** Feature belongs to a scene if ANY coord lands within this of center.
+ * Corridor scenes filter tightly (~35 km); the statewide scene covers the
+ * whole GA+SC envelope (~460 km from the state center). */
 const POINT_RADIUS_M = 36_000
 const LINE_RADIUS_M = 42_000
 export const PROJECT_RADIUS_M = 35_000
+const STATE_RADIUS_M = 460_000
+
+function radiiFor(scene: SceneId) {
+  const big = scene === 'state'
+  return {
+    point: big ? STATE_RADIUS_M : POINT_RADIUS_M,
+    line: big ? STATE_RADIUS_M : LINE_RADIUS_M,
+    project: big ? STATE_RADIUS_M : PROJECT_RADIUS_M,
+  }
+}
 
 export interface SceneLine {
   points: Vec2[]
@@ -267,6 +279,7 @@ export function filterToScene(
   scene: SceneId,
 ): SceneGrid {
   const center = SCENE_CENTERS[scene]
+  const r = radiiFor(scene)
   const grid: SceneGrid = {
     existingLines: [],
     existingSubs: [],
@@ -281,7 +294,7 @@ export function filterToScene(
     const props = f.properties
     const layer = props?.layer
     if (layer === 'existing_transmission_line') {
-      if (!geomWithinRadius(f.geometry, center, LINE_RADIUS_M)) continue
+      if (!geomWithinRadius(f.geometry, center, r.line)) continue
       for (const part of geomLines(f.geometry)) {
         grid.existingLines.push({
           points: projectLine(part, center),
@@ -290,7 +303,7 @@ export function filterToScene(
         })
       }
     } else if (layer === 'existing_substation') {
-      const pt = firstPointWithin(f.geometry, center, POINT_RADIUS_M)
+      const pt = firstPointWithin(f.geometry, center, r.point)
       if (pt)
         grid.existingSubs.push({
           x: pt[0],
@@ -299,7 +312,7 @@ export function filterToScene(
           voltage: props.voltage_kv ?? 0,
         })
     } else if (layer === 'existing_power_plant') {
-      const pt = firstPointWithin(f.geometry, center, POINT_RADIUS_M)
+      const pt = firstPointWithin(f.geometry, center, r.point)
       if (pt)
         grid.existingPlants.push({
           x: pt[0],
@@ -312,7 +325,7 @@ export function filterToScene(
 
   for (const f of projects.features) {
     const p = f.properties
-    if (!p || !geomWithinRadius(f.geometry, center, PROJECT_RADIUS_M)) continue
+    if (!p || !geomWithinRadius(f.geometry, center, r.project)) continue
     const centroidLl = geomCentroid(f.geometry)
     if (!centroidLl) continue
     const lines = geomLines(f.geometry).map((part) => projectLine(part, center))

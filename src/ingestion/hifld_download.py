@@ -2,10 +2,20 @@
 
 Pulls public (no-API-key) data from the official HIFLD ArcGIS Online org
 (org id HDRa0B57OVrv2E1q, backing https://hifld-geoplatform.hub.arcgis.com)
-as GeoJSON FeatureCollections clipped to the Savannah/Augusta bounding box.
+as GeoJSON FeatureCollections clipped to a selectable envelope:
 
-Usage:
-    ./venv/bin/python src/ingestion/hifld_download.py
+* ``statewide`` (default) — all of Georgia + South Carolina; the canonical
+  dataset committed under data/raw/hifld/ (a strict superset of the old
+  corridor pull, so downstream code stays compatible).
+* ``corridor`` — the original Savannah/Augusta two-city envelope.
+
+After each layer is paged down, the downloaded feature count is verified
+against the server's own ``returnCountOnly`` envelope query and both
+numbers are printed.
+
+Run:
+    ./venv/bin/python -m src.ingestion.hifld_download [--bbox statewide|corridor]
+    ./venv/bin/python src/ingestion/hifld_download.py --bbox statewide
 
 Output (raw, read-only):
     data/raw/hifld/transmission_lines.geojson
@@ -16,6 +26,7 @@ Output (raw, read-only):
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import time
@@ -29,13 +40,20 @@ import requests
 
 BASE = "https://services5.arcgis.com/HDRa0B57OVrv2E1q/arcgis/rest/services"
 
-# Study region: Savannah + Augusta GA/SC corridor (WGS84 lon/lat, EPSG:4326).
-BBOX = {
+# Named envelopes (WGS84 lon/lat, EPSG:4326).
+CORRIDOR_BBOX = {  # original Savannah + Augusta GA/SC corridor
     "min_lon": -82.40,
     "min_lat": 31.85,
     "max_lon": -80.60,
     "max_lat": 33.75,
 }
+STATEWIDE_BBOX = {  # all of Georgia + South Carolina
+    "min_lon": -85.70,
+    "min_lat": 30.30,
+    "max_lon": -78.00,
+    "max_lat": 35.25,
+}
+BBOXES = {"corridor": CORRIDOR_BBOX, "statewide": STATEWIDE_BBOX}
 
 # filename -> FeatureServer layer URL (layer 0 of each HIFLD service).
 LAYERS = {
@@ -98,18 +116,36 @@ def _get_json(url: str, params: dict) -> dict:
     )
 
 
-def query_layer(layer_url: str) -> dict:
-    """Fetch all features of one layer inside BBOX as a GeoJSON FC."""
+def _envelope_params(bbox: dict) -> dict:
+    """Shared intersects-envelope query params for a bbox dict."""
     envelope = (
-        f"{BBOX['min_lon']},{BBOX['min_lat']},"
-        f"{BBOX['max_lon']},{BBOX['max_lat']}"
+        f"{bbox['min_lon']},{bbox['min_lat']},"
+        f"{bbox['max_lon']},{bbox['max_lat']}"
     )
-    params = {
+    return {
         "where": "1=1",
         "geometry": envelope,
         "geometryType": "esriGeometryEnvelope",
         "inSR": 4326,
         "spatialRel": "esriSpatialRelIntersects",
+    }
+
+
+def query_count(layer_url: str, bbox: dict) -> int:
+    """Server-side feature count for the same envelope (returnCountOnly)."""
+    params = {
+        **_envelope_params(bbox),
+        "returnCountOnly": "true",
+        "f": "json",
+    }
+    data = _get_json(f"{layer_url}/query", params)
+    return int(data.get("count", -1))
+
+
+def query_layer(layer_url: str, bbox: dict) -> dict:
+    """Fetch all features of one layer inside `bbox` as a GeoJSON FC."""
+    params = {
+        **_envelope_params(bbox),
         "outFields": "*",
         "outSR": 4326,
         "orderByFields": "OBJECTID_1",
@@ -138,7 +174,7 @@ def query_layer(layer_url: str) -> dict:
         "type": "FeatureCollection",
         "metadata": {
             "source_url": layer_url,
-            "bbox": BBOX,
+            "bbox": bbox,
             "feature_count": len(features),
         },
         "features": features,
@@ -150,17 +186,38 @@ def query_layer(layer_url: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--bbox",
+        choices=sorted(BBOXES),
+        default="statewide",
+        help="envelope to clip layers to (default: statewide)",
+    )
+    args = parser.parse_args()
+    bbox = BBOXES[args.bbox]
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    log.info("envelope '%s': %s", args.bbox, bbox)
     summary: dict[str, int] = {}
     for filename, layer_url in LAYERS.items():
         log.info("downloading %s <- %s", filename, layer_url)
-        fc = query_layer(layer_url)
+        expected = query_count(layer_url, bbox)
+        log.info("  server returnCountOnly: %d features", expected)
+        fc = query_layer(layer_url, bbox)
         n = len(fc["features"])
         if n == 0:
             log.warning("  %s returned ZERO features!", filename)
+        if expected >= 0 and n != expected:
+            log.warning(
+                "  COUNT MISMATCH: downloaded %d but server reports %d",
+                n, expected,
+            )
         out_path = OUT_DIR / filename
         out_path.write_text(json.dumps(fc), encoding="utf-8")
-        log.info("  wrote %s (%d features)", out_path, n)
+        log.info(
+            "  wrote %s (downloaded %d / server count %d)",
+            out_path, n, expected,
+        )
         summary[filename] = n
     log.info("done: %s", summary)
 

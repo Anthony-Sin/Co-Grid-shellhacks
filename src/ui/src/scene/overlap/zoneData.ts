@@ -13,8 +13,10 @@ import type { GeoFeature, OverlapRecord, ProjectProps } from '../../lib/api'
 import { lonLatToLocal, type Vec2 } from '../../lib/projection'
 import { hatchPolygon, ringCentroid, ringRadius, stripClosing } from './hatch'
 
-/** Scene relevance radius — the 40km rule (AGENTS.md §8). */
+/** Scene relevance radius — the 40km rule (AGENTS.md §8) for corridors;
+ * the statewide scene widens it to cover the full envelope. */
 const SCENE_RELEVANCE_M = 40_000
+export const STATE_RELEVANCE_M = 460_000
 /** Signature diagonal hatch. */
 const HATCH_ANGLE_DEG = 45
 /** ~90m between hatch lines at small zones; grows with zone radius. */
@@ -105,6 +107,7 @@ export function buildZoneDatum(
   rec: OverlapRecord,
   center: Vec2,
   projectsById: ProjectsById,
+  relevanceM: number = SCENE_RELEVANCE_M,
 ): ZoneDatum {
   const aLocal = lonLatToLocal(rec.closest_point_a[0], rec.closest_point_a[1], center)
   const bLocal = lonLatToLocal(rec.closest_point_b[0], rec.closest_point_b[1], center)
@@ -129,7 +132,7 @@ export function buildZoneDatum(
     }
   }
 
-  const relevant = isRelevant(rec, centroid, radiusM, center, projectsById)
+  const relevant = isRelevant(rec, centroid, radiusM, center, projectsById, relevanceM)
 
   return {
     rec,
@@ -159,12 +162,13 @@ function isRelevant(
   radiusM: number,
   center: Vec2,
   projectsById: ProjectsById,
+  relevanceM: number = SCENE_RELEVANCE_M,
 ): boolean {
-  if (Math.hypot(centroid[0], centroid[1]) - radiusM <= SCENE_RELEVANCE_M) return true
+  if (Math.hypot(centroid[0], centroid[1]) - radiusM <= relevanceM) return true
 
   const near = (lon: number, lat: number) => {
     const [x, y] = lonLatToLocal(lon, lat, center)
-    return x * x + y * y <= SCENE_RELEVANCE_M * SCENE_RELEVANCE_M
+    return x * x + y * y <= relevanceM * relevanceM
   }
 
   // Connector endpoints / midpoint are always known real data.

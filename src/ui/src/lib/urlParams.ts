@@ -17,7 +17,8 @@ export function applyUrlParams() {
   const s = useAppStore.getState()
 
   const scene = q.get('scene')
-  if (scene === 'savannah' || scene === 'augusta') s.setActiveScene(scene as SceneId)
+  if (scene === 'savannah' || scene === 'augusta' || scene === 'state')
+    s.setActiveScene(scene as SceneId)
 
   const panel = q.get('panel')
   if (panel === '0' || panel === 'false') s.setPanelOpen(false)

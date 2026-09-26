@@ -4,7 +4,7 @@
  * All data returned is REAL — HIFLD / OSM / public PSC filings. Never mock.
  */
 
-export type SceneId = 'savannah' | 'augusta'
+export type SceneId = 'savannah' | 'augusta' | 'state'
 export type Tier = 1 | 2 | 3 | 4
 
 // ---------- /api/city/{scene} ----------
@@ -21,8 +21,21 @@ export interface CityRoad {
   line: [number, number][]
   name?: string
 }
-export interface CityPolygon { kind: string; polygon: [number, number][] }
-export interface CityPoi { name: string; kind: string; x: number; y: number }
+export interface CityPolygon {
+  kind: string
+  polygon?: [number, number][]
+  /** Open polyline variant — e.g. rivers in the statewide scene. */
+  line?: [number, number][]
+  name?: string
+}
+export interface CityPoi {
+  name: string
+  kind: string
+  x: number
+  y: number
+  /** OSM population when tagged — lets the label picker rank real city size. */
+  pop?: number
+}
 export interface CityScene {
   scene: SceneId
   center: [number, number]

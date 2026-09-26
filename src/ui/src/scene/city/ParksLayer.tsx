@@ -23,6 +23,7 @@ function buildParks(parks: CityPolygon[]): BuiltParks {
   const lightShapes: THREE.Shape[] = []
   const deepShapes: THREE.Shape[] = []
   for (const p of parks) {
+    if (!p.polygon) continue
     const ring = cleanRing(p.polygon)
     if (!ring) continue
     ;(DEEP_KINDS.has(p.kind) ? deepShapes : lightShapes).push(polygonShape(ring))

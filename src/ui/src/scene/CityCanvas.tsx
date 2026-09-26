@@ -49,6 +49,38 @@ function StaticShadows() {
   return null
 }
 
+/** Per-scene default views — ortho zoom scales the visible world volume.
+ * State spans ~830 km, corridors ~90 km, so zoom differs ~10x. */
+const SCENE_VIEWS = {
+  state: { position: [0, 3200, 1600] as const, zoom: 0.0022, target: [0, 0, 0] as const },
+  savannah: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
+  augusta: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
+} as const
+
+/** Snaps camera+controls to the active scene's default view on switch. */
+function SceneCamera() {
+  const activeScene = useAppStore((s) => s.activeScene)
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as unknown as {
+    target: { set: (x: number, y: number, z: number) => void }
+    update?: () => void
+  } | null
+  const invalidate = useThree((s) => s.invalidate)
+
+  useEffect(() => {
+    const v = SCENE_VIEWS[activeScene] ?? SCENE_VIEWS.savannah
+    camera.position.set(v.position[0], v.position[1], v.position[2])
+    if ('zoom' in camera) {
+      ;(camera as { zoom: number }).zoom = v.zoom
+      camera.updateProjectionMatrix()
+    }
+    controls?.target.set(v.target[0], v.target[1], v.target[2])
+    controls?.update?.()
+    invalidate()
+  }, [activeScene, camera, controls, invalidate])
+  return null
+}
+
 /**
  * Main 3D viewport: top-down-ish orthographic camera over a flat paper city.
  * Lighting: hemisphere fill + soft-shadowed directional sun.
@@ -106,6 +138,7 @@ export function CityCanvas() {
         <GridOverlay key={`grid-${activeScene}`} />
         <OverlapZones key={`zones-${activeScene}`} />
         <FocusRig />
+        <SceneCamera />
         <StaticShadows />
         <FrameTicker fps={12} />
 
@@ -116,7 +149,7 @@ export function CityCanvas() {
           target={[1400, 0, 2500]}
           minPolarAngle={0}
           maxPolarAngle={0.55}
-          minZoom={0.02}
+          minZoom={0.0008}
           maxZoom={1.4}
           screenSpacePanning={false}
         />

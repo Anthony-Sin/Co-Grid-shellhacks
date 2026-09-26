@@ -16,6 +16,10 @@ import { ringCentroid } from './cityUtils'
 
 const POI_PRIORITY: Record<string, number> = {
   place: 4,
+  place_city: 6,
+  place_town: 4,
+  place_suburb: 2,
+  place_village: 1,
   historic: 3,
   tourism: 2,
   amenity: 1,
@@ -57,7 +61,11 @@ function pickLabels(data: CityScene): Label[] {
   if (data.pois?.length) {
     const sorted = [...data.pois]
       .filter((p) => p.name && p.name.length < MAX_NAME_LEN)
-      .sort((a, b) => (POI_PRIORITY[b.kind] ?? 0) - (POI_PRIORITY[a.kind] ?? 0))
+      .sort(
+        (a, b) =>
+          (POI_PRIORITY[b.kind] ?? 0) - (POI_PRIORITY[a.kind] ?? 0) ||
+          (b.pop ?? 0) - (a.pop ?? 0),
+      )
     for (const p of sorted) push(`poi-${p.name}-${p.x}`, p.name, p.x, p.y)
   }
 

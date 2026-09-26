@@ -86,7 +86,7 @@ def basemap(zone: Optional[str] = Query(None)) -> dict:  # noqa: ARG001
 
 @app.get("/api/city/{scene}")
 def city(scene: str) -> dict:
-    if scene not in ("savannah", "augusta"):
+    if scene not in ("savannah", "augusta", "state"):
         raise HTTPException(404, "unknown scene")
     return _fresh(f"city_{scene}.json")
 
@@ -114,16 +114,19 @@ def regions() -> dict:
             "built": p.exists(),
             "size_mb": round(p.stat().st_size / 1e6, 1) if p.exists() else None,
         })
-    # Placeholder entry for statewide tiles once the state pipeline lands —
-    # honest `built: false` so the UI can grey it out rather than 404.
+    # Statewide entry — basemap.geojson now covers GA+SC (~15.7k features);
+    # the city_<state>.json scene lands separately (tiles, not one payload).
+    bm = PROCESSED / "basemap.geojson"
     out.append({
         "id": "state",
         "label": "Georgia + South Carolina (statewide)",
         "bounds": [-85.65, 30.35, -78.50, 35.25],
         "center": [-82.0, 32.8],
-        "artifact": None,
-        "built": False,
-        "tiles": "planned — regional tile index",
+        "artifact": "basemap.geojson",
+        "built": bm.exists(),
+        "size_mb": round(bm.stat().st_size / 1e6, 1) if bm.exists() else None,
+        "city_scene": (PROCESSED / "city_state.json").exists(),
+        "coverage": "existing grid statewide; planned projects corridor-focused",
     })
     return {"regions": out}
 

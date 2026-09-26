@@ -13,6 +13,11 @@ SCENES: dict[str, dict] = {
         "center": (-81.97, 33.45),
         "bbox": (-82.30, 33.25, -81.60, 33.65),
     },
+    # Full Georgia + South Carolina envelope (zoomed-out state scene).
+    "state": {
+        "center": (-81.85, 32.78),
+        "bbox": (-85.70, 30.30, -78.00, 35.25),
+    },
 }
 
 _M_PER_DEG_LAT = 110_540.0

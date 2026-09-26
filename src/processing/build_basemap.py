@@ -47,10 +47,51 @@ def _features(src: Path) -> list[dict]:
     return fc.get("features", [])
 
 
-def _emit(feats: list[dict], layer: str, extra=None) -> list[dict]:
+def _simplify_geom(geom: dict | None, tol_deg: float) -> dict | None:
+    """Display-scale simplify (shapely, preserve topology) + 5-decimal
+    rounding (~1 m). Used for backdrop layers — not for distance math."""
+    if not geom:
+        return geom
+    try:
+        from shapely.geometry import shape, mapping
+        g = shape(geom).simplify(tol_deg, preserve_topology=True)
+        out = json.loads(json.dumps(mapping(g), separators=(",", ":"),
+                                    default=lambda o: o.tolist()))
+        def rnd(c):
+            if isinstance(c, list) and c and isinstance(c[0], (int, float)):
+                return [round(float(x), 5) for x in c]
+            if isinstance(c, list):
+                return [rnd(x) for x in c]
+            return c
+        out["coordinates"] = rnd(out.get("coordinates"))
+        return out
+    except Exception:
+        return geom
+
+
+def _round_geom(geom: dict | None) -> dict | None:
+    """5-decimal (~1 m) coordinate rounding — halves JSON size, no visual loss."""
+    if not geom:
+        return geom
+    def rnd(c):
+        if isinstance(c, list) and c and isinstance(c[0], (int, float)):
+            return [round(float(x), 5) for x in c]
+        if isinstance(c, list):
+            return [rnd(x) for x in c]
+        return c
+    return {**geom, "coordinates": rnd(geom.get("coordinates"))}
+
+
+def _emit(feats: list[dict], layer: str, extra=None,
+          simplify_tol: float = 0.0) -> list[dict]:
     out = []
     for f in feats:
         props = f.get("properties") or {}
+        geom = f.get("geometry")
+        if simplify_tol:
+            geom = _simplify_geom(geom, simplify_tol)
+        else:
+            geom = _round_geom(geom)
         item = {
             "type": "Feature",
             "properties": {
@@ -60,7 +101,7 @@ def _emit(feats: list[dict], layer: str, extra=None) -> list[dict]:
                 "voltage_kv": _voltage(props),
                 "source": "HIFLD",
             },
-            "geometry": f.get("geometry"),
+            "geometry": geom,
         }
         if extra:
             item["properties"].update(extra(props))
@@ -81,7 +122,12 @@ def main() -> None:
             "capacity_mw": _first(p, ("CAPACITY", "capacity", "TOTAL_CAP", "NAMEPLATE")),
         },
     )
-    feats += _emit(_features(RAW / "service_territories.geojson"), "service_territory")
+    feats += _emit(
+        _features(RAW / "service_territories.geojson"),
+        "service_territory",
+        # ~500 m tolerance — backdrop polygons; statewide file is ~28 MB raw
+        simplify_tol=0.005,
+    )
 
     # Documented existing cross-border ties (see data/seeds/context_facilities.json)
     if CTX.exists():

@@ -60,6 +60,18 @@ def _context_card() -> dict:
         return {}
 
 
+def iter_chat(
+    cfg: AgentConfig,
+    history: list[dict],
+    use_native_tools: bool = True,
+):
+    """Generator form of the loop — yields ("tool", trace_entry) events as
+    each tool call completes; the final dict is the return value. The SSE
+    route consumes this; `run_chat` wraps it for callers that want only
+    the result."""
+    return (yield from _drive(cfg, history, use_native_tools))
+
+
 def run_chat(
     cfg: AgentConfig,
     history: list[dict],
@@ -71,6 +83,15 @@ def run_chat(
     turns are the caller's problem to keep or trim).
     Returns {reply, reasoning, tool_trace, rounds, usage}.
     """
+    gen = _drive(cfg, history, use_native_tools)
+    while True:
+        try:
+            next(gen)
+        except StopIteration as stop:
+            return stop.value
+
+
+def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
     stats = _context_card()
     messages = [{"role": "system", "content": SYSTEM_PROMPT + "\nLIVE DATA: " + json.dumps(stats)}]
     messages.extend(history)
@@ -100,8 +121,10 @@ def run_chat(
                 except json.JSONDecodeError:
                     args = {}
                 result = run_tool(name, args)
-                trace.append({"tool": name, "args": args,
-                              "preview": _truncate(result.get("result", result), 600)})
+                entry = {"tool": name, "args": args,
+                         "preview": _truncate(result.get("result", result), 600)}
+                trace.append(entry)
+                yield ("tool", entry)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call.get("id", f"call_{len(trace)}"),
@@ -121,8 +144,10 @@ def run_chat(
                 name, args = "", {}
             if name in TOOLS:
                 result = run_tool(name, args)
-                trace.append({"tool": name, "args": args,
-                              "preview": _truncate(result.get("result", result), 600)})
+                entry = {"tool": name, "args": args,
+                         "preview": _truncate(result.get("result", result), 600)}
+                trace.append(entry)
+                yield ("tool", entry)
                 messages.append({"role": "assistant", "content": content})
                 messages.append({
                     "role": "user",

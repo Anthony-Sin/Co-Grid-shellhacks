@@ -22,6 +22,7 @@ import * as THREE from 'three'
 import { api, type OverlapRecord } from '../../lib/api'
 import { TIER_COLORS } from '../../lib/palette'
 import { SCENE_CENTERS } from '../../lib/projection'
+import { STATE_RELEVANCE_M } from './zoneData'
 import { useAppStore } from '../../state/store'
 import { ConnectorLink } from './ConnectorLink'
 import { buildZoneDatum, type ProjectsById, type ZoneDatum } from './zoneData'
@@ -86,12 +87,14 @@ export function OverlapZones() {
     }
   }, [])
 
-  /** Scene-local datums for overlaps relevant to this scene (~40km rule). */
+  /** Scene-local datums for overlaps relevant to this scene (~40km rule;
+   * the statewide scene covers the whole GA+SC envelope). */
   const datums = useMemo(() => {
     if (!data) return []
     const center = SCENE_CENTERS[activeScene]
+    const relevanceM = activeScene === 'state' ? STATE_RELEVANCE_M : 40_000
     return data.overlaps
-      .map((rec) => buildZoneDatum(rec, center, data.projectsById))
+      .map((rec) => buildZoneDatum(rec, center, data.projectsById, relevanceM))
       .filter((d) => d.relevant)
   }, [data, activeScene])
 

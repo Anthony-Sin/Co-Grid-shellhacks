@@ -3,6 +3,7 @@ import { useStats } from '../hooks/useApiData'
 import type { SceneId } from '../../lib/projection'
 
 const SCENES: { id: SceneId; label: string }[] = [
+  { id: 'state', label: 'GA + SC' },
   { id: 'savannah', label: 'Savannah' },
   { id: 'augusta', label: 'Augusta' },
 ]

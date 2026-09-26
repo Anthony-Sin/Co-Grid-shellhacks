@@ -9,12 +9,13 @@
 /** Local 2D point in meters [x, y] */
 export type Vec2 = [number, number]
 
-export type SceneId = 'savannah' | 'augusta'
+export type SceneId = 'savannah' | 'augusta' | 'state'
 
-/** Scene centers [lon, lat] from docs/DATA_SCHEMA.md */
+/** Scene centers [lon, lat] from docs/DATA_SCHEMA.md + projection.py SCENES */
 export const SCENE_CENTERS: Record<SceneId, Vec2> = {
   savannah: [-81.1, 32.13],
   augusta: [-81.97, 33.45],
+  state: [-81.85, 32.78],
 }
 
 const METERS_PER_DEG_LAT = 110540

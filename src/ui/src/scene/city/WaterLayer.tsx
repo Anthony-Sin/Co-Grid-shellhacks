@@ -16,12 +16,23 @@ export function WaterLayer({ water }: { water: CityPolygon[] }) {
   const built = useMemo(() => {
     const shapes: THREE.Shape[] = []
     const shore: number[] = []
+    const river: number[] = []
     water.forEach((w, wi) => {
-      const ring = cleanRing(w.polygon)
-      if (!ring) return
-      shapes.push(polygonShape(ring))
       const rng = mulberry32(Math.imul(wi + 1, 40503) >>> 0)
       const j = () => (rng() - 0.5) * 1.1
+      // Open river polylines (statewide scene) — ink stroke, no fill.
+      if (w.line && w.line.length > 1) {
+        const y = 0.16
+        for (let i = 0; i < w.line.length - 1; i++) {
+          const a = w.line[i]
+          const b = w.line[i + 1]
+          river.push(a[0] + j(), y, -a[1] + j(), b[0] + j(), y, -b[1] + j())
+        }
+        return
+      }
+      const ring = w.polygon ? cleanRing(w.polygon) : null
+      if (!ring) return
+      shapes.push(polygonShape(ring))
       const y = 0.16
       for (let i = 0; i < ring.length; i++) {
         const a = ring[i]
@@ -29,21 +40,32 @@ export function WaterLayer({ water }: { water: CityPolygon[] }) {
         shore.push(a[0] + j(), y, -a[1] + j(), b[0] + j(), y, -b[1] + j())
       }
     })
-    if (!shapes.length) return { fill: null, shore: null, disposables: [] }
+    if (!shapes.length && !river.length)
+      return { fill: null, shore: null, river: null, disposables: [] }
 
-    const fill = new THREE.ShapeGeometry(shapes)
-    fill.rotateX(-Math.PI / 2) // +y north -> -z world
-    fill.deleteAttribute('uv')
-    fill.translate(0, 0.12, 0)
-
-    let shoreGeo: THREE.BufferGeometry | null = null
-    if (shore.length) {
-      shoreGeo = new THREE.BufferGeometry()
-      shoreGeo.setAttribute('position', new THREE.Float32BufferAttribute(shore, 3))
+    const disposables: THREE.BufferGeometry[] = []
+    let fill: THREE.ShapeGeometry | null = null
+    if (shapes.length) {
+      fill = new THREE.ShapeGeometry(shapes)
+      fill.rotateX(-Math.PI / 2) // +y north -> -z world
+      fill.deleteAttribute('uv')
+      fill.translate(0, 0.12, 0)
+      disposables.push(fill)
     }
-    const disposables: THREE.BufferGeometry[] = [fill]
-    if (shoreGeo) disposables.push(shoreGeo)
-    return { fill, shore: shoreGeo, disposables }
+
+    const toGeo = (verts: number[]) => {
+      if (!verts.length) return null
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
+      disposables.push(g)
+      return g
+    }
+    return {
+      fill,
+      shore: toGeo(shore),
+      river: toGeo(river),
+      disposables,
+    }
   }, [water])
   useDispose(built.disposables)
 
@@ -64,6 +86,11 @@ export function WaterLayer({ water }: { water: CityPolygon[] }) {
       {built.shore ? (
         <lineSegments geometry={built.shore}>
           <lineBasicMaterial color={PALETTE.inkSoft} transparent opacity={0.5} />
+        </lineSegments>
+      ) : null}
+      {built.river ? (
+        <lineSegments geometry={built.river}>
+          <lineBasicMaterial color={PALETTE.water.edge} transparent opacity={0.85} />
         </lineSegments>
       ) : null}
     </group>

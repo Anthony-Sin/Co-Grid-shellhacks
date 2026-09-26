@@ -41,7 +41,7 @@ function buildTrees(parks: CityPolygon[]): BuiltTrees {
   // 1) eligible polygons whose centroid falls inside the 13 km core
   const plots: { ring: Vec2[]; area: number; bbox: [number, number, number, number] }[] = []
   for (const p of parks) {
-    if (!ELIGIBLE_KINDS.has(p.kind)) continue
+    if (!ELIGIBLE_KINDS.has(p.kind) || !p.polygon) continue
     const ring = cleanRing(p.polygon, 4)
     if (!ring) continue
     const [cx, cy] = ringCentroid(ring)

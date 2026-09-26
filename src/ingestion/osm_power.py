@@ -1,10 +1,19 @@
+#!/usr/bin/env python3
 """Download OSM power infrastructure (substations, switchgear, plants,
-generators) for the whole study region — the gazetteer's OSM half and the
-key to resolving named substations HIFLD anonymizes.
+generators) for the full Georgia + South Carolina state scene — the
+gazetteer's OSM half and the key to resolving named substations HIFLD
+anonymizes.
 
-Output: data/raw/osm/power_infra.json (raw Overpass response).
+Output: data/raw/osm/power_infra.json (raw Overpass response; a strict
+superset of the original two-city-corridor pull).
 
-Usage: ./venv/bin/python -m src.ingestion.osm_power
+Strategy: try one statewide query first; if it fails/times out, split the
+envelope into a 2x2 grid of sub-bboxes and merge the tile results, deduped
+by (element type, id). Overpass endpoint/retries live in
+src/ingestion/overpass.py (env OVERPASS_URL).
+
+Run: ./venv/bin/python -m src.ingestion.osm_power
+     (direct: ./venv/bin/python src/ingestion/osm_power.py)
 """
 from __future__ import annotations
 
@@ -12,50 +21,70 @@ import json
 import time
 from pathlib import Path
 
-import requests
+try:  # `python -m src.ingestion.osm_power`
+    from src.ingestion.overpass import (
+        merge_elements,
+        post_overpass,
+        split_bbox,
+    )
+except ModuleNotFoundError:  # `python src/ingestion/osm_power.py`
+    from overpass import merge_elements, post_overpass, split_bbox
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "data" / "raw" / "osm"
 
-# One bbox covering both scenes + the Jasper/Bluffton SC side.
-BBOX = "31.9,-82.5,33.7,-80.6"  # s,w,n,e
+# Full Georgia + South Carolina envelope, Overpass order: (s, w, n, e).
+STATE_BBOX = (30.30, -85.70, 35.25, -78.00)
+SLEEP_BETWEEN_TILES_S = 2
 
-ENDPOINTS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-]
-HEADERS = {"User-Agent": "co-grid-hackathon/0.1 (OSM data, research)"}
-
-QUERY = f"""
-[out:json][timeout:90];
+QUERY = """
+[out:json][timeout:280];
 (
-  node["power"~"substation|switch|plant|generator"]({BBOX});
-  way["power"~"substation|switch|plant|generator"]({BBOX});
+  node["power"~"substation|switch|plant|generator"]({bbox});
+  way["power"~"substation|switch|plant|generator"]({bbox});
 );
 out center tags;
 """
 
 
+def _bbox_str(bbox: tuple) -> str:
+    return ",".join(str(v) for v in bbox)
+
+
+def fetch_power() -> dict:
+    """One statewide query; fall back to a 2x2 tile grid + merge."""
+    try:
+        return post_overpass(
+            QUERY.format(bbox=_bbox_str(STATE_BBOX)), "power_infra"
+        )
+    except RuntimeError as exc:
+        print(f"  statewide query failed ({exc}); splitting into tiles")
+    parts = []
+    for i, tile in enumerate(split_bbox(STATE_BBOX, 2)):
+        print(f"  tile {i + 1}/4 {tile}")
+        parts.append(
+            post_overpass(
+                QUERY.format(bbox=_bbox_str(tile)),
+                f"power_infra tile {i + 1}",
+            )
+        )
+        time.sleep(SLEEP_BETWEEN_TILES_S)
+    return merge_elements(parts)
+
+
 def main() -> None:
-    last = "no attempts"
-    for attempt in range(4):
-        url = ENDPOINTS[min(attempt, len(ENDPOINTS) - 1)]
-        try:
-            r = requests.post(url, data={"data": QUERY}, headers=HEADERS, timeout=180)
-            if r.status_code == 200:
-                data = r.json()
-                if data.get("elements"):
-                    (OUT / "power_infra.json").write_text(json.dumps(data))
-                    named = sum(1 for e in data["elements"] if e.get("tags", {}).get("name"))
-                    print(f"power_infra.json: {len(data['elements'])} elements ({named} named)")
-                    return
-                last = "empty elements"
-            else:
-                last = f"HTTP {r.status_code}"
-        except requests.RequestException as e:
-            last = str(e)
-        time.sleep(10 * (attempt + 1))
-    raise RuntimeError(f"power infra query failed: {last}")
+    OUT.mkdir(parents=True, exist_ok=True)
+    data = fetch_power()
+    elements = data.get("elements", [])
+    if not elements:
+        raise RuntimeError("power infra query returned 0 elements")
+    (OUT / "power_infra.json").write_text(json.dumps(data))
+    named = sum(
+        1 for e in elements if e.get("tags", {}).get("name")
+    )
+    print(
+        f"power_infra.json: {len(elements)} elements ({named} named)"
+    )
 
 
 if __name__ == "__main__":
