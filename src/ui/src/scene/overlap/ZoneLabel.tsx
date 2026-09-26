@@ -17,7 +17,7 @@ import type { ZoneDatum } from './zoneData'
 const LABEL_H = 120
 
 export function ZoneLabel({ datum }: { datum: ZoneDatum }) {
-  const color = TIER_COLORS[datum.rec.tier]
+  const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
   return (
     <Html
       position={[datum.centroid[0], LABEL_H, -datum.centroid[1]]}

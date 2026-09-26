@@ -7,6 +7,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { useDispose } from '../city/cityUtils'
 import type { Anchor } from './gridData'
 
 export const PYLON_COLOR = '#45454B' // dark steel / ink
@@ -142,6 +143,7 @@ export function PylonInstances({
       }),
     [color],
   )
+  useDispose(material) // args-passed objects aren't auto-disposed by r3f
 
   useLayoutEffect(() => {
     const mesh = ref.current

@@ -34,6 +34,10 @@ STRICT RULES:
 - Utilities: DESC (Dominion Energy South Carolina), GPC (Georgia Power),
   SanteeCooper (SCPSA). Tiers: 1=touching, 2=<1.6km shared ROW,
   3=<8km logistics, 4=<40km crews. Timeline overlap is the secondary signal.
+- `timeline_overlap`=true means build windows genuinely intersect (crews
+  co-present; joint outages feasible). `timeline_adjacent`=true means
+  windows roll end-to-start — a crew handoff opportunity, NOT a shared
+  window; never describe it as overlapping.
 - Be concise: short paragraphs or tight bullets. No filler.
 - When asked about an overlap the user selected, call get_overlap with its id.
 
@@ -190,10 +194,15 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
 def run_brief(cfg: AgentConfig, overlap_id: str) -> dict:
     """One-shot coordination brief for a single overlap (no user turn)."""
     detail = run_tool("get_overlap", {"overlap_id": overlap_id})
-    if "error" in detail:
-        return {"error": detail["error"]}
-    pa = run_tool("get_project", {"project_id": detail["result"]["project_a"]})
-    pb = run_tool("get_project", {"project_id": detail["result"]["project_b"]})
+    # run_tool wraps results as {"ok":..., "result":{...}} — tool-level
+    # errors live INSIDE result, not at the top level.
+    rec = detail.get("result") or {}
+    if "error" in rec:
+        return {"error": rec["error"]}
+    if not detail.get("ok") or not rec.get("project_a"):
+        return {"error": f"could not load overlap '{overlap_id}'"}
+    pa = run_tool("get_project", {"project_id": rec["project_a"]})
+    pb = run_tool("get_project", {"project_id": rec["project_b"]})
     imp = run_tool("impact_estimate", {"overlap_id": overlap_id})
     prompt = (
         "Write a tight 4-6 sentence coordination brief for this overlap: what the two "

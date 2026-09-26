@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { deduped } from '../../ui/hooks/useApiData'
 import type { CityScene, SceneId } from '../../lib/api'
 
 export interface CityState {
@@ -21,8 +22,9 @@ export function useCity(scene: SceneId): CityState {
     let stale = false
     setState({ data: null, loading: true, error: null })
 
-    api
-      .city(scene)
+    // shared request cache — StrictMode double-mount + scene flapping
+    // reuse one ~25MB fetch instead of downloading it twice
+    deduped(`city:${scene}`, () => api.city(scene))
       .then((data) => {
         if (!stale) setState({ data, loading: false, error: null })
       })

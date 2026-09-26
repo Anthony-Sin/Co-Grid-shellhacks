@@ -48,9 +48,10 @@ alongside `content`. The API surfaces it verbatim — render it collapsed
 
 ### Selection context
 
-Pass `overlap_id` when a zone is selected on the map — the agent injects
-the record's real fields (tier, distance, window, impact estimate) into
-the system context so "explain this" resolves correctly.
+Pass `overlap_id` when a zone is selected on the map — the route looks up
+the record and injects its real fields (tier, distance, timeline flags,
+shared/adjacent windows, zone) into the last user message as
+`[context: user selected {...}]`, so "explain this" resolves correctly.
 
 ## Tools (15)
 

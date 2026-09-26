@@ -86,7 +86,14 @@ def chat_completion(
     if resp.status_code != 200:
         raise ChatError(f"agent endpoint {resp.status_code}: {resp.text[:400]}")
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as e:
+        # 200 with a non-JSON body (proxy HTML, truncated stream…) —
+        # surface as a controlled ChatError, not an unhandled decode crash.
+        raise ChatError(
+            f"agent endpoint returned non-JSON body: {resp.text[:200]!r}"
+        ) from e
     choice = (data.get("choices") or [{}])[0]
     msg = choice.get("message") or {}
     return {

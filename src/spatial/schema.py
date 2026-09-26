@@ -68,8 +68,11 @@ class OverlapRecord(BaseModel):
     tier: int = Field(ge=1, le=4)
     tier_label: str
     tier_threshold_km: float
-    timeline_overlap: bool
-    shared_window: Optional[dict] = None
+    timeline_overlap: bool  # True ONLY for true window intersections
+    timeline_adjacent: bool = False  # windows end/start within slack — roll-over, not overlap
+    shared_window: Optional[dict] = None  # intersection only; None when adjacent/unknown
+    adjacent_window: Optional[dict] = None  # the between-years gap when adjacent
+    max_voltage_kv: Optional[float] = None  # higher of the two projects' filed voltage
     closest_point_a: tuple[float, float]
     closest_point_b: tuple[float, float]
     midpoint: tuple[float, float]

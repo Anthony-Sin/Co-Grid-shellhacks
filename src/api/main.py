@@ -94,7 +94,9 @@ def projects(
     if utility:
         feats = [f for f in feats if f["properties"].get("utility") == utility]
     if zone:
-        feats = [f for f in feats if zone in f["properties"].get("zones", [zone])]
+        # zones may be missing or null — never default-match the filter
+        feats = [f for f in feats
+                 if zone in (f["properties"].get("zones") or [])]
     if q:
         needle = q.strip().lower()
         feats = [f for f in feats if needle in json.dumps(
@@ -223,12 +225,14 @@ def overlaps_csv(
         rows = [r for r in rows if r["tier"] == tier]
     if timeline_only:
         rows = [r for r in rows if r["timeline_overlap"]]
-    rows = sorted(rows, key=lambda r: r.get("score", 0), reverse=True)
+    # rank = position in the canonical engine ordering (the same order
+    # /api/overlaps serves and the UI displays) — not a separate sort.
+    rows = list(rows)  # overlaps.json is already engine-ordered
 
     cols = [
         "rank", "overlap_id", "project_a", "project_b", "utilities",
         "tier", "tier_label", "zone", "min_distance_km", "timeline_overlap",
-        "shared_window_start", "shared_window_end",
+        "timeline_adjacent", "shared_window_start", "shared_window_end",
         "closest_lon", "closest_lat", "score",
         "shared_row_km", "est_savings_low_usd", "est_savings_high_usd",
         "explanation",
@@ -244,6 +248,7 @@ def overlaps_csv(
             i, r.get("overlap_id"), r.get("project_a"), r.get("project_b"),
             "|".join(r.get("utilities") or []), r.get("tier"), r.get("tier_label"),
             r.get("zone"), r.get("min_distance_km"), r.get("timeline_overlap"),
+            r.get("timeline_adjacent", False),
             win.get("start"), win.get("end"), cp[0], cp[1], r.get("score"),
             cost.get("shared_row_km"), cost.get("est_savings_usd_low"),
             cost.get("est_savings_usd_high"), r.get("explanation"),
@@ -273,6 +278,7 @@ def stats() -> dict:
         "overlaps": len(ovs),
         "by_tier": by_tier,
         "timeline_matches": sum(1 for o in ovs if o["timeline_overlap"]),
+        "timeline_adjacent": sum(1 for o in ovs if o.get("timeline_adjacent")),
     }
     # program-level rollup — staging regions + busiest shared season
     try:
@@ -291,7 +297,7 @@ def stats() -> dict:
         f["properties"].get("project_id"): f["properties"].get("utility", "?")
         for f in projs
     }
-    covered: dict[str, set] = {}
+    covered: dict[str, set] = {u: set() for u in by_util}
     for o in ovs:
         for pid in (o.get("project_a"), o.get("project_b")):
             u = proj_ids.get(pid)
@@ -308,8 +314,9 @@ def stats() -> dict:
 @app.get("/api/raw/{path:path}")
 def raw_file(path: str) -> FileResponse:
     """Serve a raw filing (e.g. a downloaded PDF) — provenance links in UI."""
-    target = (ROOT / "data" / "raw" / path).resolve()
-    if not str(target).startswith(str((ROOT / "data" / "raw").resolve())):
+    raw_root = (ROOT / "data" / "raw").resolve()
+    target = (raw_root / path).resolve()
+    if not target.is_relative_to(raw_root):
         raise HTTPException(403, "path escapes raw data dir")
     if not target.exists():
         raise HTTPException(404, "not found")

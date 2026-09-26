@@ -24,7 +24,7 @@ export interface ApiDataState<T> {
  */
 const requestCache = new Map<string, Promise<unknown>>()
 
-function deduped<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+export function deduped<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = requestCache.get(key)
   if (hit) return hit as Promise<T>
   const p = fetcher().catch((err: unknown) => {
@@ -49,6 +49,10 @@ export function useApiData<T>(key: string, fetcher: () => Promise<T>): ApiDataSt
 
   useEffect(() => {
     let cancelled = false
+    // reset on key change — otherwise a keyed hook (impact:X, nearby:Y)
+    // keeps showing the PREVIOUS key's resolved data until the new fetch
+    // lands (wrong-data flash on selection change)
+    setState({ data: null, loading: true, error: null })
     deduped(key, fetcher)
       .then((data) => {
         if (!cancelled) setState({ data, loading: false, error: null })

@@ -6,8 +6,14 @@ Every estimate carries its assumptions in-band and is labeled
 - null/None whenever inputs are missing (never invented numbers);
 - savings are RANGES with documented low/high bounds, not point figures.
 
-All distance/area math in EPSG:32617 (UTM 17N, meters) — same convention
-as src/spatial/engine.py.
+ONE cost model: all land/ROW constants and the corridor measure live in
+src/spatial/costmodel.py, shared with ranker.attach_costs — the numbers
+here can never diverge from the `cost` stored on each overlap record.
+Land/ROW is quantified for tiers 1-2 only; tiers 3-4 share logistics and
+crews (spec) — acreage/savings fields are deliberately zero there.
+
+Distance/area math uses the region-fit LCC in src/spatial/crs.py —
+same convention as src/spatial/engine.py.
 """
 from __future__ import annotations
 
@@ -17,45 +23,26 @@ from pyproj import Transformer
 from shapely.geometry import shape
 from shapely.ops import transform as shp_transform
 
-SOURCE_CRS = "EPSG:4326"
-TARGET_CRS = "EPSG:32617"  # UTM 17N — covers Savannah & Augusta
-_KM = 1000.0
-_M2_PER_ACRE = 4046.86
+from src.spatial.costmodel import (LAND_SHARE_MAX_TIER, M2_PER_ACRE,
+                                   ROW_PROXIMITY_BAND_M, corridor_km,
+                                   estimate_row_savings, row_width_m)
+from src.spatial.crs import SOURCE_CRS, TARGET_CRS
 
-# --- Assumption constants (public-domain, documented) ------------------------
-# Typical transmission ROW widths (BPA/industry planning figures):
-#   ~45 m for 115 kV-class corridors, ~60 m for 230 kV-class.
-ROW_WIDTH_M_115KV = 45.0
-ROW_WIDTH_M_230KV = 60.0
-ROW_WIDTH_DEFAULT_M = ROW_WIDTH_M_115KV
-# Avoided separate mobilization/survey/permitting when one corridor serves
-# both builds: ~$25k-$80k per shared km (rough planning bound).
-MOBILIZATION_USD_PER_KM = (25_000, 80_000)
-# Raw rural GA/SC land inside a transmission corridor: ~$8k-$25k / acre
-# (same bound used by src/spatial/ranker.py — kept consistent).
-LAND_USD_PER_ACRE = (8_000, 25_000)
-# Realistic field-working days per month (weather, outages, outages windows).
+_KM = 1000.0
+# Realistic field-working days per month (weather, outage windows).
 WORKING_DAYS_PER_MONTH = 18
 
 _TRANSFORMER = Transformer.from_crs(SOURCE_CRS, TARGET_CRS, always_xy=True)
 
 
 def _to_m(geojson_geom: Optional[dict]):
-    """GeoJSON (WGS84) -> shapely geometry in EPSG:32617 meters."""
+    """GeoJSON (WGS84) -> shapely geometry in meters (region-fit LCC)."""
     if not geojson_geom:
         return None
     try:
         return shp_transform(_TRANSFORMER.transform, shape(geojson_geom))
     except Exception:
         return None
-
-
-def _row_width_m(props_a: dict, props_b: dict) -> float:
-    """Pick ROW width by the higher filed voltage (None -> 115 kV class)."""
-    kv = max(
-        (p.get("voltage_kv") or 0) for p in (props_a, props_b)
-    )
-    return ROW_WIDTH_M_230KV if kv >= 230 else ROW_WIDTH_M_115KV
 
 
 def _window_months(sw: Optional[dict]) -> Optional[int]:
@@ -65,27 +52,18 @@ def _window_months(sw: Optional[dict]) -> Optional[int]:
     return (int(sw["end"]) - int(sw["start"]) + 1) * 12
 
 
-def _corridor_km(geom_a, geom_b, radius_km: float) -> Optional[float]:
-    """Length of project A's geometry lying within `radius_km` of B —
-    the co-locatable corridor. None when geometry is missing."""
-    if geom_a is None or geom_b is None:
-        return None
-    shared = geom_a.intersection(geom_b.buffer(radius_km * _KM))
-    km = getattr(shared, "length", 0.0) / _KM
-    return round(min(km, geom_a.length / _KM), 3)
-
-
 def _impact_for(o: dict, by_id: dict) -> dict:
+    tier = o.get("tier") or 0
+    land_share = tier <= LAND_SHARE_MAX_TIER
     assumptions = [
-        f"ROW width: {ROW_WIDTH_M_115KV:.0f} m typical 115 kV corridor, "
-        f"{ROW_WIDTH_M_230KV:.0f} m for >=230 kV (higher filed voltage wins).",
-        f"Mobilization avoidance ${MOBILIZATION_USD_PER_KM[0]//1000}k-"
-        f"${MOBILIZATION_USD_PER_KM[1]//1000}k per shared corridor km.",
-        f"Land ${LAND_USD_PER_ACRE[0]//1000}k-${LAND_USD_PER_ACRE[1]//1000}k"
-        "/acre (rural GA/SC corridor, planning bound).",
+        f"Co-location band: {ROW_PROXIMITY_BAND_M:.0f} m — only geometry "
+        "inside it counts as shared right-of-way.",
+        "ROW width: 45 m typical 115 kV corridor, 60 m for >=230 kV "
+        "(higher filed voltage wins).",
+        "Avoided corridor establishment $150-400k/km + land $8-25k/acre "
+        "(rural GA/SC planning bounds, shared with ranker.attach_costs).",
         f"Crew-share days = shared window months x {WORKING_DAYS_PER_MONTH}"
         " workable field days/month.",
-        "Distances/areas computed in EPSG:32617; rough planning figures only.",
     ]
     pid_a, pid_b = o.get("project_a"), o.get("project_b")
     fa, fb = by_id.get(pid_a), by_id.get(pid_b)
@@ -95,58 +73,55 @@ def _impact_for(o: dict, by_id: dict) -> dict:
         assumptions.append(
             f"Project geometry not found in projects.geojson for"
             f" {pid_a if fa is None else pid_b} — spatial fields null.")
-    tier_radius_km = float(o.get("tier_threshold_km") or 0.0)
-    corridor_km = _corridor_km(geom_a, geom_b, tier_radius_km)
-
-    width_m = _row_width_m((fa or {}).get("properties", {}),
-                           (fb or {}).get("properties", {}))
-    corridor_acres = (
-        round(corridor_km * _KM * width_m / _M2_PER_ACRE, 1)
-        if corridor_km is not None else None
-    )
 
     zone_m = _to_m(o.get("zone_geometry"))
     zone_area_acres = (
-        round(zone_m.area / _M2_PER_ACRE, 1) if zone_m is not None else None
+        round(zone_m.area / M2_PER_ACRE, 1) if zone_m is not None else None
     )
-    if zone_m is None:
+    width_m = row_width_m((fa or {}).get("properties", {}).get("voltage_kv"),
+                          (fb or {}).get("properties", {}).get("voltage_kv"))
+
+    # --- Land/ROW: tiers 1-2 only -----------------------------------------
+    if land_share:
+        if geom_a is None or geom_b is None:
+            corridor_km = None
+            shared_row_acres, savings = None, None
+            assumptions.append("Geometry missing — ROW fields null.")
+        else:
+            corridor_km = shared_corridor_km(geom_a, geom_b)
+            est = estimate_row_savings(corridor_km, width_m)
+            shared_row_acres = est["acres"]
+            savings = {"low": est["low"], "high": est["high"],
+                       "basis": est["basis"]}
+    else:
+        corridor_km, shared_row_acres, savings = 0.0, 0.0, None
         assumptions.append(
-            "zone_geometry missing/unparseable — ROW acres not zone-capped.")
+            "Tier 3-4: value is shared logistics/crews — land/ROW sharing "
+            "is not meaningful at this separation; savings fields are "
+            "deliberately empty rather than inflated.")
 
-    # Overlapping ROW = min(zone area, corridor strip area) over the
-    # values actually available; None only if neither can be computed.
-    area_candidates = [a for a in (zone_area_acres, corridor_acres)
-                       if a is not None]
-    shared_row_acres = min(area_candidates) if area_candidates else None
-
+    # --- Timeline ----------------------------------------------------------
     months = _window_months(o.get("shared_window"))
     if months is None:
-        assumptions.append(
-            "No shared_window — timeline fields and crew-share are null,"
-            " not assumed.")
-
-    if corridor_km is None or shared_row_acres is None:
-        savings = None
-    else:
-        lo, hi = MOBILIZATION_USD_PER_KM
-        l_lo, l_hi = LAND_USD_PER_ACRE
-        savings = {
-            "low": int(corridor_km * lo + shared_row_acres * l_lo),
-            "high": int(corridor_km * hi + shared_row_acres * l_hi),
-            "basis": "shared corridor km x mobilization-avoidance $/km +"
-                     " shared ROW acres x land $/acre. Order-of-magnitude"
-                     " planning estimate, not an engineering cost figure.",
-        }
+        if o.get("timeline_adjacent"):
+            assumptions.append(
+                "Build windows are adjacent (roll-over), not intersecting "
+                "— no concurrent shared window; crew-share days null.")
+        else:
+            assumptions.append(
+                "No shared_window — timeline fields and crew-share are null,"
+                " not assumed.")
 
     return {
         "overlap_id": o.get("overlap_id"),
         "project_a": pid_a,
         "project_b": pid_b,
-        "tier": o.get("tier"),
+        "tier": tier,
         "timeline_overlap": bool(o.get("timeline_overlap")),
+        "timeline_adjacent": bool(o.get("timeline_adjacent")),
         "shared_corridor_km": corridor_km,
         "row_width_m_assumed": width_m,
-        "corridor_acres": corridor_acres,
+        "corridor_acres": shared_row_acres,
         "zone_area_acres": zone_area_acres,
         "shared_row_acres": shared_row_acres,
         "shared_window_months": months,
@@ -157,6 +132,10 @@ def _impact_for(o: dict, by_id: dict) -> dict:
         "assumptions": assumptions,
         "confidence": "rough_estimate",
     }
+
+
+# alias so the tier-gated call reads naturally
+shared_corridor_km = corridor_km
 
 
 def build_impacts(projects_geojson, overlaps) -> list[dict]:

@@ -20,6 +20,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { api, type OverlapRecord } from '../../lib/api'
+import { deduped } from '../../ui/hooks/useApiData'
 import { TIER_COLORS } from '../../lib/palette'
 import { SCENE_CENTERS } from '../../lib/projection'
 import { STATE_RELEVANCE_M } from './zoneData'
@@ -34,18 +35,21 @@ interface LoadedData {
   projectsById: ProjectsById
 }
 
-/** Session-wide fetch cache — api.overlaps() + api.projects() run once. */
-let dataPromise: Promise<LoadedData> | null = null
+/** Fetch cache — shares the useApiData request cache, so panel/detail/
+ * zones all ride ONE /api/overlaps + /api/projects fetch per session.
+ * deduped() evicts rejections, so a late-starting backend still recovers. */
 let warnedOnce = false
 
 function loadData(): Promise<LoadedData> {
-  dataPromise ??= Promise.all([api.overlaps(), api.projects()]).then(([ov, pr]) => ({
+  return Promise.all([
+    deduped('overlaps', api.overlaps),
+    deduped('projects', api.projects),
+  ]).then(([ov, pr]) => ({
     overlaps: ov.overlaps ?? [],
     projectsById: new Map(
       pr.features.map((f) => [f.properties.project_id, f]),
     ),
   }))
-  return dataPromise
 }
 
 /** How many ranked label chips to float above the map. */
@@ -174,7 +178,7 @@ function SelectionBeacon({ datum }: { datum: ZoneDatum }) {
     >
       <cylinderGeometry args={[BEACON_RADIUS, BEACON_RADIUS, BEACON_HEIGHT, 48, 1, true]} />
       <meshBasicMaterial
-        color={TIER_COLORS[datum.rec.tier]}
+        color={TIER_COLORS[datum.rec.tier] ?? '#888888'}
         transparent
         opacity={0.15}
         depthWrite={false}

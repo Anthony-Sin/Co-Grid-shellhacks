@@ -33,7 +33,7 @@ export interface ConnectorLinkProps {
 
 export function ConnectorLink({ datum, dimmed, selected, faint }: ConnectorLinkProps) {
   const selectOverlap = useAppStore((s) => s.selectOverlap)
-  const color = TIER_COLORS[datum.rec.tier]
+  const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
 
   const a = useMemo(
     () => new THREE.Vector3(datum.aLocal[0], END_H, -datum.aLocal[1]),

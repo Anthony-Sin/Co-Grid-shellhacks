@@ -47,7 +47,7 @@ export interface ZonePolygonProps {
 }
 
 export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygonProps) {
-  const color = TIER_COLORS[datum.rec.tier]
+  const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
   const ink = useMemo(() => mixHex(color, PALETTE.ink, 0.55), [color])
   const groupRef = useRef<THREE.Group>(null)
   const hatchMat = useRef<THREE.LineBasicMaterial>(null)

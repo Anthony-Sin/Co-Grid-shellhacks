@@ -102,8 +102,11 @@ export interface OverlapRecord {
   tier: Tier
   tier_label: 'touching' | 'shared_row' | 'shared_logistics' | 'shared_crews'
   tier_threshold_km: number
-  timeline_overlap: boolean
-  shared_window?: { start: number; end: number } | null
+  timeline_overlap: boolean // true ONLY when build windows intersect
+  timeline_adjacent?: boolean // windows roll end-to-start — handoff, not overlap
+  shared_window?: { start: number; end: number } | null // intersection only
+  adjacent_window?: { start: number; end: number } | null // between-years gap
+  max_voltage_kv?: number | null
   closest_point_a: [number, number] // lon/lat
   closest_point_b: [number, number]
   midpoint: [number, number]
@@ -132,6 +135,7 @@ export interface StatsResponse {
   overlaps: number
   by_tier: Record<string, number>
   timeline_matches: number
+  timeline_adjacent?: number
 }
 
 export interface RegionsResponse {
@@ -164,6 +168,7 @@ export interface AgentReply {
 
 export interface ImpactEstimate {
   overlap_id: string
+  timeline_adjacent?: boolean
   shared_corridor_km: number | null
   shared_row_acres: number | null
   shared_window_months: number | null

@@ -6,6 +6,10 @@ import { useOverlaps, useProjects, useRegions } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
 
+// max DOM rows in the ranked list — the engine order already surfaces
+// the highest-value records first, so the cap never hides better data.
+const MAX_LIST_ROWS = 200
+
 type ProjectMap = Map<string, ProjectProps>
 
 /** Short honest distance: 0 → "touching", else 1-decimal km (exact value lives in the detail card). */
@@ -62,6 +66,10 @@ function OverlapRow({
               <span className="chip-timeline mono">
                 {o.shared_window.start}–{o.shared_window.end}
               </span>
+            ) : o.timeline_adjacent && o.adjacent_window ? (
+              <span className="chip-timeline is-adjacent mono" title="windows roll end-to-start — not a concurrent overlap">
+                →{o.adjacent_window.start}–{o.adjacent_window.end}
+              </span>
             ) : (
               <span className="chip-timeline is-none">no overlap</span>
             )}
@@ -115,12 +123,15 @@ export function OverlapPanel() {
     [all],
   )
   const zones = regions.data?.zones ?? []
-  const shown = all.filter(
+  const filtered = all.filter(
     (o) =>
       visibleTiers[o.tier] &&
       (!timelineOnly || o.timeline_overlap) &&
-      (!zoneFilter || (o.zone || '').toLowerCase().includes(zoneFilter)),
+      (!zoneFilter || (o.zone || '').toLowerCase().includes(zoneFilter.toLowerCase())),
   )
+  // the list is engine-ranked — top rows are the highest-value records;
+  // cap the DOM, never hide the count.
+  const shown = filtered.slice(0, MAX_LIST_ROWS)
 
   if (!panelOpen) {
     return (
@@ -166,7 +177,9 @@ export function OverlapPanel() {
     body = (
       <>
         <div className="panel-count mono">
-          {shown.length} of {all.length} shown
+          {filtered.length > MAX_LIST_ROWS
+            ? `top ${shown.length} of ${filtered.length} (${all.length} total)`
+            : `${shown.length} of ${all.length} shown`}
         </div>
         {shown.length === 0 ? (
           <div className="empty-state">

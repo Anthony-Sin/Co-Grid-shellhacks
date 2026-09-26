@@ -40,7 +40,10 @@ export const useAppStore = create<AppState>()((set) => ({
   panelOpen: true,
 
   setActiveScene: (scene) => set({ activeScene: scene }),
-  selectOverlap: (id) => set({ selectedOverlapId: id }),
+  // clearing focusTarget here: a deep-link ?focus= target is a one-shot —
+  // any explicit selection/deselection releases it, otherwise the stale
+  // target would override every later fly-to forever
+  selectOverlap: (id) => set({ selectedOverlapId: id, focusTarget: null }),
   toggleTier: (tier) =>
     set((s) => ({
       visibleTiers: { ...s.visibleTiers, [tier]: !s.visibleTiers[tier] },

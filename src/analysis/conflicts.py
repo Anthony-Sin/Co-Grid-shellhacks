@@ -17,10 +17,18 @@ from __future__ import annotations
 
 def build_conflicts(overlaps_data: dict) -> dict:
     records = overlaps_data.get("overlaps") or []
+    # timeline_overlap is True ONLY for true window intersections —
+    # adjacent windows (roll-over) are NOT mandatory joint-outage seasons.
     hard = [
         r for r in records
         if r.get("tier") == 1 and r.get("timeline_overlap")
         and (r.get("shared_window") or {}).get("start") is not None
+    ]
+    # tier-1 records whose windows are merely adjacent still need crossing
+    # agreements/structure coordination — but no synchronized outage exists.
+    adjacent = [
+        r for r in records
+        if r.get("tier") == 1 and r.get("timeline_adjacent")
     ]
     by_year: dict[int, list[str]] = {}
     for r in hard:
@@ -56,7 +64,20 @@ def build_conflicts(overlaps_data: dict) -> dict:
             }
             for r in sorted(hard, key=lambda x: x.get("score", 0), reverse=True)
         ],
-        "note": ("The remaining tier-1 records without shared windows are "
-                 "structural constraints only — they still need crossing "
-                 "agreements but not synchronized outages."),
+        "adjacent_tier1": [
+            {
+                "overlap_id": r["overlap_id"],
+                "project_a": r.get("project_a"),
+                "project_b": r.get("project_b"),
+                "utilities": r.get("utilities"),
+                "adjacent_window": r.get("adjacent_window"),
+            }
+            for r in sorted(adjacent, key=lambda x: x.get("score", 0), reverse=True)
+        ],
+        "note": ("adjacent_tier1 records are touching builds whose windows "
+                 "are adjacent (roll-over), not intersecting — they need "
+                 "crossing agreements and structure coordination but have "
+                 "NO simultaneous outage window, so they are excluded from "
+                 "mandatory joint-outage seasons. Remaining tier-1 records "
+                 "without windows are structural constraints only."),
     }

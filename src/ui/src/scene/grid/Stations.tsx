@@ -17,6 +17,7 @@ import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { rngFromString } from '../../lib/prng'
+import { useDispose } from '../city/cityUtils'
 import type { SceneProject, SceneSub } from './gridData'
 import { utilityColor } from './gridData'
 
@@ -52,6 +53,9 @@ export function ExistingSubstations({ subs }: { subs: readonly SceneSub[] }) {
     () => new THREE.MeshStandardMaterial({ color: TRANSFORMER_COLOR, roughness: 0.9, flatShading: true }),
     [],
   )
+  // r3f doesn't auto-dispose objects passed via instancedMesh args —
+  // without this every scene switch leaks 2 geometries + 2 materials
+  useDispose([padGeo, boxGeo, padMat, boxMat])
   const padRef = useRef<THREE.InstancedMesh>(null)
   const boxRef = useRef<THREE.InstancedMesh>(null)
 

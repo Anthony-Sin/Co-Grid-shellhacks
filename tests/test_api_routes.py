@@ -82,3 +82,87 @@ class ApiRoutesTest(unittest.TestCase):
     def test_raw_path_confined(self):
         r = client.get("/api/raw/../processed/overlaps.json")
         assert r.status_code in (403, 404, 422)
+        # absolute-path injection + deeper traversal also can't escape
+        r = client.get("/api/raw//etc/passwd")
+        assert r.status_code in (403, 404, 422)
+
+    def test_projects_zone_filter_honest(self):
+        # regression: a zone-less project used to match EVERY zone filter
+        # and zones:null crashed with TypeError.
+        r = client.get("/api/projects", params={"zone": "__nonexistent__"})
+        assert r.status_code == 200
+        assert r.json()["features"] == []
+        r = client.get("/api/projects", params={"zone": "savannah"})
+        feats = r.json()["features"]
+        assert feats
+        assert all("savannah" in (f["properties"].get("zones") or [])
+                   for f in feats)
+
+    def test_csv_rank_matches_api_order(self):
+        # regression: CSV rank used score-desc while the UI uses engine
+        # order — two different ranks for the same record. Canonical rank
+        # is engine order (what /api/overlaps serves).
+        api_rows = client.get("/api/overlaps").json()["overlaps"]
+        csv_text = client.get("/api/overlaps.csv").text
+        lines = csv_text.strip().splitlines()
+        header = lines[0].split(",")
+        assert "timeline_adjacent" in header
+        csv_ids = [ln.split(",")[1] for ln in lines[1:]]
+        assert csv_ids == [o["overlap_id"] for o in api_rows]
+
+    def test_stats_covers_zero_overlap_utilities(self):
+        # coverage must list every utility in the project set — including
+        # utilities whose projects participate in zero overlaps.
+        s = client.get("/api/stats").json()
+        assert set(s["coverage"]) == set(s["by_utility"])
+        for u, c in s["coverage"].items():
+            assert c["in_overlaps"] <= c["projects"]
+
+    def test_conflicts_require_true_intersection(self):
+        # regression: tier-1 ADJACENT-only records were counted as mandatory
+        # joint outages though the windows never coincide.
+        ovs = client.get("/api/overlaps").json()["overlaps"]
+        by_id = {o["overlap_id"]: o for o in ovs}
+        c = client.get("/api/analysis/conflicts").json()
+        for row in c["overlaps"]:
+            r = by_id[row["overlap_id"]]
+            assert r["tier"] == 1 and r["timeline_overlap"]
+            assert r["shared_window"], row["overlap_id"]
+        for row in c.get("adjacent_tier1", []):
+            r = by_id[row["overlap_id"]]
+            assert r["tier"] == 1 and r["timeline_adjacent"]
+            assert not r["timeline_overlap"]
+
+    def test_impact_tier34_gated_on_real_record(self):
+        # a real tier-4 record must report no land/ROW sharing anywhere.
+        ovs = client.get("/api/overlaps", params={"tier": 4}).json()["overlaps"]
+        r4 = ovs[0]
+        imp = client.get(f"/api/analysis/impact/{r4['overlap_id']}").json()
+        assert imp["shared_row_acres"] == 0.0
+        assert imp["shared_corridor_km"] == 0.0
+        assert imp["est_savings_usd_range"] is None
+        assert (r4.get("cost") or {}).get("est_savings_usd_high") == 0
+
+    def test_impact_tier12_matches_stored_cost(self):
+        # stored cost and /api/analysis/impact must quote the same model —
+        # the reviewer's OV-0001 divergence can never recur.
+        ovs = client.get("/api/overlaps").json()["overlaps"]
+        t12 = [o for o in ovs if o["tier"] <= 2 and o.get("cost")]
+        for r in t12[:8]:
+            imp = client.get(f"/api/analysis/impact/{r['overlap_id']}").json()
+            cost = r["cost"]
+            assert imp["shared_corridor_km"] == cost["shared_row_km"]
+            assert imp["shared_row_acres"] == cost["shared_row_acres"]
+            rng = imp["est_savings_usd_range"] or {}
+            assert rng.get("low") == cost["est_savings_usd_low"]
+            assert rng.get("high") == cost["est_savings_usd_high"]
+
+    def test_adjacent_records_serialized(self):
+        # records where windows roll end-to-start carry the honest flags.
+        ovs = client.get("/api/overlaps").json()["overlaps"]
+        adj = [o for o in ovs if o.get("timeline_adjacent")]
+        assert adj, "dataset should contain adjacency-only records"
+        for r in adj:
+            assert r["timeline_overlap"] is False
+            assert r["shared_window"] is None
+            assert r["adjacent_window"]

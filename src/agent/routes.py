@@ -30,12 +30,22 @@ MAX_CONTENT_CHARS = 8000
 # cheap in-process rate limiting: each paid call burns provider tokens.
 _RATE_WINDOW_S = 60.0
 _RATE_LIMIT = 20          # paid calls per IP per minute
+_MAX_TRACKED_IPS = 2000   # bound memory — a defaultdict of deques grows forever
 _calls: dict[str, deque] = defaultdict(deque)
 
 
 def _rate_limit(req: Request) -> None:
     ip = req.client.host if req.client else "?"
     now = time.monotonic()
+    if ip not in _calls and len(_calls) >= _MAX_TRACKED_IPS:
+        # evict the stalest buckets first (an attacker rotating IPs can't
+        # grow the map past the cap; legit IPs re-register on next call)
+        stale = [k for k, q in _calls.items()
+                 if not q or now - q[-1] > _RATE_WINDOW_S]
+        for k in stale:
+            del _calls[k]
+        if len(_calls) >= _MAX_TRACKED_IPS:
+            _calls.clear()  # pathological flood — start over
     q = _calls[ip]
     while q and now - q[0] > _RATE_WINDOW_S:
         q.popleft()
@@ -64,6 +74,36 @@ def _config_or_503():
     return cfg
 
 
+def _selection_context(overlap_id: str | None) -> str:
+    """Inject the selected overlap's REAL record fields as context — not
+    just the id — so the model is grounded even before its first tool call."""
+    if not overlap_id:
+        return ""
+    from .tools import run_tool
+    res = run_tool("get_overlap", {"overlap_id": overlap_id})
+    rec = res.get("result") or {}
+    if "error" in rec:
+        return f"\n\n[context: user selected {overlap_id} — record not found]"
+    keep = {k: rec.get(k) for k in (
+        "overlap_id", "project_a", "project_b", "utilities", "tier",
+        "tier_label", "min_distance_km", "timeline_overlap",
+        "timeline_adjacent", "shared_window", "adjacent_window", "zone",
+    )}
+    return f"\n\n[context: user selected {json.dumps(keep)}]"
+
+
+def _history_or_400(req: ChatRequest) -> list[dict]:
+    history = []
+    for m in req.messages:
+        if m.role not in ("user", "assistant"):
+            continue  # only the server writes system/tool messages
+        history.append({"role": m.role, "content": m.content[:MAX_CONTENT_CHARS]})
+    if not history or history[-1]["role"] != "user":
+        raise HTTPException(400, "last message must be a user message")
+    history[-1]["content"] += _selection_context(req.overlap_id)
+    return history
+
+
 @router.get("/health")
 def health() -> dict:
     cfg = load_config()
@@ -79,16 +119,7 @@ def health() -> dict:
 def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
     cfg = _config_or_503()
     _rate_limit(request)
-    history = []
-    for m in req.messages:
-        if m.role not in ("user", "assistant"):
-            continue  # only the server writes system/tool messages
-        history.append({"role": m.role, "content": m.content[:MAX_CONTENT_CHARS]})
-    if not history or history[-1]["role"] != "user":
-        raise HTTPException(400, "last message must be a user message")
-
-    if req.overlap_id:
-        history[-1]["content"] += f"\n\n[context: user selected {req.overlap_id}]"
+    history = _history_or_400(req)
 
     try:
         return run_chat(cfg, history)
@@ -107,15 +138,7 @@ def chat_stream(req: ChatRequest, request: Request):
     event with the same payload shape as /chat, then `done`."""
     cfg = _config_or_503()
     _rate_limit(request)
-    history = []
-    for m in req.messages:
-        if m.role not in ("user", "assistant"):
-            continue
-        history.append({"role": m.role, "content": m.content[:MAX_CONTENT_CHARS]})
-    if not history or history[-1]["role"] != "user":
-        raise HTTPException(400, "last message must be a user message")
-    if req.overlap_id:
-        history[-1]["content"] += f"\n\n[context: user selected {req.overlap_id}]"
+    history = _history_or_400(req)
 
     def events():
         try:
@@ -130,6 +153,11 @@ def chat_stream(req: ChatRequest, request: Request):
                 yield _sse(kind, payload)
         except ChatError as e:
             yield _sse("error", {"message": str(e)})
+            yield _sse("done", {})
+        except Exception as e:  # noqa: BLE001 — any mid-stream failure must
+            # terminate with an error event, not a hung/aborted stream that
+            # forces the client into a full paid /chat retry.
+            yield _sse("error", {"message": f"stream failed: {type(e).__name__}"})
             yield _sse("done", {})
 
     return StreamingResponse(events(), media_type="text/event-stream",

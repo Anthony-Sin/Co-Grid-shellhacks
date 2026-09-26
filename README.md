@@ -1,6 +1,6 @@
 # CO-GRID — Savannah River Corridor + Statewide
 
-![CO-GRID state scene — GA + SC, monochrome sketch map, 73 planned projects, 246 ranked overlaps](docs/screenshot.png)
+![CO-GRID state scene — GA + SC, monochrome sketch map, 283 planned projects, 1,503 ranked overlaps](docs/screenshot.png)
 
 **Gridlock Challenge (Sperry Tech × Shell Hacks 2026).** Finds where two
 electric utilities' *planned* construction projects overlap geographically
@@ -10,9 +10,10 @@ opportunities into tiers and renders them on a stylized 3D map.
 Utilities tracked: **Georgia Power (GPC)** and **Dominion Energy South
 Carolina (DESC)** as the core pair, plus co-planners mined from the same
 public filings: **Santee Cooper, GTC, MEAG, Duke Carolinas, Duke Progress,
-Dalton Utilities** — 73 filed projects, 246 ranked overlaps, densest in
-the Savannah River corridor (Savannah metro + Augusta) with statewide
-coverage (Charleston, Columbia, Atlanta, Macon, Pee Dee, upstate).
+Dalton Utilities** — 283 filed projects, 1,503 ranked overlaps: densest
+in the Atlanta metro (GPC × GTC) and the Savannah River corridor
+(Savannah metro + Augusta), with statewide coverage (Charleston,
+Columbia, Macon, Pee Dee, north GA, upstate).
 The existing-grid basemap and a dedicated **GA+SC state scene** cover the
 full two-state envelope: 15.7k real HIFLD features, state/county borders,
 interstate corridors, named rivers, 508 real places.
@@ -51,7 +52,9 @@ cd src/ui && npm install && npm run dev
 # open http://127.0.0.1:3210  (vite proxies /api -> 127.0.0.1:8000)
 ```
 
-Tests: `./venv/bin/python -m pytest tests/ -x -q`
+Tests: `./venv/bin/python -m pytest tests/ -x -q` — or run the whole
+gate (tests + UI typecheck/build + 500-line audit + artifact check)
+with `./scripts/verify.sh`.
 
 ### Headless screenshots (visual regression / review)
 
@@ -125,12 +128,14 @@ freshness), and `GET /api/overlaps.csv` (ranked flat export).
 |---|---|---|
 | HIFLD transmission lines / substations / power plants / retail territories | ArcGIS FeatureServer org `HDRa0B57OVrv2E1q` — `https://services5.arcgis.com/HDRa0B57OVrv2E1q/arcgis/rest/services/<Layer>/FeatureServer/0/query?...&f=geojson` (exact layer names + query template in `src/ingestion/hifld_download.py`, mirrored at `hifld-geoplatform.hub.arcgis.com`) | existing-grid basemap + named-facility anchors for project geometry |
 | OpenStreetMap | `https://overpass-api.de/api/interpreter` (fallback `https://overpass.kumi.systems/api/interpreter`), queries in `src/ingestion/osm_download.py` | buildings, roads, water, parks for the 3D city |
-| DESC planned projects | SCRTP/SERTP transmission plans + DESC IRP (SC PSC) — see `data/raw/filings/` + `data/raw/SOURCES.md` | `data/seeds/projects_seed.json` |
-| GPC planned projects | Georgia Power IRP / 10-yr transmission plan (GA PSC dockets) — same as above | `data/seeds/projects_seed.json` |
+| DESC planned projects | SCRTP/SERTP transmission plans + DESC IRP (SC PSC) — see `data/raw/filings/` + `data/raw/SOURCES.md` | `data/seeds/projects_seed_statewide.json` |
+| GPC/GTC/MEAG + co-planner projects | Georgia Power IRP / 10-yr plan, SERTP preliminary expansion plan, SCRTP project descriptions, GTC ECRP page — same filings | `data/seeds/projects_seed_statewide.json` |
 
 `data/raw/` is read-only and gitignored; `data/processed/` is generated.
-The ONLY hand-authored data is `data/seeds/projects_seed.json` — every
-row cites a public filing URL. No mock data anywhere (AGENTS.md §7).
+The ONLY hand-authored data is `data/seeds/projects_seed_statewide.json`
+(283 rows — `projects_seed.json` is its 73-record corridor subset, kept
+for reference) — every row cites a public filing URL. No mock data
+anywhere (AGENTS.md §7).
 
 ## 3. Architecture
 
@@ -167,7 +172,8 @@ ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
 reserved for the data layer**: planned project geometry uses utility
 colors, coordination zones use tier colors with diagonal hatching.
 Large zones get airier hatching + fainter fills so markup never floods;
-the map renders the top ~40 scored zones (all 246 stay listed/selectable).
+the map renders the top ~40 scored zones (all 1,503 stay listed —
+the ranked panel caps the DOM at the top 200 rows).
 
 ### Performance notes
 

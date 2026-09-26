@@ -1,7 +1,7 @@
 """Core overlap engine.
 
 Strategy (per AGENTS.md §6 — never brute-force O(N^2)):
-1. Reproject all project geometries to EPSG:32617 (meters).
+1. Reproject all project geometries to a region-fit LCC (meters).
 2. Build an STRtree; for every geometry, query candidates "dwithin" 40 km.
 3. For candidate pairs only, compute exact closest-point distance and the
    nearest-point coordinates.
@@ -21,12 +21,11 @@ from shapely import STRtree
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points
 
+from .crs import SOURCE_CRS as _SOURCE_CRS, TARGET_CRS
 from .schema import OverlapRecord
 from .tiers import MAX_DISTANCE_KM, classify_tier, tier_label, tier_threshold_km
 from .timeline import windows_overlap
 
-TARGET_CRS = "EPSG:32617"  # UTM 17N — covers Savannah & Augusta
-_SOURCE_CRS = "EPSG:4326"
 _KM = 1000.0
 
 
@@ -36,6 +35,18 @@ def load_projects(path: str | Path) -> gpd.GeoDataFrame:
     if gdf.crs is None:
         gdf = gdf.set_crs(_SOURCE_CRS)
     return gdf.to_crs(TARGET_CRS)
+
+
+def _zone_set(row) -> set:
+    """zones -> set, tolerating NaN/None/ndarray/str. Anything iterable that
+    isn't a str/dict counts; scalars (incl. NaN) yield the empty set."""
+    z = getattr(row, 'zones', None)
+    if z is None or isinstance(z, (str, dict)):
+        return set()
+    try:
+        return {v for v in z}
+    except TypeError:
+        return set()
 
 
 def _cross_utility_pairs(gdf: gpd.GeoDataFrame) -> list[tuple[int, int]]:
@@ -79,12 +90,16 @@ def find_overlaps(
         mid_m = Point((pa_m.x + pb_m.x) / 2, (pa_m.y + pb_m.y) / 2)
         pts = gpd.GeoSeries([pa_m, pb_m, mid_m], crs=TARGET_CRS).to_crs(_SOURCE_CRS)
         pt_a, pt_b, mid = pts.iloc[0], pts.iloc[1], pts.iloc[2]
-        t_ok, shared = windows_overlap(a.start_year, a.end_year, b.start_year, b.end_year)
+        kvs = [float(v) for v in (getattr(a, 'voltage_kv', None),
+                                  getattr(b, 'voltage_kv', None))
+               if v is not None and v == v]
+        kv = max(kvs) if kvs else None
+        t_kind, t_window = windows_overlap(a.start_year, a.end_year, b.start_year, b.end_year)
         # per-record zone: shared tag if the two projects share one, else
         # the honest pair label ('savannah / lowcountry'); 'statewide' when
-        # the projects carry no zone tags.
-        za = set(a.zones or []) if hasattr(a, 'zones') else set()
-        zb = set(b.zones or []) if hasattr(b, 'zones') else set()
+        # the projects carry no zone tags. zones must be a real collection
+        # (list/ndarray) — NaN/None/strings can't go into set() safely.
+        za, zb = _zone_set(a), _zone_set(b)
         both = sorted(za & zb)
         if both:
             rec_zone = both[0]
@@ -109,8 +124,11 @@ def find_overlaps(
                 tier=tier,
                 tier_label=tier_label(tier),
                 tier_threshold_km=tier_threshold_km(tier),
-                timeline_overlap=t_ok,
-                shared_window=shared,
+                timeline_overlap=t_kind == "intersect",
+                timeline_adjacent=t_kind == "adjacent",
+                shared_window=t_window if t_kind == "intersect" else None,
+                adjacent_window=t_window if t_kind == "adjacent" else None,
+                max_voltage_kv=kv,
                 closest_point_a=(round(pt_a.x, 6), round(pt_a.y, 6)),
                 closest_point_b=(round(pt_b.x, 6), round(pt_b.y, 6)),
                 midpoint=(round(mid.x, 6), round(mid.y, 6)),

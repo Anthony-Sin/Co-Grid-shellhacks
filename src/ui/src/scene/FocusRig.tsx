@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { api, type OverlapRecord } from '../lib/api'
+import { deduped } from '../ui/hooks/useApiData'
 import { lonLatToLocal, SCENE_CENTERS } from '../lib/projection'
 import { useAppStore } from '../state/store'
 
@@ -25,10 +26,10 @@ export function FocusRig() {
   const goal = useRef<{ target: THREE.Vector3; zoom: number } | null>(null)
 
   // Warm the overlaps cache once (state — the goal below may depend on it).
+  // Shares the session-wide request cache with the panel/zones layers.
   useEffect(() => {
     let alive = true
-    api
-      .overlaps()
+    deduped('overlaps', api.overlaps)
       .then((d) => {
         if (alive) setOverlaps(d.overlaps)
       })
@@ -42,9 +43,13 @@ export function FocusRig() {
   useEffect(() => {
     if (focusTarget) {
       goal.current = { target: new THREE.Vector3(focusTarget[0], 0, focusTarget[1]), zoom: 0.35 }
+      invalidate()
       return
     }
-    if (!selectedOverlapId || !overlaps) return
+    if (!selectedOverlapId || !overlaps) {
+      goal.current = null  // deselect mid-flight cancels the flight
+      return
+    }
     const rec = overlaps.find((o) => o.overlap_id === selectedOverlapId)
     if (!rec) return
     const [x, y] = lonLatToLocal(rec.midpoint[0], rec.midpoint[1], SCENE_CENTERS[activeScene])

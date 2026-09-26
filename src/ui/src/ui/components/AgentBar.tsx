@@ -22,6 +22,7 @@ interface Msg {
 }
 
 const QUICK_ACTIONS = [
+  { label: 'Exec summary', prompt: 'Give me the headline executive summary — counts, dominant utility pair, peak build season, mandatory joint outages, top opportunity.' },
   { label: 'Top opportunities', prompt: 'List the top 3 coordination opportunities — overlap id, utilities, tier, distance, and whether timelines overlap.' },
   { label: 'Explain selected', prompt: 'Explain the currently selected overlap: what could the two utilities share and when is the shared build window?' },
   { label: 'Staging plan', prompt: 'Where would you put shared staging yards? Use the staging_clusters tool and name the top clusters with their member counts.' },
@@ -57,7 +58,12 @@ export function AgentBar() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: history, ...(selectedOverlapId ? { overlap_id: selectedOverlapId } : {}) }),
     })
-    if (!res.ok || !res.body) return null
+    if (!res.ok) {
+      // surface the real server reason (400 limit, 429 rate, 503 unconfigured)
+      const detail = await res.json().catch(() => null)
+      throw new Error(detail?.detail || `stream HTTP ${res.status}`)
+    }
+    if (!res.body) return null
     const reader = res.body.getReader()
     const dec = new TextDecoder()
     let buf = ''
@@ -108,9 +114,12 @@ export function AgentBar() {
     setInput('')
     setBusy(true)
     const liveTools: string[] = []
+    // backend hard-caps history at 40 messages — keep the last 30 so long
+    // sessions degrade gracefully instead of dying on HTTP 400
+    const history = next.slice(-30).map((m) => ({ role: m.role, content: m.content }))
     try {
       const res = await streamChat(
-        next.map((m) => ({ role: m.role, content: m.content })),
+        history,
         (name) => {
           liveTools.push(name)
           // live progress line under the log while the chain runs
@@ -124,10 +133,7 @@ export function AgentBar() {
           })
         },
       )
-      const reply = res ?? (await api.agentChat(
-        next.map((m) => ({ role: m.role, content: m.content })),
-        selectedOverlapId,
-      ))
+      const reply = res ?? (await api.agentChat(history, selectedOverlapId))
       setMsgs((m) => [
         // replace the transient ⚙ progress line with the real answer
         ...(m[m.length - 1]?.progress ? m.slice(0, -1) : m),

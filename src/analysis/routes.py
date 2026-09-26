@@ -100,9 +100,13 @@ def playbook(radius_km: float = Query(40.0, ge=5.0, le=200.0),
 
 
 @router.get("/matrix")
-def matrix() -> dict:
-    """Utility-pair × tier overlap matrix — which pairs coordinate most."""
+def matrix(zone: Optional[str] = Query(None, description="region tag filter")) -> dict:
+    """Utility-pair × tier overlap matrix — which pairs coordinate most.
+    `?zone=savannah` scopes the matrix to one region's records."""
     records = _fresh("overlaps.json").get("overlaps") or []
+    if zone:
+        z = zone.strip().lower()
+        records = [r for r in records if z in (r.get("zone") or "").lower()]
     pairs: dict[str, dict] = {}
     for r in records:
         utils = sorted(set(r.get("utilities") or []))
@@ -197,6 +201,15 @@ def brief(overlap_id: str) -> dict:
         if r["tier"] == 1:
             parts.append("Geometries touch/cross during a shared window — "
                          "joint outage scheduling is mandatory, not optional.")
+    elif r.get("timeline_adjacent") and r.get("adjacent_window"):
+        aw = r["adjacent_window"]
+        parts.append(
+            f"Build windows are adjacent ({int(aw['start'])}–{int(aw['end'])} "
+            "handoff) — a crew roll-forward opportunity, not a concurrent "
+            "shared window.")
+        if r["tier"] == 1:
+            parts.append("Geometries touch/cross but windows never coincide — "
+                         "crossing agreements needed, no joint outage.")
     else:
         parts.append("Build windows do not intersect — coordination pays off "
                      "only if schedules can be aligned.")
@@ -215,7 +228,9 @@ def brief(overlap_id: str) -> dict:
         "fields": {
             "tier": r["tier"], "min_distance_km": r["min_distance_km"],
             "timeline_overlap": r["timeline_overlap"],
+            "timeline_adjacent": r.get("timeline_adjacent", False),
             "shared_window": r.get("shared_window"),
+            "adjacent_window": r.get("adjacent_window"),
             "score": r.get("score"), "zone": r.get("zone"),
         },
     }
@@ -253,11 +268,17 @@ def calendar() -> dict:
     rows = _fresh("overlaps.json").get("overlaps", [])
     years: dict[str, list[dict]] = {}
     no_window = 0
+    adjacent_only = 0
     for r in rows:
         win = r.get("shared_window") or {}
         start = win.get("start")
         if start is None or not r.get("timeline_overlap"):
-            no_window += 1
+            # adjacent windows have no concurrent window — they are counted
+            # separately, never scheduled into a season year.
+            if r.get("timeline_adjacent"):
+                adjacent_only += 1
+            else:
+                no_window += 1
             continue
         years.setdefault(str(int(start)), []).append({
             "overlap_id": r.get("overlap_id"),
@@ -274,6 +295,8 @@ def calendar() -> dict:
         "metric": "coordination_calendar",
         "by_start_year": dict(sorted(years.items())),
         "overlaps_without_window": no_window,
-        "note": ("grouped by shared-window start year; overlaps lacking a "
-                 "timeline match are counted but not scheduled"),
+        "adjacent_only": adjacent_only,
+        "note": ("grouped by shared-window start year — only true window "
+                 "intersections are scheduled; adjacent (roll-over) windows "
+                 "are counted separately, never placed in a season"),
     }

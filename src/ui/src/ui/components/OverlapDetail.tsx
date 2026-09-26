@@ -159,6 +159,10 @@ function DetailBody({
               <span className="chip-timeline mono">
                 {o.shared_window.start}–{o.shared_window.end}
               </span>
+            ) : o.timeline_adjacent && o.adjacent_window ? (
+              <span className="chip-timeline is-adjacent mono" title="windows roll end-to-start — handoff, not concurrent">
+                adjacent {o.adjacent_window.start}–{o.adjacent_window.end}
+              </span>
             ) : (
               <span className="chip-timeline is-none">no overlap</span>
             )}

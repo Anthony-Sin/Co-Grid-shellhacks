@@ -48,12 +48,30 @@ def test_tiers():
 
 
 def test_timeline():
-    assert windows_overlap(2026, 2029, 2028, 2031)[0] is True
-    assert windows_overlap(2026, 2027, 2030, 2031)[0] is False
-    assert windows_overlap(2026, 2027, 2028, 2031)[0] is True   # adjacency slack
-    assert windows_overlap(None, None, 2028, 2031)[0] is False  # unknown → honest no
-    ok, win = windows_overlap(2026, 2030, 2028, 2032)
-    assert ok and win == {"start": 2028, "end": 2030}
+    # kind-aware API: "intersect" (shared window) vs "adjacent" (the GAP
+    # between windows — a roll-over, never an overlap) vs None.
+    kind, win = windows_overlap(2026, 2029, 2028, 2031)
+    assert kind == "intersect" and win == {"start": 2028, "end": 2029}
+    kind, win = windows_overlap(2026, 2027, 2030, 2031)
+    assert kind is None and win is None
+    kind, win = windows_overlap(2026, 2027, 2028, 2031)   # adjacency slack
+    assert kind == "adjacent" and win == {"start": 2027, "end": 2028}
+    kind, win = windows_overlap(None, None, 2028, 2031)  # unknown → honest no
+    assert kind is None and win is None
+    kind, win = windows_overlap(2026, 2030, 2028, 2032)
+    assert kind == "intersect" and win == {"start": 2028, "end": 2030}
+    # adjacent must never be reported as a shared/intersection window
+    kind, win = windows_overlap(2027, 2028, 2025, 2026)
+    assert kind == "adjacent" and win == {"start": 2026, "end": 2027}
+
+
+def test_find_overlaps_nan_zones():
+    # a row whose zones is NaN (float) must not crash set() — regression:
+    # NaN is truthy so `set(z or [])` raised TypeError before the guard.
+    gdf = _gdf()
+    gdf["zones"] = [["savannah"]] * 3 + [float("nan")] * 2
+    recs = find_overlaps(gdf)
+    assert {r.project_a for r in recs} | {r.project_b for r in recs}
 
 
 def test_find_overlaps_cross_utility_only():

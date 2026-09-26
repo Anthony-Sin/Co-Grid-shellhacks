@@ -41,7 +41,9 @@ def build_summary(projects_fc: dict, overlaps_payload: dict) -> dict:
         "projects": len(projs),
         "overlaps": len(records),
         "tier1_touching": sum(1 for r in records if r["tier"] == 1),
+        # true window intersections only — adjacent roll-overs counted apart
         "timeline_matches": sum(1 for r in records if r.get("timeline_overlap")),
+        "timeline_adjacent": sum(1 for r in records if r.get("timeline_adjacent")),
         "utility_pairs": len(pairs),
         "dominant_pair": {
             "utilities": top_pair["utilities"],

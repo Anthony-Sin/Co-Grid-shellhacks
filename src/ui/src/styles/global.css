@@ -510,6 +510,13 @@ button {
   white-space: nowrap;
 }
 
+.chip-timeline.is-adjacent {
+  border-color: rgba(43, 43, 43, 0.55);
+  border-style: dashed;
+  background: rgba(43, 43, 43, 0.06);
+  color: rgba(43, 43, 43, 0.75);
+}
+
 .chip-timeline.is-none {
   border-style: dashed;
   border-color: rgba(43, 43, 43, 0.4);

@@ -8,7 +8,7 @@ fields, bounded list lengths, explicit nulls for missing values.
 from __future__ import annotations
 
 import json
-import math
+import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -16,6 +16,23 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "data" / "processed"
+
+
+def re_alnum_tokens(s: str) -> list[str]:
+    """Uppercased alphanumeric tokens of a raw string — the same
+    normalization family as the gazetteer's `norm` field, but split on
+    punctuation/space so 'Plant Vogtle' -> ['PLANT', 'VOGTLE']."""
+    s = unicodedata.normalize("NFKD", str(s)).upper()
+    out, cur = [], []
+    for c in s:
+        if c.isalnum():
+            cur.append(c)
+        elif cur:
+            out.append("".join(cur))
+            cur = []
+    if cur:
+        out.append("".join(cur))
+    return out
 
 
 @lru_cache(maxsize=16)
@@ -65,7 +82,9 @@ def _overlap_brief(r: dict) -> dict:
         "tier_label": r.get("tier_label"),
         "min_distance_km": r.get("min_distance_km"),
         "timeline_overlap": r.get("timeline_overlap"),
+        "timeline_adjacent": r.get("timeline_adjacent"),
         "shared_window": r.get("shared_window"),
+        "adjacent_window": r.get("adjacent_window"),
         "score": r.get("score"),
     }
 
@@ -92,6 +111,7 @@ def tool_stats() -> dict:
         "overlaps": len(ovs),
         "by_tier": by_tier,
         "timeline_matches": sum(1 for o in ovs if o["timeline_overlap"]),
+        "timeline_adjacent": sum(1 for o in ovs if o.get("timeline_adjacent")),
         "zones_available": sorted(zones),
     }
 
@@ -155,33 +175,30 @@ def tool_get_overlap(overlap_id: str) -> dict:
 
 
 def tool_projects_near(lon: float, lat: float, km: float = 25) -> dict:
-    """Planned projects whose geometry has a vertex within `km` of a point."""
-    def coords_of(geom: dict | None):
-        if not geom:
-            return
-        def rec(c):
-            if isinstance(c, list) and len(c) >= 2 and isinstance(c[0], (int, float)):
-                yield c[0], c[1]
-            elif isinstance(c, list):
-                for cc in c:
-                    yield from rec(cc)
-        yield from rec(geom.get("coordinates"))
+    """Planned projects whose GEOMETRY passes within `km` of a point —
+    distance to the nearest point on the line/polygon, not just vertices
+    (a straight endpoint-only line is found mid-segment)."""
+    from pyproj import Transformer
+    from shapely.geometry import Point, shape
+    from shapely.ops import transform as shp_transform
 
+    from src.spatial.crs import SOURCE_CRS, TARGET_CRS
+
+    to_m = Transformer.from_crs(SOURCE_CRS, TARGET_CRS, always_xy=True)
+    pt_m = shp_transform(to_m.transform, Point(lon, lat))
     km = max(1.0, min(km, 200.0))
     hits = []
     for f in projects():
-        best = None
-        for gx, gy in coords_of(f.get("geometry")):
-            p1, p2 = math.radians(lat), math.radians(gy)
-            dlat, dlon = p2 - p1, math.radians(gx - lon)
-            d = 6371.0 * 2 * math.asin(math.sqrt(
-                math.sin(dlat / 2) ** 2
-                + math.cos(p1) * math.cos(p2) * math.sin(dlon / 2) ** 2
-            ))
-            if best is None or d < best:
-                best = d
-        if best is not None and best <= km:
-            hits.append({**_proj_props(f), "distance_km": round(best, 2)})
+        geom = f.get("geometry")
+        if not geom:
+            continue
+        try:
+            g_m = shp_transform(to_m.transform, shape(geom))
+        except Exception:
+            continue
+        d = g_m.distance(pt_m) / 1000.0
+        if d <= km:
+            hits.append({**_proj_props(f), "distance_km": round(d, 2)})
     hits.sort(key=lambda h: h["distance_km"])
     return {"center": [lon, lat], "radius_km": km, "count": len(hits), "projects": hits[:30]}
 
@@ -193,15 +210,28 @@ def tool_gazetteer(name: str, limit: int = 10) -> dict:
         gaz = load_processed("gazetteer.json")
     except FileNotFoundError:
         return {"error": "gazetteer.json missing — run the gazetteer build"}
-    q = (name or "").strip().upper()
+    # Normalize the query exactly like entries were indexed (NFKD, upper,
+    # alnum-only). Entries store `norm` = name stripped of non-alphanumerics,
+    # so a longer query ("PLANTVOGTLE") contains the entry's norm
+    # ("VOGTLE") — substring checks run BOTH directions. Only when that
+    # yields nothing do we fall back to individual >=3-char tokens.
+    q = unicodedata.normalize("NFKD", (name or "").upper())
+    q = "".join(c for c in q if c.isalnum())
     if not q:
         return {"error": "name required"}
     scored = []
     for e in gaz:
         n = e.get("norm") or ""
-        if q in n:
-            score = len(q) / max(len(n), 1)
+        if q in n or n in q:
+            score = min(len(q), len(n)) / max(len(q), len(n), 1)
             scored.append((score, e))
+    if not scored:
+        tokens = {t for t in re_alnum_tokens(name or "") if len(t) >= 4}
+        for e in gaz:
+            n = e.get("norm") or ""
+            if tokens and any(t in n for t in tokens):
+                score = max(len(t) for t in tokens if t in n) / max(len(n), 1)
+                scored.append((score, e))
     scored.sort(key=lambda t: t[0], reverse=True)
     return {
         "query": name,
@@ -248,6 +278,9 @@ def tool_data_health() -> dict:
         "overlaps": {
             "total": len(ovs),
             "with_timeline": sum(1 for o in ovs if o["timeline_overlap"]),
-            "without_timeline": sum(1 for o in ovs if not o["timeline_overlap"]),
+            "adjacent_windows": sum(1 for o in ovs if o.get("timeline_adjacent")),
+            "without_timeline": sum(
+                1 for o in ovs
+                if not o["timeline_overlap"] and not o.get("timeline_adjacent")),
         },
     }

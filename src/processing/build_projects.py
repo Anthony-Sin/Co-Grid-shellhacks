@@ -1,7 +1,9 @@
 """Build projects.geojson from the curated seed file + real HIFLD anchors.
 
-Seed file: data/seeds/projects_seed.json — authored ONLY from public
-filings (SCRTP/SERTP, GA/SC PSC dockets, IRPs). Each record supplies either
+Seed file: data/seeds/projects_seed_statewide.json — the curated GA+SC
+statewide superset (283 filed projects; projects_seed.json's 73 corridor
+records are its first 73). Authored ONLY from public filings
+(SCRTP/SERTP, GA/SC PSC dockets, IRPs). Each record supplies either
 explicit WGS84 geometry or named facilities resolved against downloaded
 HIFLD power plants / substations. Unresolvable names => hard error, never
 fabricated coordinates (AGENTS.md §7).
@@ -26,7 +28,7 @@ Seed record shape:
   "endpoints":  ["THOMSON PRIMARY", "VOGTLE"],   // straight line between them
 }
 
-Usage: ./venv/bin/python -m src.processing.build_projects
+Usage: ./venv/bin/python -m src.processing.build_projects [seed_file]
 """
 from __future__ import annotations
 
@@ -38,7 +40,8 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw" / "hifld"
-SEEDS = ROOT / "data" / "seeds" / "projects_seed.json"
+SEED_DIR = ROOT / "data" / "seeds"
+SEEDS = SEED_DIR / "projects_seed_statewide.json"
 OUT = ROOT / "data" / "processed"
 
 _NAME_KEYS = ("NAME", "name", "PLANT_NAME", "SUB_NAME")
@@ -105,7 +108,8 @@ def build_geometry(seed: dict, index) -> tuple[dict, str]:
 
 
 def main() -> int:
-    seeds = json.loads(SEEDS.read_text())["projects"]
+    seed_path = SEED_DIR / sys.argv[1] if len(sys.argv) > 1 else SEEDS
+    seeds = json.loads(seed_path.read_text())["projects"]
     index = _facility_index()
     feats, errors = [], []
     for s in seeds:

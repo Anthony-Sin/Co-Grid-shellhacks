@@ -117,7 +117,10 @@ carries boundaries, corridors, rivers, and places only:
     "tier_label": "shared_logistics",
     "tier_threshold_km": 8,
     "timeline_overlap": true,
+    "timeline_adjacent": false,
     "shared_window": {"start": 2027, "end": 2029},
+    "adjacent_window": null,
+    "max_voltage_kv": 230,
     "closest_point_a": [lon,lat], "closest_point_b": [lon,lat],
     "midpoint": [lon,lat],
     "score": 87.5,
@@ -139,6 +142,14 @@ carries boundaries, corridors, rivers, and places only:
 
 Timeline overlap = mandatory secondary signal; overlaps list separates
 `timeline_overlap: true` first, but false matches still reported (flagged).
+
+Timeline semantics are strict: `timeline_overlap: true` means the build
+windows **intersect** and `shared_window` holds that intersection.
+`timeline_adjacent: true` means windows roll end-to-start within the
+adjacency slack (1 yr) — `adjacent_window` holds the between-years gap.
+Adjacency is a crew roll-forward signal, never a concurrent shared window;
+only intersections schedule seasons/joint outages. A record where windows
+don't meet has both flags false and both windows null.
 
 ## 6. API endpoints (FastAPI, port 8000)
 

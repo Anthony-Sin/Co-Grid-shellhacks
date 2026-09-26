@@ -89,21 +89,20 @@ def _zone(lon0, lat0, lon1, lat1):
 
 
 def test_impact_shared_corridor_positive():
-    # Two parallel ~4.7 km lines ~2 km apart near Savannah (WGS84).
+    # Two parallel ~4.7 km lines ~110 m apart — inside the co-location
+    # band, so a tier-2 record gets real shared-ROW numbers.
     a = LineString([(-81.10, 32.30), (-81.05, 32.30)])
-    b = LineString([(-81.10, 32.318), (-81.05, 32.318)])
+    b = LineString([(-81.10, 32.301), (-81.05, 32.301)])
     projects = {"features": [
         _feat("A", "GPC", 2026, 2030, a, kv=230),
         _feat("B", "DESC", 2027, 2032, b, kv=230),
     ]}
-    ov = _ov("OV-1", "A", "B", {"start": 2027, "end": 2029}, tier=3)
+    ov = _ov("OV-1", "A", "B", {"start": 2027, "end": 2029}, tier=2)
     ov["zone_geometry"] = _zone(-81.11, 32.29, -81.04, 32.33)
     [imp] = build_impacts(projects, {"overlaps": [ov]})
-    # B's 8 km tier-radius easily contains A -> corridor ~= A's full length.
     assert 4.0 < imp["shared_corridor_km"] < 5.5
     assert imp["row_width_m_assumed"] == 60.0     # 230 kV wins
     assert imp["shared_row_acres"] > 0
-    assert imp["shared_row_acres"] <= imp["zone_area_acres"]
     assert imp["shared_window_months"] == 36      # 2027-2029 inclusive
     assert imp["crew_share_days"] == 36 * WORKING_DAYS_PER_MONTH
     s = imp["est_savings_usd_range"]
@@ -112,11 +111,53 @@ def test_impact_shared_corridor_positive():
     json.dumps(imp)  # serializable
 
 
+def test_impact_tier34_no_land_savings():
+    # Spec: tiers 3-4 share logistics/crews ONLY — land/ROW fields must be
+    # gated to zero, never inflated by the tier radius (regression: a 40 km
+    # buffer used to claim hundreds of acres on distant pairs).
+    a = LineString([(-81.10, 32.30), (-81.05, 32.30)])
+    b = LineString([(-81.10, 32.40), (-81.05, 32.40)])
+    projects = {"features": [
+        _feat("A", "GPC", 2026, 2030, a, kv=230),
+        _feat("B", "DESC", 2027, 2032, b, kv=230),
+    ]}
+    for tier in (3, 4):
+        ov = _ov(f"OV-t{tier}", "A", "B", {"start": 2027, "end": 2029}, tier=tier)
+        [imp] = build_impacts(projects, {"overlaps": [ov]})
+        assert imp["shared_corridor_km"] == 0.0
+        assert imp["shared_row_acres"] == 0.0
+        assert imp["est_savings_usd_range"] is None
+        assert any("Tier 3-4" in x for x in imp["assumptions"])
+        # windows still count honestly — intersecting windows share crews
+        assert imp["shared_window_months"] == 36
+
+
+def test_impact_adjacent_window_no_months():
+    # Adjacent (roll-over) windows are not a concurrent shared window —
+    # months/crew-share must be null, with the adjacency named in-band.
+    a = LineString([(-81.10, 32.30), (-81.05, 32.30)])
+    b = LineString([(-81.10, 32.301), (-81.05, 32.301)])
+    projects = {"features": [
+        _feat("A", "GPC", 2027, 2028, a),
+        _feat("B", "DESC", 2025, 2026, b),
+    ]}
+    ov = _ov("OV-adj", "A", "B", None, tier=2)
+    ov["timeline_adjacent"] = True
+    ov["adjacent_window"] = {"start": 2026, "end": 2027}
+    [imp] = build_impacts(projects, {"overlaps": [ov]})
+    assert imp["shared_window_months"] is None
+    assert imp["crew_share_days"] is None
+    assert imp["timeline_adjacent"] is True
+    assert any("adjacent" in x for x in imp["assumptions"])
+
+
 def test_impact_honesty_missing_inputs():
     # No shared window + one project not in the file -> nulls, never fakes.
+    # Tier-2 so the land-share gate is open and geometry-missing is what
+    # nulls the ROW fields (not the tier gate).
     projects = {"features": [_feat("A", "GPC", 2026, 2030,
                                    LineString([(-81.1, 32.3), (-81.0, 32.3)]))]}
-    ov = _ov("OV-9", "A", "MISSING", None, tier=4)
+    ov = _ov("OV-9", "A", "MISSING", None, tier=2)
     [imp] = build_impacts(projects, {"overlaps": [ov]})
     assert imp["shared_corridor_km"] is None
     assert imp["shared_row_acres"] is None

@@ -17,8 +17,11 @@ export function applyUrlParams() {
   const s = useAppStore.getState()
 
   const scene = q.get('scene')
-  if (scene === 'savannah' || scene === 'augusta' || scene === 'state')
+  let activeScene: SceneId = s.activeScene
+  if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
     s.setActiveScene(scene as SceneId)
+    activeScene = scene as SceneId  // s is a stale snapshot after set()
+  }
 
   const panel = q.get('panel')
   if (panel === '0' || panel === 'false') s.setPanelOpen(false)
@@ -40,7 +43,7 @@ export function applyUrlParams() {
   if (focus) {
     const [lon, lat] = focus.split(',').map(Number)
     if (Number.isFinite(lon) && Number.isFinite(lat)) {
-      const [x, y] = lonLatToLocal(lon, lat, SCENE_CENTERS[s.activeScene])
+      const [x, y] = lonLatToLocal(lon, lat, SCENE_CENTERS[activeScene])
       s.setFocusTarget([x, -y])
     }
   }
