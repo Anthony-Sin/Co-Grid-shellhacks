@@ -26,9 +26,10 @@ export const PALETTE = {
   },
 
   water: {
-    /** Cool light-gray wash + darker ink shoreline */
-    surface: '#C6CCD0',
-    edge: '#8E959B',
+    /** Muted map blue — real water fill (not just ink), still quiet
+     *  enough not to fight the tier-colored data layer */
+    surface: '#A8C6D8',
+    edge: '#54748A',
   },
 
   road: {

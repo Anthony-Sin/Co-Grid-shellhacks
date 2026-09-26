@@ -114,8 +114,12 @@ export function CityCanvas() {
         camera={{
           position: SCENE_VIEWS.state.position as unknown as [number, number, number],
           zoom: SCENE_VIEWS.state.zoom,
-          near: 1,
-          far: 60000,
+          // The tilted map's far corners sit ~150 km from the camera ALONG
+          // the view axis — a 60 km near/far slab sliced the state into a
+          // horizontal band (the "cut off" strip). ±250 km covers the
+          // whole sheet at every zoom (negative near is legal on ortho).
+          near: -250000,
+          far: 250000,
         }}
       >
         {/* transparent background — the CSS paper texture is the sheet */}
