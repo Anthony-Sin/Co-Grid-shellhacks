@@ -88,3 +88,37 @@ def impact(overlap_id: str) -> dict:
         if r.get("overlap_id") == overlap_id:
             return r
     raise HTTPException(404, f"no impact record for {overlap_id!r}")
+
+
+@router.get("/calendar")
+def calendar() -> dict:
+    """Coordination calendar — overlaps grouped by shared-window start year.
+    Each cell lists the tier-1..4 records opening that year (score-sorted),
+    giving a Gantt-like schedule view for planning joint work."""
+    rows = _fresh("overlaps.json").get("overlaps", [])
+    years: dict[str, list[dict]] = {}
+    no_window = 0
+    for r in rows:
+        win = r.get("shared_window") or {}
+        start = win.get("start")
+        if start is None or not r.get("timeline_overlap"):
+            no_window += 1
+            continue
+        years.setdefault(str(int(start)), []).append({
+            "overlap_id": r.get("overlap_id"),
+            "utilities": r.get("utilities"),
+            "tier": r.get("tier"),
+            "tier_label": r.get("tier_label"),
+            "min_distance_km": r.get("min_distance_km"),
+            "window": {"start": win.get("start"), "end": win.get("end")},
+            "score": r.get("score"),
+        })
+    for v in years.values():
+        v.sort(key=lambda x: -(x.get("score") or 0))
+    return {
+        "metric": "coordination_calendar",
+        "by_start_year": dict(sorted(years.items())),
+        "overlaps_without_window": no_window,
+        "note": ("grouped by shared-window start year; overlaps lacking a "
+                 "timeline match are counted but not scheduled"),
+    }

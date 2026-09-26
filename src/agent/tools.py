@@ -229,6 +229,46 @@ def _staging_note(dist_km: float) -> str:
             "of a 40 km crew radius")
 
 
+def tool_data_health() -> dict:
+    """Honest quality report: missing dates, location confidence, provenance —
+    so the agent can answer 'how good is this data' without guessing."""
+    projs = _projects()
+    missing_dates, conf_counts, src_counts, kind_counts = [], {}, {}, {}
+    for f in projs:
+        p = f["properties"]
+        if p.get("start_year") is None or p.get("end_year") is None:
+            missing_dates.append(p.get("project_id"))
+        c = p.get("location_confidence") or "unknown"
+        conf_counts[c] = conf_counts.get(c, 0) + 1
+        s = (p.get("source") or "unknown")
+        if s.startswith("http"):
+            # source family = host + the filing's filename stem
+            from urllib.parse import urlparse
+            u = urlparse(s.split(" ")[0])
+            stem = u.path.rsplit("/", 1)[-1].replace(".pdf", "")[:48]
+            s = f"{u.netloc} → {stem}" if stem else u.netloc
+        src_counts[s] = src_counts.get(s, 0) + 1
+        k = p.get("kind") or "unknown"
+        kind_counts[k] = kind_counts.get(k, 0) + 1
+    ovs = _overlaps()
+    return {
+        "projects": len(projs),
+        "projects_missing_dates": {
+            "count": len(missing_dates),
+            "ids": missing_dates[:15],
+            "note": "shown without a build window; excluded from timeline bands",
+        },
+        "location_confidence": conf_counts,
+        "source_families": src_counts,
+        "project_kinds": kind_counts,
+        "overlaps": {
+            "total": len(ovs),
+            "with_timeline": sum(1 for o in ovs if o["timeline_overlap"]),
+            "without_timeline": sum(1 for o in ovs if not o["timeline_overlap"]),
+        },
+    }
+
+
 def tool_gazetteer(name: str, limit: int = 10) -> dict:
     """Fuzzy-lookup real facilities (substations/plants) by name — resolves
     WHERE a filed project sits when the record only names a substation."""
@@ -356,6 +396,12 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Resolve real grid facilities (substations, plants) by name to lon/lat "
         "— use when a project references a named facility.",
         {"name": "string (required)", "limit": "int <=25 (optional)"},
+    ),
+    "data_health": (
+        tool_data_health,
+        "Dataset quality report: missing build dates, location-confidence "
+        "breakdown, source families, overlap timeline coverage.",
+        {},
     ),
 }
 

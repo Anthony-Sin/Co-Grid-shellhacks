@@ -130,6 +130,17 @@ def run_chat(
                                + "\nAnswer the user now (or emit another ```tool block).",
                 })
                 continue
+            if name:
+                # Bad tool name in a valid block — tell the model which tools
+                # exist so the next round self-corrects instead of looping.
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": (f"Unknown tool '{name}'. Available: "
+                                f"{', '.join(sorted(TOOLS))}. "
+                                "Emit a corrected ```tool block or answer."),
+                })
+                continue
 
         # ---- plain answer ------------------------------------------------------
         return {
@@ -158,14 +169,17 @@ def run_brief(cfg: AgentConfig, overlap_id: str) -> dict:
         return {"error": detail["error"]}
     pa = run_tool("get_project", {"project_id": detail["result"]["project_a"]})
     pb = run_tool("get_project", {"project_id": detail["result"]["project_b"]})
+    imp = run_tool("impact_estimate", {"overlap_id": overlap_id})
     prompt = (
         "Write a tight 4-6 sentence coordination brief for this overlap: what the two "
         "utilities could share (ROW, outage windows, crews, laydown yards), the tier and "
-        "distance, the shared build window (or that dates are missing — say so), and one "
+        "distance, the shared build window (or that dates are missing — say so), "
+        "the estimated savings range if given (cite as rough planning figures), and one "
         "concrete next step (e.g. joint outage schedule). Use only this data:\n"
         f"OVERLAP: {_truncate(detail, 3000)}\n"
         f"PROJECT A: {_truncate(pa, 2000)}\n"
-        f"PROJECT B: {_truncate(pb, 2000)}"
+        f"PROJECT B: {_truncate(pb, 2000)}\n"
+        f"IMPACT: {_truncate(imp, 2500)}"
     )
     resp = chat_completion(cfg, [
         {"role": "system", "content": SYSTEM_PROMPT},

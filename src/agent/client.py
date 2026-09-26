@@ -8,6 +8,7 @@ provider's optional `reasoning` field (thinking models).
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 
 import requests
@@ -54,19 +55,34 @@ def chat_completion(
         payload["tools"] = tools
         payload["tool_choice"] = "auto"
 
-    try:
-        resp = requests.post(
-            f"{cfg.base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {cfg.api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=cfg.timeout_s,
-        )
-    except requests.RequestException as e:
-        raise ChatError(f"agent endpoint unreachable: {e}") from e
+    # One retry on transient failures (429/5xx/conn reset) — keeps a flaky
+    # shared endpoint from killing a 5-round tool chain on round 4.
+    resp = None
+    last_err: Exception | None = None
+    for attempt in (0, 1):
+        try:
+            resp = requests.post(
+                f"{cfg.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {cfg.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=cfg.timeout_s,
+            )
+        except requests.RequestException as e:
+            last_err = e
+            if attempt == 0:
+                time.sleep(1.5)
+                continue
+            raise ChatError(f"agent endpoint unreachable: {e}") from e
+        if resp.status_code < 500 and resp.status_code != 429:
+            break
+        if attempt == 0:
+            time.sleep(1.5)
 
+    if resp is None:
+        raise ChatError(f"agent endpoint unreachable: {last_err}")
     if resp.status_code != 200:
         raise ChatError(f"agent endpoint {resp.status_code}: {resp.text[:400]}")
 
