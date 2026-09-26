@@ -45,6 +45,11 @@ export function applyUrlParams() {
   const select = q.get('select')
   if (select) s.selectOverlap(select)
 
+  // project selection is store-exclusive with overlap selection — applying
+  // it after `select` means ?project= wins when both are present
+  const project = q.get('project')
+  if (project) s.selectProject(project)
+
   const focus = q.get('focus')
   if (focus) {
     const [lon, lat] = focus.split(',').map(Number)
