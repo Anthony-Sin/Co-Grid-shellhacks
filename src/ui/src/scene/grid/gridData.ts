@@ -251,6 +251,9 @@ export interface SceneProject {
   /** filed construction window — null when the filing omits a year */
   startYear: number | null
   endYear: number | null
+  /** region-zone ids the filing assigns — lets the zone filter test the
+   *  project exactly like an overlap record's `zone` string */
+  zones: string[]
   /** free-text filing notes (used for honest fuel/shape hints) */
   notes: string
   /** local-meter polylines (empty for point-sited projects) */
@@ -360,6 +363,7 @@ export function filterToScene(
       voltageKv: p.voltage_kv ?? 0,
       startYear: p.start_year ?? null,
       endYear: p.end_year ?? null,
+      zones: p.zones ?? [],
       notes: p.notes ?? '',
       lines,
       points,

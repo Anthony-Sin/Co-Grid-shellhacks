@@ -1,23 +1,33 @@
 /**
- * Floating label chips + hover hit-areas for EVERY planned project.
+ * Floating label chips + hover hit-areas for EVERY planned project that
+ * survives the panel filters (GridOverlay feeds the shared
+ * passesProjectFilters-filtered set — excluded projects render nothing,
+ * honest absence rather than a dimmed ghost).
  *
  * Each project gets:
- *  - a drei <Html> chip ~90m over its geometry centroid — dark pill,
- *    name truncated to 30 chars, utility-colored dot. pointerEvents:none
- *    so chips never block map panning.
+ *  - a name chip ~90m over its geometry centroid via the shared DOM
+ *    LabelOverlay (scene/labelOverlay.tsx) — dark pill, name truncated
+ *    to 30 chars, utility-colored dot + ink leader line to the ground.
+ *    The overlay owns screen-space declutter: candidates arrive in
+ *    PRIORITY order (selected > hovered > highest filed voltage) and the
+ *    overlay drops a chip when its measured box overlaps an already-
+ *    placed one or the zoom-scaled cap is reached. `layers.labels`
+ *    unmounts the whole chip overlay; hit spheres + tooltip stay live.
  *  - an invisible hit sphere at the centroid wired to the store:
  *    hover -> setHoveredProject(id), click -> selectProject(id)
  *    (opens the right-rail project detail card; store exclusivity also
  *    clears any selected overlap — zones keep priority via stopPropagation)
  *  - ONE hover tooltip chip (hoveredProjectId from the store) floating
  *    above the name chip with the filed kind/voltage/window details —
- *    null-safe: missing fields are omitted, never rendered as "undefined"
+ *    rendered through a second single-slot LabelOverlay so it inherits
+ *    the same honest screen geometry instead of drei's behind-camera
+ *    heuristic; missing fields are omitted, never rendered as "undefined"
  */
 import { useEffect, useMemo } from 'react'
-import { Html } from '@react-three/drei'
 import { PALETTE } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
 import { utilityColor as tooltipUtilityColor } from '../../ui/components/utilityColors'
+import { LabelOverlay, type OverlayLabel } from '../labelOverlay'
 import type { SceneProject } from './gridData'
 import { utilityColor } from './gridData'
 
@@ -25,8 +35,15 @@ const CHIP_ALTITUDE = 90
 /** Tooltip floats well above the always-on name chip so they don't stack. */
 const TOOLTIP_ALTITUDE = 170
 const HIT_RADIUS = 150
-/** Max text chips on the statewide scene — beyond this they overlap unreadably. */
-const MAX_STATE_CHIPS = 14
+
+interface ProjectLabel extends OverlayLabel {
+  project: SceneProject
+}
+
+/** Zoom-scaled chip cap for the overlay — the measured-box declutter does
+ * the real culling; this is just the safety rail (overview ~20 pills,
+ * street zoom up to 48). */
+const chipCap = (zoom: number) => Math.min(48, Math.max(20, Math.round(zoom * 96)))
 
 function truncate(name: string, max = 30): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
@@ -124,79 +141,105 @@ function ProjectTooltip({ project }: { project: SceneProject }) {
 export function ProjectMarkers({ projects }: { projects: readonly SceneProject[] }) {
   const setHoveredProject = useAppStore((s) => s.setHoveredProject)
   const selectProject = useAppStore((s) => s.selectProject)
-  const activeScene = useAppStore((s) => s.activeScene)
   const hoveredProjectId = useAppStore((s) => s.hoveredProjectId)
+  const selectedProjectId = useAppStore((s) => s.selectedProjectId)
+  // `labels` gates name chips only — hit spheres and the hover tooltip
+  // stay live (a deliberate hover still answers, like the zone layer's
+  // contract that labels cascade to chips without hiding geometry).
+  const showLabels = useAppStore((s) => s.layers.labels)
 
   // don't leave a stale hover behind when the layer remounts per scene
   useEffect(() => () => setHoveredProject(null), [setHoveredProject])
 
-  // On the ~830km state scene one text chip per project collapses into
-  // unreadable overlap; hit-spheres still cover every project and the
-  // ranked panel lists them all. Corridor scenes show every chip.
-  const chipIds =
-    activeScene === 'state'
-      ? new Set(projects.slice(0, MAX_STATE_CHIPS).map((p) => p.id))
-      : null
+  /**
+   * Overlay candidates in PRIORITY order — index 0 wins declutter ties:
+   * selected > hovered > highest filed voltage, id as the stable
+   * tiebreak. Every filtered project is a candidate; the overlay itself
+   * decides which measured boxes fit (honest screen-space crowding —
+   * nothing is pre-hidden in React state, just `visibility:hidden`ed).
+   */
+  const chipLabels = useMemo<ProjectLabel[]>(() => {
+    const priority = (p: SceneProject) =>
+      p.id === selectedProjectId ? 0 : p.id === hoveredProjectId ? 1 : 2
+    return [...projects]
+      .sort(
+        (a, b) =>
+          priority(a) - priority(b) ||
+          b.voltageKv - a.voltageKv ||
+          a.id.localeCompare(b.id),
+      )
+      .map((p) => ({
+        key: p.id,
+        project: p,
+        anchor: [p.centroid[0], CHIP_ALTITUDE, -p.centroid[1]] as const,
+        ground: [p.centroid[0], 0, -p.centroid[1]] as const,
+      }))
+  }, [projects, hoveredProjectId, selectedProjectId])
 
-  // The one hovered project (hit spheres own the id) — may be absent from
-  // this scene's slice, in which case no tooltip renders (honest, no crash).
-  const hovered = useMemo(
-    () => projects.find((p) => p.id === hoveredProjectId) ?? null,
-    [projects, hoveredProjectId],
-  )
+  // The one hovered project (hit spheres own the id) — may be filtered
+  // out or absent from this scene's slice, in which case no tooltip
+  // renders (honest, no crash).
+  const tooltipLabels = useMemo<ProjectLabel[]>(() => {
+    const p = projects.find((x) => x.id === hoveredProjectId)
+    return p
+      ? [
+          {
+            key: `tip-${p.id}`,
+            project: p,
+            anchor: [p.centroid[0], TOOLTIP_ALTITUDE, -p.centroid[1]] as const,
+          },
+        ]
+      : []
+  }, [projects, hoveredProjectId])
 
   return (
     <group>
       {projects.map((p) => (
-        <group key={p.id}>
-          {/* invisible hover/click target */}
-          <mesh
-            position={[p.centroid[0], 24, -p.centroid[1]]}
-            onPointerOver={(e) => {
-              e.stopPropagation()
-              setHoveredProject(p.id)
-            }}
-            onPointerOut={(e) => {
-              e.stopPropagation()
-              // only clear if WE still own the hover — overlapping hit
-              // spheres can fire out-of-order and clobber a newer hover
-              if (useAppStore.getState().hoveredProjectId === p.id) {
-                setHoveredProject(null)
-              }
-            }}
-            onClick={(e) => {
-              e.stopPropagation()
-              selectProject(p.id)
-            }}
-          >
-            <sphereGeometry args={[HIT_RADIUS, 8, 8]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-          </mesh>
-          {/* floating label chip */}
-          {(!chipIds || chipIds.has(p.id)) && (
-            <Html
-              position={[p.centroid[0], CHIP_ALTITUDE, -p.centroid[1]]}
-              center
-              zIndexRange={[20, 0]}
-              style={{ pointerEvents: 'none' }}
-            >
-              <ProjectChip project={p} />
-            </Html>
-          )}
-        </group>
+        /* invisible hover/click target */
+        <mesh
+          key={p.id}
+          position={[p.centroid[0], 24, -p.centroid[1]]}
+          onPointerOver={(e) => {
+            e.stopPropagation()
+            setHoveredProject(p.id)
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation()
+            // only clear if WE still own the hover — overlapping hit
+            // spheres can fire out-of-order and clobber a newer hover
+            if (useAppStore.getState().hoveredProjectId === p.id) {
+              setHoveredProject(null)
+            }
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            selectProject(p.id)
+          }}
+        >
+          <sphereGeometry args={[HIT_RADIUS, 8, 8]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
       ))}
 
-      {/* single hover tooltip — non-interactive, floats above the name chip */}
-      {hovered && (
-        <Html
-          position={[hovered.centroid[0], TOOLTIP_ALTITUDE, -hovered.centroid[1]]}
-          center
-          zIndexRange={[70, 0]}
-          style={{ pointerEvents: 'none' }}
-        >
-          <ProjectTooltip project={hovered} />
-        </Html>
+      {/* name chips — shared DOM overlay owns projection + declutter;
+          gated by the `labels` layer toggle */}
+      {showLabels && (
+        <LabelOverlay
+          labels={chipLabels}
+          maxVisible={chipCap}
+          gap={8}
+          render={(l) => <ProjectChip project={l.project} />}
+        />
       )}
+
+      {/* single hover tooltip — its own single-slot overlay so it always
+          places (cap 1 = nothing else competes for the slot) */}
+      <LabelOverlay
+        labels={tooltipLabels}
+        maxVisible={1}
+        margin={1.5}
+        render={(l) => <ProjectTooltip project={l.project} />}
+      />
     </group>
   )
 }

@@ -14,7 +14,9 @@
  *   timelineOnly && !timeline_overlap → rendered as thin dashed outline +
  *     faint dashed arc (flagged, not erased)
  *   selectedOverlapId → that zone raises/pops full-opacity + beacon column,
- *     everything else dims to ~40%
+ *     everything else dims to ~40% — BUT a selected record that fails the
+ *     hard filters still doesn't draw (honest absence; the panel's
+ *     "outside current filters" banner is the disclosure, not the map)
  *   hoveredOverlapId → brushed highlight (~70% of selected) from list or map
  *   layers.labels → gates ZoneLabel chips + connector pill chips
  *
@@ -125,17 +127,19 @@ export function OverlapZones() {
   }, [data, activeScene])
 
   /** Hard filters (tier/utility/year — same predicate as the ranked list)
-   *  fully hide a record; the timeline filter only restyles it.
-   *  Capped at MAX_RENDERED by score — the selected record always survives
-   *  the cap, but NOT the filters (filtered-out = honestly absent).
+   *  fully hide a record; the timeline filter only restyles it. The gate
+   *  runs BEFORE the zones-off selection path and the top-N cap alike: a
+   *  filtered-out record never draws, selected or not (honest absence —
+   *  the panel surfaces "outside current filters" with a show-anyway
+   *  reveal, so the map can stay strict).
    *  With the zones layer off only the selected record renders at all. */
   const rendered = useMemo(() => {
-    if (!zonesOn) {
-      return datums.filter((d) => d.rec.overlap_id === selectedOverlapId)
-    }
     const eligible = datums.filter((d) =>
       passesMapFilters(d.rec, { visibleTiers, utilityFilter, yearRange: yearFilter }),
     )
+    if (!zonesOn) {
+      return eligible.filter((d) => d.rec.overlap_id === selectedOverlapId)
+    }
     if (eligible.length <= MAX_RENDERED) {
       console.debug(`[OverlapZones] rendering ${eligible.length} of ${datums.length} scene-relevant overlaps`)
       return eligible
