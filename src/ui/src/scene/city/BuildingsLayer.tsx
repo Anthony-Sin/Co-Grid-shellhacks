@@ -1,11 +1,24 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { PALETTE } from '../../lib/palette'
+import { PALETTE, TIER_COLORS } from '../../lib/palette'
 import { mulberry32 } from '../../lib/prng'
 import type { CityBuilding } from '../../lib/api'
+import { SCENE_CENTERS } from '../../lib/projection'
+import { passesMapFilters } from '../../lib/overlapFilters'
+import { useAppStore } from '../../state/store'
+import { useOverlaps } from '../../ui/hooks/useApiData'
+import { mixHex } from '../overlap/zoneData'
 import { polygonShape } from '../shapeUtils'
 import { cleanRing, useDispose } from './cityUtils'
+import {
+  OVERLAY_LIFT_M,
+  buildOverlayGeometry,
+  buildingsInMask,
+  indexBuildings,
+  renderHeightM,
+  zoneMaskLocal,
+} from './zoneHighlight'
 
 /**
  * ~70k real OSM footprints, extruded and merged into a handful of draw calls.
@@ -38,8 +51,8 @@ const BUCKET_COLORS = [
   PALETTE.building.grays[2],
   PALETTE.building.warm[0],
   PALETTE.building.warm[1],
-  '#F1EEE5', // civic/church — same paper family, a touch brighter
-  '#ECE9DF', // industrial — warm gray, still monochrome
+  '#ECE7D7', // civic/church — deeper parchment, still in the paper family
+  '#E3DFD0', // industrial — deeper warm gray, still monochrome-adjacent
 ] as const
 
 /** Sketch strokes: extend each segment past its ends (ArcGIS extensionLength). */
@@ -62,11 +75,11 @@ function bucketFor(b: CityBuilding): number {
     case 'commercial':
       return roll < 0.5 ? warm() : gray()
     case 'civic':
-      return roll < 0.7 ? CIVIC : gray()
+      return roll < 0.8 ? CIVIC : gray()
     case 'church':
-      return roll < 0.6 ? CIVIC : warm()
+      return roll < 0.7 ? CIVIC : warm()
     case 'industrial':
-      return roll < 0.75 ? INDUSTRIAL : gray()
+      return roll < 0.8 ? INDUSTRIAL : gray()
     default:
       return roll < 0.88 ? gray() : warm()
   }
@@ -119,7 +132,9 @@ function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
   for (const b of buildings) {
     const ring = cleanRing(b.footprint)
     if (!ring) continue
-    const h = Math.max(1.5, b.height || 8)
+    // Filed heights verbatim; assumed fallbacks get seeded variety —
+    // see renderHeightM (zoneHighlight.ts) for the filed-vs-assumed split.
+    const h = renderHeightM(b)
 
     const geo = new THREE.ExtrudeGeometry(polygonShape(ring), {
       depth: h,
@@ -168,9 +183,108 @@ function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
   return { meshes, ink, disposables }
 }
 
+/** Shared props for the two tint shells — the wash sits on the exact
+ * base silhouette; polygonOffset beats the coplanar side walls, the
+ * +0.4 m lift (OVERLAY_LIFT_M) clears the roof planes. */
+function TintShell({
+  geometry,
+  color,
+  opacity,
+}: {
+  geometry: THREE.BufferGeometry
+  color: string
+  opacity: number
+}) {
+  return (
+    <mesh
+      geometry={geometry}
+      position={[0, OVERLAY_LIFT_M, 0]}
+      receiveShadow
+    >
+      <meshStandardMaterial
+        color={color}
+        flatShading
+        roughness={1}
+        metalness={0}
+        transparent
+        opacity={opacity}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+      />
+    </mesh>
+  )
+}
+
 export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
   const built = useMemo(() => buildBuildings(buildings), [buildings])
   useDispose(built.disposables)
+
+  // ---- contextual zone tint (ref_img/color_coded_3d_buildign.png) ----
+  // Buildings inside the selected overlap's filed zone get a tier-color
+  // wash; the hovered overlap gets a fainter second wash (list brushing).
+  const zonesOn = useAppStore((s) => s.layers.zones)
+  const activeScene = useAppStore((s) => s.activeScene)
+  const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
+  const hoveredOverlapId = useAppStore((s) => s.hoveredOverlapId)
+  const visibleTiers = useAppStore((s) => s.visibleTiers)
+  const utilityFilter = useAppStore((s) => s.utilityFilter)
+  const yearFilter = useAppStore((s) => s.yearFilter)
+  // Region-wide records — shares the session fetch with panel/zones.
+  const { data: overlapsData } = useOverlaps()
+
+  // Footprint centroids, computed once — the building list never changes.
+  const spatial = useMemo(() => indexBuildings(buildings), [buildings])
+
+  /** Scene-local zone masks for the two records. Honors the same hard
+   *  map filters as OverlapZones (a filtered-out record tints nothing —
+   *  honest absence), and records with no filed zone_geometry yield no
+   *  mask rather than an invented radius. */
+  const masks = useMemo(() => {
+    if (!zonesOn || !overlapsData) return { sel: null, hov: null }
+    const center = SCENE_CENTERS[activeScene]
+    const filters = { visibleTiers, utilityFilter, yearRange: yearFilter }
+    const resolve = (id: string | null, exclude?: string | null) => {
+      if (!id || id === exclude) return null
+      const rec = overlapsData.overlaps.find((o) => o.overlap_id === id)
+      if (!rec || !passesMapFilters(rec, filters)) return null
+      const mask = zoneMaskLocal(rec, center)
+      return mask ? { rec, mask } : null
+    }
+    return {
+      sel: resolve(selectedOverlapId),
+      hov: resolve(hoveredOverlapId, selectedOverlapId),
+    }
+  }, [
+    zonesOn,
+    overlapsData,
+    activeScene,
+    selectedOverlapId,
+    hoveredOverlapId,
+    visibleTiers,
+    utilityFilter,
+    yearFilter,
+  ])
+
+  // Rebuild only on selection/hover/scene/filter change — the O(n)
+  // centroid test is cheap and only the (usually <300) in-zone
+  // footprints pay ExtrudeGeometry. Never re-extrudes all ~70k.
+  const selShell = useMemo(
+    () =>
+      masks.sel
+        ? buildOverlayGeometry(buildings, buildingsInMask(spatial, masks.sel.mask))
+        : null,
+    [masks.sel, buildings, spatial],
+  )
+  const hovShell = useMemo(
+    () =>
+      masks.hov
+        ? buildOverlayGeometry(buildings, buildingsInMask(spatial, masks.hov.mask))
+        : null,
+    [masks.hov, buildings, spatial],
+  )
+  useDispose(selShell ? [selShell.geometry] : null)
+  useDispose(hovShell ? [hovShell.geometry] : null)
 
   return (
     <group>
@@ -188,6 +302,20 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
           />
         </mesh>
       ))}
+      {selShell && masks.sel ? (
+        <TintShell
+          geometry={selShell.geometry}
+          color={TIER_COLORS[masks.sel.rec.tier] ?? '#888888'}
+          opacity={0.75}
+        />
+      ) : null}
+      {hovShell && masks.hov ? (
+        <TintShell
+          geometry={hovShell.geometry}
+          color={mixHex(TIER_COLORS[masks.hov.rec.tier] ?? '#888888', '#FFFFFF', 0.35)}
+          opacity={0.5}
+        />
+      ) : null}
       {built.ink ? (
         <>
           <lineSegments geometry={built.ink}>
