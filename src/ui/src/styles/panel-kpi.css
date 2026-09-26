@@ -1,12 +1,12 @@
-/* PanelStats — the drawer's KPI block (TomTom congestion-panel style):
+/* PanelStats — the rail's KPI block (TomTom congestion-panel style):
    big "N of M" count, tier checkbox legend rows with counts, secondary
    micro-stats, and the "→ ask agent" handoff. Paper/ink chrome.
    Imported by PanelStats.tsx — plain pnl-kpi/pnl-tier classes. */
 
 .pnl-kpi {
-  margin-bottom: 10px;
-  padding: 8px 10px 9px;
-  font-size: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px 12px;
+  font-size: 10.5px;
   color: #2b2b2b;
   background: rgba(255, 255, 255, 0.65);
   border: 1.5px solid #2b2b2b;
@@ -23,19 +23,19 @@
 .pnl-kpi-big {
   display: flex;
   align-items: baseline;
-  gap: 7px;
-  margin: 4px 0 7px;
+  gap: 8px;
+  margin: 6px 0 10px;
 }
 
 .pnl-kpi-big b {
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.01em;
 }
 
 .pnl-kpi-of {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
   opacity: 0.6;
 }
@@ -50,10 +50,10 @@
 .pnl-tier-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 0 -4px;
-  padding: 3px 4px;
-  font-size: 11px;
+  gap: 9px;
+  margin: 0 -6px;
+  padding: 5px 6px;
+  font-size: 11.5px;
   font-weight: 600;
   border-radius: 7px;
   cursor: pointer;
@@ -69,16 +69,16 @@
 }
 
 .pnl-tier-row input[type='checkbox'] {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   margin: 0;
   accent-color: #2b2b2b;
   cursor: pointer;
 }
 
 .pnl-tier-row .dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-width: 1.5px;
 }
 
@@ -91,7 +91,7 @@
 }
 
 .pnl-tier-n {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -99,9 +99,9 @@
 .pnl-kpi-sub {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 10px;
-  margin-top: 6px;
-  padding-top: 7px;
+  gap: 5px 12px;
+  margin-top: 9px;
+  padding-top: 10px;
   border-top: 1px dashed rgba(43, 43, 43, 0.3);
 }
 
@@ -113,7 +113,7 @@
 }
 
 .pnl-kpi-substat .k {
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -126,8 +126,8 @@
 
 .pnl-ask {
   margin-left: auto;
-  padding: 2px 9px;
-  font-size: 9.5px;
+  padding: 3px 10px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;

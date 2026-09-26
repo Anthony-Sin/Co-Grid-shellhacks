@@ -9,27 +9,27 @@
    specificity. Plain ovr- classes are new and conflict-free. */
 
 .app-shell .overlap-list.ovl-dense {
-  gap: 3px;
+  gap: 4px;
 }
 
 /* header cells share the row grid — sticky so columns stay labeled while
    the list scrolls under a solid paper-toned strip */
 .ovr-head {
   position: sticky;
-  top: -10px; /* covers .panel-body's top padding — sticks flush */
+  top: -14px; /* covers .panel-body's top padding — sticks flush */
   z-index: 2;
   display: grid;
-  grid-template-columns: 26px 34px minmax(0, 1fr) 34px 42px 26px;
+  grid-template-columns: 30px 38px minmax(0, 1fr) 40px 50px 30px;
   column-gap: 6px;
   align-items: end;
-  margin: 0 0 4px;
-  padding: 10px 8px 3px; /* the 10px top pad is what gets clipped when stuck */
+  margin: 0 0 5px;
+  padding: 14px 8px 4px; /* the 14px top pad is what gets clipped when stuck */
   background: #eee9db; /* opaque so rows scrolling under don't bleed */
   border-bottom: 1.5px solid rgba(43, 43, 43, 0.5);
 }
 
 .ovr-h {
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -51,14 +51,14 @@ button.ovr-h:hover,
 
 .app-shell .overlap-row.ovr {
   display: grid;
-  grid-template-columns: 26px 34px minmax(0, 1fr) 34px 42px 26px;
+  grid-template-columns: 30px 38px minmax(0, 1fr) 40px 50px 30px;
   gap: 0 6px;
   align-items: center;
-  padding: 4px 8px;
+  padding: 7px 8px;
   border-radius: 8px;
   box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.85);
-  font-size: 10.5px;
-  line-height: 1.2;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .app-shell .overlap-row.ovr:hover,
@@ -76,7 +76,7 @@ button.ovr-h:hover,
 }
 
 .ovr-rank {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
   opacity: 0.5;
   overflow: hidden;
@@ -96,7 +96,7 @@ button.ovr-h:hover,
 }
 
 .ovr-t {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.02em;
   opacity: 0.8;
@@ -125,14 +125,14 @@ button.ovr-h:hover,
 }
 
 .ovr-dist {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   text-align: right;
   white-space: nowrap;
 }
 
 .ovr-win {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
   text-align: right;
   white-space: nowrap;
@@ -154,8 +154,8 @@ button.ovr-h:hover,
 /* tier-colored score badge — est. savings ride along in the row tooltip */
 .ovr-score {
   justify-self: end;
-  padding: 0 5px;
-  font-size: 9.5px;
+  padding: 0 6px;
+  font-size: 10px;
   font-weight: 800;
   border: 1.5px solid currentColor;
   border-radius: 999px;
@@ -168,8 +168,8 @@ button.ovr-h:hover,
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 7px;
-  font-size: 9px;
+  margin-top: 9px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   opacity: 0.55;
@@ -187,6 +187,6 @@ button.ovr-h:hover,
   }
   .ovr-head,
   .app-shell .overlap-row.ovr {
-    grid-template-columns: 24px 18px minmax(0, 1fr) 32px 40px 26px;
+    grid-template-columns: 26px 20px minmax(0, 1fr) 34px 46px 28px;
   }
 }

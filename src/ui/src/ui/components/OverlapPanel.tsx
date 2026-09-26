@@ -47,12 +47,12 @@ const Seg = ({ aria, items }: { aria: string; items: SegItem[] }) => (
   </div>
 )
 
-/** Left drawer: ranked REAL coordination opportunities from /api/overlaps
- * (engine order: tier asc, then distance), TomTom-style — slide-out paper
- * card with an always-visible edge tab, a TIMEFRAME build-window range on
- * top, the KPI/tier-legend block, compact filters, and a dense one-line
- * ranked table. Filters share the map's predicates (passesListFilters) —
- * all states honest (AGENTS.md §7). */
+/** Left rail: ranked REAL coordination opportunities from /api/overlaps
+ * (engine order: tier asc, then distance), TomTom-style — a full-height
+ * paper rail pinned to the left edge with an always-visible edge tab, a
+ * TIMEFRAME build-window range card on top, the KPI/tier-legend block,
+ * compact filters, and a dense one-line ranked table. Filters share the
+ * map's predicates (passesListFilters) — all states honest (AGENTS.md §7). */
 export function OverlapPanel() {
   const visibleTiers = useAppStore((s) => s.visibleTiers)
   const toggleTier = useAppStore((s) => s.toggleTier)
@@ -389,7 +389,7 @@ export function OverlapPanel() {
         </div>
 
         <div className="panel-body">
-          <section className="pnl-sec" aria-label="Build-window timeframe">
+          <section className="pnl-sec pnl-sec--tf" aria-label="Build-window timeframe">
             <TimeframeSlider />
           </section>
 
@@ -463,7 +463,7 @@ export function OverlapPanel() {
       </aside>
 
       {/* edge tab — always visible on the canvas edge; ‹ collapses the
-          drawer, › reopens it. `panel-reopen` keeps overrides.css's
+          rail, › reopens it. `panel-reopen` keeps overrides.css's
           :has() agent-bar reclaim working in the closed state. */}
       <button type="button"
         className={cx('panel-tab', !panelOpen && 'panel-reopen')}

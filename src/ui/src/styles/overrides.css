@@ -1,10 +1,11 @@
 /* ---- responsive breakpoints --------------------------------------------------
    Chrome box math (viewport width W):
-   - .panel occupies x ∈ [14, 346]   (left:14 + width:332), z90
+   - the left rail occupies x ∈ [0, 390]  (docked full-height rail), z90
    - .right-rail occupies x ∈ [W−336, W−14] (322px card + right:14), z90
    - default .agent-bar is centered, width min(560px, 72vw): it clears the
-     panel only when W/2 − 280 ≥ 346 and the rail only when W/2 + 280 ≤
-     W − 336 — i.e. it needs W ≥ ~1252. Below that it must be re-pinned. */
+     left rail only when W/2 − 280 ≥ 390 and the right rail only when
+     W/2 + 280 ≤ W − 336 — i.e. it needs W ≥ ~1340. Below that it must
+     be re-pinned. */
 
 /* brand subtitle + separator crowd the scene switch on narrow headers */
 @media (max-width: 800px) {
@@ -64,27 +65,27 @@
   max-width: calc(100vw - 28px);
 }
 
-/* 860–1260px: pin the bar between the left panel + map-tools card and the
+/* 860–1340px: pin the bar between the left rail + map-tools card and the
    right rail. The bar is bottom-anchored like the cards, so horizontal
    clearance is the only separation available. */
-@media (min-width: 860px) and (max-width: 1259.98px) {
+@media (min-width: 860px) and (max-width: 1339.98px) {
   .app-shell .agent-bar {
-    left: 360px; /* panel right edge 346 + 14 gap */
-    right: 350px; /* rail left edge (W−336) − 14 gap */
+    left: 404px; /* left rail right edge 390 + 14 gap */
+    right: 350px; /* right rail left edge (W−336) − 14 gap */
     width: auto;
     transform: none;
   }
 
-  /* Panel collapsed → only the small .panel-reopen pill remains top-left,
+  /* Rail collapsed → only the small .panel-reopen pill remains top-left,
      but .viewmodes-wrap still occupies x∈[14,234] at bottom-left — reclaim
-     down to 250px, not further. Degrades to the 360px pin on engines
+     down to 250px, not further. Degrades to the 404px pin on engines
      without :has() (still safe, just conservative). */
   .app-shell:has(.panel-reopen) .agent-bar {
     left: 250px;
   }
 }
 
-/* <860px: the gap between the side chrome (W − 710px) is too narrow for a
+/* <860px: the gap between the side chrome (W − 754px) is too narrow for a
    usable input. The bar takes the full-width bottom strip; .right-rail and
    .viewmodes-wrap lift clear of it (rail rule lives in components.css where
    the rail base is defined). Chips switch to a single scrollable row so the
