@@ -39,6 +39,12 @@ export function applyUrlParams() {
     }
   }
 
+  // select BEFORE focus: selectOverlap clears focusTarget by design
+  // (stale-target guard), so applying focus after preserves a
+  // ?select=X&focus=y deep link instead of silently dropping the fly-to.
+  const select = q.get('select')
+  if (select) s.selectOverlap(select)
+
   const focus = q.get('focus')
   if (focus) {
     const [lon, lat] = focus.split(',').map(Number)
@@ -47,7 +53,4 @@ export function applyUrlParams() {
       s.setFocusTarget([x, -y])
     }
   }
-
-  const select = q.get('select')
-  if (select) s.selectOverlap(select)
 }

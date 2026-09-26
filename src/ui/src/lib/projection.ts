@@ -36,3 +36,13 @@ export function localToLonLat(x: number, y: number, center: Vec2): Vec2 {
   const lat = c1 + y / METERS_PER_DEG_LAT
   return [lon, lat]
 }
+
+/** Mirror of src/processing/projection.py `scene_for_zone` — zone tag →
+ * best-fit scene. Selecting an overlap outside the active scene must
+ * switch scenes first or the camera flies to empty space. Keep in sync. */
+export function sceneForZone(zone: string | null | undefined): SceneId {
+  const z = (zone ?? '').toLowerCase()
+  if (z.includes('savannah')) return 'savannah'
+  if (z.includes('augusta')) return 'augusta'
+  return 'state'
+}
