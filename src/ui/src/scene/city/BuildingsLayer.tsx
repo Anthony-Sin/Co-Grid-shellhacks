@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { PALETTE, TIER_COLORS } from '../../lib/palette'
@@ -10,8 +10,7 @@ import { useAppStore } from '../../state/store'
 import { useOverlaps } from '../../ui/hooks/useApiData'
 import { mixHex } from '../overlap/zoneData'
 import { polygonShape } from '../shapeUtils'
-import { cleanRing, useDispose, useShadowRefresh } from './cityUtils'
-import { useCorridorZoomGate } from './corridorComposite'
+import { cleanRing, useDispose, useShadowRefresh, useZoomAtLeast } from './cityUtils'
 import {
   OVERLAY_LIFT_M,
   buildOverlayGeometry,
@@ -19,25 +18,30 @@ import {
   indexBuildings,
   renderHeightM,
   zoneMaskLocal,
+  type BuildingIndex,
 } from './zoneHighlight'
 
 /**
- * ~70k real OSM footprints, extruded and merged into a handful of draw calls.
+ * ~148k real OSM footprints across the composited corridors, extruded
+ * into merged draw calls — built the way tiled maps stream in:
  *
- * Strategy: assign every building to one of ~7 color buckets (3 grays,
- * 2 warm pastels + local civic/industrial tints), build one merged
- * BufferGeometry per bucket, render one flat-shaded mesh each.
- * No per-building meshes, no per-building <Edges> — that would be ~70k
- * draw calls. Instead a single merged LineSegments draws the roofline
- * outline only for tall (>= 25 m) or named buildings — cheap skyline ink.
+ * - LAZY: nothing is extruded until the zoom gate opens (or a corridor
+ *   scene renders directly). Statewide overview never pays the ~148k
+ *   earcut+extrude cost.
+ * - TILED: buildings are bucketed into ~12 km grid cells; each cell
+ *   merges into its own geometries with its own bounding sphere, so
+ *   three.js frustum-culls offscreen cells — zoomed on Savannah skips
+ *   drawing Augusta's ~80k buildings entirely (the Google-Maps trick:
+ *   only render what's in view).
+ * - PROGRESSIVE: cells build one per macrotask (await setTimeout), so
+ *   zooming in pops geometry tile-by-tile instead of freezing the main
+ *   thread for seconds.
  *
- * Perf notes:
- * - `uv` attributes are dropped before merging (saves ~25% of buffer
- *   memory; materials carry no maps).
- * - ExtrudeGeometry is non-indexed, so the merge is a straight concat.
- * - Bucket choice is a deterministic prng seeded by the building's OSM id
- *   plus a kind bias, so the mosaic is stable frame-to-frame and
- *   reproduces across reloads.
+ * Inside each cell the old strategy still applies: ~7 color buckets of
+ * merged flat-shaded extrusions + one merged LineSegments of roofline
+ * ink (per-building meshes/Edges would be ~10k draw calls). The pencil
+ * double-stroke second pass only mounts at street zoom — invisible
+ * farther out but still drawn otherwise.
  */
 
 // Bucket indices into BUCKET_COLORS — translucent whites (sketch faces)
@@ -119,18 +123,46 @@ function pushStroke(
   )
 }
 
-interface BuiltBuildings {
+/** Tile edge for the lazy cullable cells — ~12 km squares; a city-zoom
+ *  view typically covers 1–4 cells, so most geometry never draws. */
+const CELL_M = 12_000
+
+/** Extruded bucket meshes + merged ink for ONE grid cell. */
+interface BuiltCell {
   meshes: { geometry: THREE.BufferGeometry; color: string }[]
-  /** merged ink strokes for EVERY building: top ring + sparse wall strokes */
   ink: THREE.BufferGeometry | null
   disposables: { dispose(): void }[]
 }
 
-function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
+/**
+ * Group building indices into CELL_M grid cells by footprint centroid
+ * (reuses the shared BuildingIndex — no second centroid pass).
+ * Buildings with NaN centroids are skipped; they'd fail cleanRing anyway.
+ */
+function partitionCells(
+  buildings: CityBuilding[],
+  index: BuildingIndex,
+): Map<string, number[]> {
+  const cells = new Map<string, number[]>()
+  for (let i = 0; i < buildings.length; i++) {
+    const x = index.cx[i]
+    const y = index.cy[i]
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+    const key = `${Math.floor(x / CELL_M)},${Math.floor(y / CELL_M)}`
+    const cell = cells.get(key)
+    if (cell) cell.push(i)
+    else cells.set(key, [i])
+  }
+  return cells
+}
+
+/** Extrude one cell's buildings into bucket meshes + merged ink strokes. */
+function buildCell(buildings: CityBuilding[], indices: number[]): BuiltCell {
   const buckets: THREE.BufferGeometry[][] = BUCKET_COLORS.map(() => [])
   const inkVerts: number[] = []
 
-  for (const b of buildings) {
+  for (const i of indices) {
+    const b = buildings[i]
     const ring = cleanRing(b.footprint)
     if (!ring) continue
     // Filed heights verbatim; assumed fallbacks get seeded variety —
@@ -152,9 +184,9 @@ function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
     // than ~68k EdgesGeometry runs (each would re-run earcut + face angles).
     const rng = mulberry32((b.id >>> 0) ^ 0x5bd1e995)
     const top = h + 0.25 // hair above the roof plane to avoid z-fighting
-    for (let i = 0; i < ring.length; i++) {
-      const a = ring[i]
-      const c = ring[(i + 1) % ring.length]
+    for (let k = 0; k < ring.length; k++) {
+      const a = ring[k]
+      const c = ring[(k + 1) % ring.length]
       pushStroke(inkVerts, rng, a[0], top, -a[1], c[0], top, -c[1])
       if (rng() < WALL_STROKE_P && h > 4) {
         const wallTop = top - 0.4
@@ -165,11 +197,12 @@ function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
   }
 
   const disposables: { dispose(): void }[] = []
-  const meshes: BuiltBuildings['meshes'] = []
+  const meshes: BuiltCell['meshes'] = []
   buckets.forEach((list, i) => {
     if (!list.length) return
     const merged = mergeGeometries(list, false)
     if (!merged) return
+    merged.computeBoundingSphere() // per-cell bounds → frustum culling
     disposables.push(merged)
     meshes.push({ geometry: merged, color: BUCKET_COLORS[i] })
   })
@@ -178,6 +211,7 @@ function buildBuildings(buildings: CityBuilding[]): BuiltBuildings {
   if (inkVerts.length) {
     ink = new THREE.BufferGeometry()
     ink.setAttribute('position', new THREE.Float32BufferAttribute(inkVerts, 3))
+    ink.computeBoundingSphere()
     disposables.push(ink)
   }
 
@@ -217,20 +251,91 @@ function TintShell({
   )
 }
 
-export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
-  const built = useMemo(() => buildBuildings(buildings), [buildings])
-  useDispose(built.disposables)
-
-  // Zoom gate: in the statewide scene the merged array carries ~148k
-  // corridor buildings — at overview zoom they're invisible vertex noise
-  // that still costs GPU, so the base meshes + ink unmount below the
-  // hysteresis band (geometries stay memoized; remount is cheap).
-  // The zone-tint TintShells below are NOT gated — a selected zone's
-  // "these buildings coordinate" wash is honest signal at ANY zoom.
-  const detailVisible = useCorridorZoomGate()
+export function BuildingsLayer({
+  buildings,
+  detailVisible,
+}: {
+  buildings: CityBuilding[]
+  /** Ortho zoom gate for heavy detail — supplied by CityScene so the
+   *  corridor fetch and this layer share one threshold. */
+  detailVisible: boolean
+}) {
+  // In the statewide scene the merged array carries ~148k corridor
+  // buildings — at overview zoom they're invisible vertex noise that
+  // still costs GPU, so the base meshes + ink unmount below the
+  // hysteresis band. The zone-tint TintShells below are NOT gated — a
+  // selected zone's "these buildings coordinate" wash is honest signal
+  // at ANY zoom.
   const gated = useAppStore((s) => s.activeScene === 'state')
   const showBase = !gated || detailVisible
-  useShadowRefresh(showBase) // re-bake when the caster set toggles
+
+  // Footprint centroids, computed once — shared by the zone-tint masks
+  // AND the cell partitioner, so tiling costs no extra pass.
+  const spatial = useMemo(() => indexBuildings(buildings), [buildings])
+
+  // ---- lazy progressive build ---------------------------------------
+  // Extrusion only runs once detail is first WANTED (latched — zooming
+  // back out unmounts the meshes but keeps the geometry cached, like a
+  // tile cache; no re-extrude on the next zoom-in). Cells build one per
+  // macrotask so the map stays interactive while tiles pop in. cellsRef
+  // holds what's built; buildTick re-renders as each cell lands.
+  const [wanted, setWanted] = useState(false)
+  useEffect(() => {
+    if (showBase) setWanted(true)
+  }, [showBase])
+  const cellsRef = useRef(new Map<string, BuiltCell>())
+  const builtForRef = useRef<CityBuilding[] | null>(null)
+  const [buildTick, setBuildTick] = useState(0)
+  const [buildDone, setBuildDone] = useState(false)
+
+  useEffect(() => {
+    if (!wanted || builtForRef.current === buildings) return
+    let cancelled = false
+    // Drop geometry baked from a previous buildings array (corridor data
+    // landing after a first build rebuilds once — same cell keys).
+    for (const cell of cellsRef.current.values()) {
+      for (const d of cell.disposables) d.dispose()
+    }
+    cellsRef.current.clear()
+    setBuildDone(false)
+
+    const cells = partitionCells(buildings, spatial)
+    const queue = [...cells.entries()]
+    const step = async () => {
+      // Prioritize nothing — stable order keeps the pop-in deterministic.
+      for (const [key, indices] of queue) {
+        if (cancelled) return
+        await new Promise((r) => setTimeout(r, 0)) // yield between tiles
+        if (cancelled) return
+        cellsRef.current.set(key, buildCell(buildings, indices))
+        setBuildTick((t) => t + 1)
+      }
+      if (!cancelled) {
+        builtForRef.current = buildings
+        setBuildDone(true)
+      }
+    }
+    void step()
+    return () => {
+      cancelled = true // keep built cells — the tile cache survives zoom-out
+    }
+  }, [buildings, wanted, spatial])
+
+  useEffect(
+    () => () => {
+      for (const cell of cellsRef.current.values()) {
+        for (const d of cell.disposables) d.dispose()
+      }
+      cellsRef.current.clear()
+    },
+    [],
+  )
+
+  useShadowRefresh(buildDone) // one bake once all casters have landed
+  // Pencil double-stroke: a second offset ink pass — visible only up
+  // close, so it stays unmounted until street zoom (~halves ink cost at
+  // city zoom where it reads as noise anyway).
+  const streetZoom = useZoomAtLeast(0.035, 0.7)
 
   // ---- contextual zone tint (ref_img/color_coded_3d_buildign.png) ----
   // Buildings inside the selected overlap's filed zone get a tier-color
@@ -244,9 +349,6 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
   const yearFilter = useAppStore((s) => s.yearFilter)
   // Region-wide records — shares the session fetch with panel/zones.
   const { data: overlapsData } = useOverlaps()
-
-  // Footprint centroids, computed once — the building list never changes.
-  const spatial = useMemo(() => indexBuildings(buildings), [buildings])
 
   /** Scene-local zone masks for the two records. Honors the same hard
    *  map filters as OverlapZones (a filtered-out record tints nothing —
@@ -300,22 +402,41 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
   useDispose(selShell ? [selShell.geometry] : null)
   useDispose(hovShell ? [hovShell.geometry] : null)
 
+  void buildTick // cells land incrementally; tick forces re-render
   return (
     <group>
-      {showBase ? built.meshes.map((m, i) => (
-        <mesh key={i} geometry={m.geometry} castShadow receiveShadow>
-          {/* Sketch faces: white, barely-there — like the ArcGIS sketch
-              renderer's [255,255,255,0.1] fill. Shadows still land. */}
-          <meshStandardMaterial
-            color={m.color}
-            flatShading
-            roughness={1}
-            metalness={0}
-            transparent
-            opacity={0.2}
-          />
-        </mesh>
-      )) : null}
+      {showBase
+        ? [...cellsRef.current.entries()].map(([key, cell]) => (
+            <group key={key}>
+              {cell.meshes.map((m, i) => (
+                <mesh key={i} geometry={m.geometry} castShadow receiveShadow>
+                  {/* Sketch faces: white, barely-there — like the ArcGIS
+                      sketch renderer's [255,255,255,0.1] fill. */}
+                  <meshStandardMaterial
+                    color={m.color}
+                    flatShading
+                    roughness={1}
+                    metalness={0}
+                    transparent
+                    opacity={0.2}
+                  />
+                </mesh>
+              ))}
+              {cell.ink ? (
+                <lineSegments geometry={cell.ink}>
+                  <lineBasicMaterial color={PALETTE.ink} transparent opacity={0.8} />
+                </lineSegments>
+              ) : null}
+              {streetZoom && cell.ink ? (
+                /* Second pass, offset a whisker: pencil double-stroke —
+                   street zoom only. */
+                <lineSegments geometry={cell.ink} position={[0.9, 0.35, 0.55]}>
+                  <lineBasicMaterial color={PALETTE.ink} transparent opacity={0.2} />
+                </lineSegments>
+              ) : null}
+            </group>
+          ))
+        : null}
       {selShell && masks.sel ? (
         <TintShell
           geometry={selShell.geometry}
@@ -329,17 +450,6 @@ export function BuildingsLayer({ buildings }: { buildings: CityBuilding[] }) {
           color={mixHex(TIER_COLORS[masks.hov.rec.tier] ?? '#888888', '#FFFFFF', 0.35)}
           opacity={0.5}
         />
-      ) : null}
-      {showBase && built.ink ? (
-        <>
-          <lineSegments geometry={built.ink}>
-            <lineBasicMaterial color={PALETTE.ink} transparent opacity={0.8} />
-          </lineSegments>
-          {/* Second pass, offset a whisker: pencil double-stroke. */}
-          <lineSegments geometry={built.ink} position={[0.9, 0.35, 0.55]}>
-            <lineBasicMaterial color={PALETTE.ink} transparent opacity={0.2} />
-          </lineSegments>
-        </>
       ) : null}
     </group>
   )

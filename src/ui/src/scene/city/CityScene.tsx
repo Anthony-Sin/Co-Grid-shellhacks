@@ -1,7 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import { useAppStore } from '../../state/store'
 import { useCity } from './useCity'
-import { useCorridorDetail, type CorridorDetail } from './corridorComposite'
+import {
+  useCorridorDetail,
+  useCorridorZoomGate,
+  type CorridorDetail,
+} from './corridorComposite'
 import type { CityScene as CitySceneData } from '../../lib/api'
 import { BuildingsLayer } from './BuildingsLayer'
 import { RoadsLayer } from './RoadsLayer'
@@ -29,13 +33,15 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const activeScene = useAppStore((s) => s.activeScene)
   const { data } = useCity(activeScene)
 
-  // Fold corridor detail into the statewide sheet: city_state.json ships
-  // no buildings/parks, so the Savannah + Augusta artifacts (the only
-  // building extracts) are re-projected into state-local meters and
-  // merged into the same arrays the layers already render — one merged
-  // array keeps the zone-tint math (state center) aligned. Corridor
-  // roads/water are NOT merged: the state artifact already has them.
-  const corridor = useCorridorDetail(activeScene === 'state')
+  // Deferred detail fetch (tiled-map style): the two corridor artifacts
+  // are ~45 MB of JSON — the biggest single startup cost — and nothing
+  // visible needs them at statewide overview. Fetch only once the zoom
+  // gate opens OR an overlap is selected (the zone tint needs footprints).
+  const detailVisible = useCorridorZoomGate()
+  const hasSelection = useAppStore((s) => s.selectedOverlapId != null)
+  const corridor = useCorridorDetail(
+    activeScene === 'state' && (detailVisible || hasSelection),
+  )
   const merged = useMemo<CorridorDetail | null>(() => {
     if (!data) return null
     if (activeScene !== 'state' || !corridor) {
@@ -87,7 +93,7 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
       <ParksLayer parks={merged.parks} />
       <WaterLayer water={data.water} />
       <RoadsLayer roads={data.roads} />
-      <BuildingsLayer buildings={merged.buildings} />
+      <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} />
       <TreesLayer parks={merged.parks} />
       {showLabels && <LabelChips data={labelData} />}
     </group>
