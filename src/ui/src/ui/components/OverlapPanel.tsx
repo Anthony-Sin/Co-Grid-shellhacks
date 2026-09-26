@@ -307,7 +307,7 @@ export function OverlapPanel() {
 
   const presets: SegItem[] = [
     { key: 'all', label: 'all', active: allActive, onClick: applyAll, hint: 'Clear every filter — show all records' },
-    { key: 'must', label: 'must coordinate', active: mustActive, onClick: applyMustCoordinate, hint: 'Tier 1 touching + concurrent build windows' },
+    { key: 'must', label: 'must coord.', active: mustActive, onClick: applyMustCoordinate, hint: 'Tier 1 touching + concurrent build windows' },
     { key: 'handoffs', label: 'handoffs', active: adjacentOnly, onClick: toggleHandoffs, hint: 'Adjacent build windows — crews hand off site-to-site' },
   ]
   const sortItems: SegItem[] = SORT_OPTIONS.map((s) => ({

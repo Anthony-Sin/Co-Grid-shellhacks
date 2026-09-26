@@ -294,7 +294,10 @@
   display: contents;
 }
 
-@media (max-width: 1100px) {
+/* the full strip needs ~1600px — drop the optional segments (corridors,
+   adjacent count, peak year, per-tier counts) below that so nothing is
+   ever truncated mid-token */
+@media (max-width: 1650px) {
   .kpi-optional {
     display: none;
   }
