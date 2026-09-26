@@ -1,68 +1,219 @@
-import type { ReactNode } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
+import type { AgentTrace } from '../../lib/api'
 
 /**
- * md.tsx — dependency-free mini markdown renderer for agent replies.
- * Handles exactly what the model emits: **bold**, -/* bullets,
- * | pipe | tables |, ## headers, and plain paragraphs. Anything else
- * passes through as text — never trusts the model with raw HTML.
+ * md.tsx — dependency-free reply rendering for the agent bar: a mini
+ * markdown renderer plus the message bubble (tool trace, reasoning,
+ * run footer). Handles exactly what the model emits: **bold**, -/*
+ * bullets, | pipe | tables |, ## headers, and plain paragraphs.
+ * Anything else passes through as text — never trusts the model
+ * with raw HTML.
  *
- * `onSelect` turns overlap references into live chips: a deep-link
- * token (/?scene=X&select=OV-NNNN…) jumps scene + selects, a bare
- * OV-NNNN id selects in the current scene.
+ * `onSelect` turns overlap references into live chips: a markdown link
+ * or deep-link token carrying select=OV-NNNN (optionally scene=X) jumps
+ * scene + selects; a bare OV-NNNN id selects in the current scene.
  */
 
 export type OverlapSelectFn = (overlapId: string, scene?: string) => void
 
+/** One agent-log message. `kind` drives honest-state styling
+ * (error = dashed ⚠ box, note = muted); `progress` marks the transient
+ * live-tool line that the real reply replaces. */
+export interface Msg {
+  role: 'user' | 'assistant'
+  content: string
+  reasoning?: string | null
+  trace?: AgentTrace[]
+  rounds?: number
+  tokens?: number | null
+  stoppedEarly?: boolean
+  kind?: 'error' | 'note'
+  progress?: boolean
+}
+
+/** Display names for the backend tool-calling loop — the raw name stays
+ * in each expanded row's title tooltip; unknown tools fall back to raw. */
+const TOOL_LABELS: Record<string, string> = {
+  stats: 'stats', exec_summary: 'exec summary', list_projects: 'list projects',
+  get_project: 'get project', top_overlaps: 'top overlaps',
+  get_overlap: 'get overlap', projects_near: 'projects near',
+  timeline_summary: 'timeline summary', impact_estimate: 'impact estimate',
+  gazetteer: 'gazetteer', data_health: 'data health',
+  staging_clusters: 'staging clusters', playbook: 'playbook',
+  utility_matrix: 'utility matrix', outage_conflicts: 'outage conflicts',
+  find_overlaps: 'find overlaps', project_overlaps: 'project overlaps',
+  no_overlap_reason: 'no-overlap reason', compare_overlaps: 'compare overlaps',
+  why_ranked: 'why ranked', zone_report: 'zone report',
+  savings_rollup: 'savings rollup', overlap_neighbors: 'overlap neighbors',
+  season_calendar: 'season calendar', what_if_shift: 'what-if shift',
+  handoff_chains: 'handoff chains', voltage_match: 'voltage match',
+  utility_profile: 'utility profile',
+  what_if_drop_utility: 'what-if drop utility', define: 'define',
+}
+const toolLabel = (t: string) => TOOL_LABELS[t] ?? t
+
+/** `tool(json)` with args compacted to ≤80 chars. */
+const fmtCall = (t: AgentTrace) => {
+  const j = JSON.stringify(t.args ?? {})
+  return `${toolLabel(t.tool)}(${!j || j === '{}' ? '' : j.length > 80 ? `${j.slice(0, 77)}…` : j})`
+}
+
+/** One log line — memoized so typing in the input never re-parses
+ * markdown for earlier messages. */
+export const MsgView = memo(function MsgView({
+  m,
+  onSelect,
+}: {
+  m: Msg
+  onSelect: OverlapSelectFn
+}) {
+  const body = useMemo(
+    () => (m.role === 'assistant' && !m.progress
+      ? renderMarkdown(m.content, onSelect)
+      : null),
+    [m.role, m.progress, m.content, onSelect],
+  )
+  return (
+    <div
+      className={`agent-msg ${m.role}${m.progress ? ' agent-progress' : ''}${m.kind ? ` ${m.kind}` : ''}`}
+    >
+      {m.trace && m.trace.length > 0 && (
+        <details className="agent-trace">
+          <summary className="agent-tools">
+            ⚙ {m.trace.map((t) => toolLabel(t.tool)).join(' · ')}
+          </summary>
+          {m.trace.map((t, i) => (
+            <div key={i} className="agent-trace-row">
+              <code title={t.tool}>{fmtCall(t)}</code>
+              {t.preview && <div className="agent-trace-preview">{t.preview}</div>}
+            </div>
+          ))}
+        </details>
+      )}
+      {m.role === 'assistant' && !m.progress ? body : m.content}
+      {m.reasoning && (
+        <details className="agent-reasoning">
+          <summary>thinking</summary>
+          <div className="agent-reasoning-body">{m.reasoning}</div>
+        </details>
+      )}
+      {(m.rounds != null || (m.trace?.length ?? 0) > 0) && (
+        <div className="agent-meta">
+          {m.rounds ?? 0} rounds · {m.trace?.length ?? 0} tool calls
+          {m.tokens != null && ` · ${m.tokens} tokens`}
+        </div>
+      )}
+      {m.stoppedEarly && (
+        <div className="agent-flag">stopped early — try a narrower question</div>
+      )}
+    </div>
+  )
+})
+
+/**
+ * Overlap-reference tokens — matched BEFORE bold-splitting so ids inside
+ * `**…**` spans still become chips and stray `**` wrappers never leak:
+ *   [label](…select=OV-xxxx…)   markdown link  → OV chip only
+ *   **OV-xxxx**                 bold id        → OV chip
+ *   ?scene=X&select=OV-xxxx…    deep link      → OV chip (+ scene jump)
+ *   OV-xxxx                     bare id        → OV chip
+ * Trailing . , ; : ' " are excluded so sentence punctuation isn't eaten.
+ */
 const TOKEN_RE =
-  /(\*\*(OV-\d{3,})\*\*|\/?\?scene=(savannah|augusta|state)&select=(OV-\d+)[^ )\]]*|\bOV-\d{3,}\b)/g
+  /\[([^\]]*)\]\(([^)\]\n]*?select=(OV-\d+)[^)\]\n]*)\)|\*\*(OV-\d{3,})\*\*|\/?\?scene=(savannah|augusta|state)&select=(OV-\d+)[^ )\].,;:'"]*|\b(OV-\d{3,})\b/g
+
+const SCENE_RE = /scene=(savannah|augusta|state)/
+
+/**
+ * One plain-text run between OV tokens. `**bold**` pairs render <strong>;
+ * a stray `**` toggles a pending-bold state carried across chips (so
+ * `**OV-0042 — DESC×GPC**` renders bold text + chip with no litter);
+ * lone `*` markers that can't pair inside the run are dropped.
+ * Returns the pending-bold state for the next run.
+ */
+function textRun(run: string, out: ReactNode[], keyBase: string,
+                 boldOpen: boolean): boolean {
+  const subs = run.split(/\*\*([^*]+)\*\*/g)
+  let bold = boldOpen
+  let n = 0
+  const emit = (text: string, strong: boolean) => {
+    if (!text) return
+    out.push(
+      strong
+        ? <strong key={`${keyBase}-s${n++}`}>{text}</strong>
+        : <span key={`${keyBase}-s${n++}`}>{text}</span>,
+    )
+  }
+  subs.forEach((s, j) => {
+    if (j % 2 === 1) {
+      emit(s, true) // properly paired **…** span
+      return
+    }
+    // unpaired leftovers — scan for stray `**` toggles, drop single `*`
+    let buf = ''
+    for (let p = 0; p < s.length; p++) {
+      if (s.startsWith('**', p)) {
+        emit(buf, bold)
+        buf = ''
+        bold = !bold
+        p++
+      } else if (s[p] !== '*') {
+        buf += s[p]
+      }
+    }
+    emit(buf, bold)
+  })
+  return bold
+}
 
 function inline(text: string, keyBase: string,
                 onSelect?: OverlapSelectFn): ReactNode[] {
-  const parts = text.split(TOKEN_RE)
   const out: ReactNode[] = []
-  for (let i = 0; i < parts.length; i++) {
-    const p = parts[i]
-    if (p == null || p === '') continue
-    // split interleaves 4 capture groups:
-    // [text, full, boldOV, scene, linkOV, text, ...]
-    if (i % 5 === 1) {
-      const oid = parts[i + 1] ?? parts[i + 3] ?? p
-      const scene = parts[i + 2]
-      out.push(
-        <button
-          key={`${keyBase}-ov${i}`}
-          type="button"
-          className="md-ovlink mono"
-          title={scene ? `jump to ${scene} scene + select ${oid}` : `select ${oid}`}
-          onClick={() => onSelect?.(oid, scene || undefined)}
-        >
-          {oid}
-        </button>,
-      )
-      continue
+  let last = 0
+  let n = 0
+  let bold = false
+  for (const m of text.matchAll(TOKEN_RE)) {
+    if (m.index > last) {
+      bold = textRun(text.slice(last, m.index), out, `${keyBase}-${n}`, bold)
     }
-    if (i % 5 >= 2) continue // consumed capture groups
-    // plain text — bold-split
-    const subs = p.split(/\*\*([^*]+)\*\*/g)
-    subs.forEach((s, j) => {
-      if (s === '') return
-      out.push(
-        j % 2 === 1
-          ? <strong key={`${keyBase}-b${i}-${j}`}>{s}</strong>
-          : <span key={`${keyBase}-t${i}-${j}`}>{s}</span>,
-      )
-    })
+    const oid = m[3] ?? m[4] ?? m[6] ?? m[7]
+    const scene = m[5] ?? m[2]?.match(SCENE_RE)?.[1]
+    out.push(
+      <button
+        key={`${keyBase}-ov${n}`}
+        type="button"
+        className="md-ovlink mono"
+        title={scene ? `jump to ${scene} scene + select ${oid}` : `select ${oid}`}
+        onClick={() => onSelect?.(oid, scene || undefined)}
+      >
+        {oid}
+      </button>,
+    )
+    last = m.index + m[0].length
+    n++
+  }
+  if (last < text.length) {
+    textRun(text.slice(last), out, `${keyBase}-${n}`, bold)
   }
   return out
 }
 
-function isTableRow(line: string): boolean {
-  const t = line.trim()
-  return t.startsWith('|') && t.endsWith('|') && t.includes('|')
+function isSepRow(line: string): boolean {
+  // trailing pipe optional — `| --- | ---` must still close a table header
+  return /^\|[\s:|-]+\|?$/.test(line.trim())
 }
 
-function isSepRow(line: string): boolean {
-  return /^\|[\s:|-]+\|$/.test(line.trim())
+function isTableRow(line: string): boolean {
+  const t = line.trim()
+  // leading pipe + at least one more pipe (a lone `| foo` stays prose);
+  // a bare separator like `| ---` counts too
+  return t.startsWith('|') && (t.indexOf('|', 1) !== -1 || isSepRow(t))
+}
+
+function rowCells(line: string): string[] {
+  let t = line.trim().slice(1) // leading |
+  if (t.endsWith('|')) t = t.slice(0, -1) // trailing | optional
+  return t.split('|').map((c) => c.trim())
 }
 
 export function renderMarkdown(text: string,
@@ -80,28 +231,28 @@ export function renderMarkdown(text: string,
       const rows: string[][] = []
       let header: string[] | null = null
       while (i < lines.length && isTableRow(lines[i])) {
-        const cells = lines[i].trim().slice(1, -1).split('|').map((c) => c.trim())
         if (isSepRow(lines[i])) {
           header = rows.pop() ?? null // previous row was the header
         } else {
-          rows.push(cells)
+          rows.push(rowCells(lines[i]))
         }
         i++
       }
-      const body = header ? rows : rows
       out.push(
-        <table key={`t${key++}`} className="md-table">
-          {header && (
-            <thead>
-              <tr>{header.map((c, j) => <th key={j}>{inline(c, `h${key}-${j}`, onSelect)}</th>)}</tr>
-            </thead>
-          )}
-          <tbody>
-            {body.map((r, ri) => (
-              <tr key={ri}>{r.map((c, j) => <td key={j}>{inline(c, `c${key}-${ri}-${j}`, onSelect)}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>,
+        <div key={`t${key++}`} className="md-table-wrap">
+          <table className="md-table">
+            {header && (
+              <thead>
+                <tr>{header.map((c, j) => <th key={j}>{inline(c, `h${key}-${j}`, onSelect)}</th>)}</tr>
+              </thead>
+            )}
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>{r.map((c, j) => <td key={j}>{inline(c, `c${key}-${ri}-${j}`, onSelect)}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
       )
       continue
     }

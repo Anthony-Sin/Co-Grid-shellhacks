@@ -119,12 +119,16 @@
 }
 
 .agent-log {
-  max-height: 260px;
+  max-height: min(40vh, 340px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 4px 2px;
+}
+
+.agent-bar.is-expanded .agent-log {
+  max-height: 60vh;
 }
 
 .agent-msg {
@@ -154,6 +158,71 @@
   font-style: italic;
 }
 
+/* honest failure / cancellation surface — never silent */
+.agent-msg.error {
+  border: 1px dashed rgba(43, 43, 43, 0.6);
+}
+
+.agent-msg.error::before {
+  content: '⚠ ';
+}
+
+.agent-msg.note {
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.agent-trace {
+  margin-bottom: 5px;
+  font-size: 10px;
+}
+
+.agent-trace summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-trace summary::before {
+  content: '▸ ';
+}
+
+.agent-trace[open] summary::before {
+  content: '▾ ';
+}
+
+.agent-trace-row {
+  margin: 3px 0 0 8px;
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+
+.agent-trace-preview {
+  margin: 1px 0 0 10px;
+  font-size: 9.5px;
+  opacity: 0.7;
+  white-space: pre-wrap;
+}
+
+.agent-meta {
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.agent-flag {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-style: italic;
+  opacity: 0.6;
+}
+
 .agent-tools {
   font-size: 10px;
   font-weight: 700;
@@ -174,6 +243,12 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.agent-reasoning-body {
+  max-height: 110px;
+  overflow-y: auto;
+  white-space: pre-wrap;
 }
 
 .agent-input {
@@ -214,6 +289,10 @@
 .agent-input button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.agent-input button.agent-stop {
+  background: #7a3b32;
 }
 
 /* --- agent markdown render --- */
@@ -257,6 +336,10 @@
   margin: 2px 0;
   line-height: 1.4;
 }
+.md-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
 .md-table {
   border-collapse: collapse;
   font-size: 11px;
@@ -268,7 +351,9 @@
   border: 1px solid rgba(43, 43, 43, 0.25);
   padding: 2px 7px;
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 220px;
+  overflow-wrap: anywhere;
 }
 .md-table th {
   background: rgba(43, 43, 43, 0.08);
