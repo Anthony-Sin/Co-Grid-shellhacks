@@ -201,6 +201,24 @@ export interface NearbyResponse {
   neighbors: { overlap_id: string; distance_km: number; tier: number }[]
 }
 
+// ---------- /api/meta & /api/analysis/impacts ----------
+export interface MetaResponse {
+  /** artifact name -> {bytes, built_utc} */
+  processed: Record<string, { bytes: number; built_utc: string }>
+}
+
+export interface ImpactRow {
+  overlap_id: string
+  tier: number
+  timeline_overlap: boolean
+  est_savings_usd_range: { low: number | null; high: number | null } | null
+}
+
+export interface ImpactsResponse {
+  count: number
+  impacts: ImpactRow[]
+}
+
 // ---------- fetch helpers ----------
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path)
@@ -239,6 +257,9 @@ export const api = {
   agentBrief: (overlapId: string) => get<AgentBrief>(`/api/agent/brief/${overlapId}`),
 
   impact: (overlapId: string) => get<ImpactEstimate>(`/api/analysis/impact/${overlapId}`),
+  impacts: (top?: number) =>
+    get<ImpactsResponse>(`/api/analysis/impacts${top ? `?top=${top}` : ''}`),
+  meta: () => get<MetaResponse>('/api/meta'),
   nearby: (overlapId: string, radiusKm = 15) =>
     get<NearbyResponse>(`/api/analysis/nearby/${overlapId}?radius_km=${radiusKm}`),
   analysisBrief: (overlapId: string) =>

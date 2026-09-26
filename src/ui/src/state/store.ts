@@ -41,6 +41,10 @@ interface AppState {
   yearFilter: YearRange | null
   /** Draft text the agent bar should prefill (e.g. "ask about this" buttons) */
   agentPromptDraft: string | null
+  /** Overlap hovered in the ranked list — map zones highlight (brushing) */
+  hoveredOverlapId: string | null
+  /** Utility filter — records involving ANY selected utility pass */
+  utilityFilter: string[]
 
   setActiveScene: (scene: SceneId) => void
   selectOverlap: (id: string | null) => void
@@ -52,6 +56,9 @@ interface AppState {
   toggleLayer: (layer: keyof LayerFlags) => void
   setYearFilter: (range: YearRange | null) => void
   setAgentPromptDraft: (text: string | null) => void
+  setHoveredOverlap: (id: string | null) => void
+  toggleUtilityFilter: (utility: string) => void
+  clearUtilityFilter: () => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -66,6 +73,8 @@ export const useAppStore = create<AppState>()((set) => ({
   layers: { basemap: true, projects: true, zones: true, labels: true },
   yearFilter: null,
   agentPromptDraft: null,
+  hoveredOverlapId: null,
+  utilityFilter: [],
 
   setActiveScene: (scene) => set({ activeScene: scene }),
   // clearing focusTarget here: a deep-link ?focus= target is a one-shot —
@@ -84,4 +93,12 @@ export const useAppStore = create<AppState>()((set) => ({
     set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })),
   setYearFilter: (range) => set({ yearFilter: range }),
   setAgentPromptDraft: (text) => set({ agentPromptDraft: text }),
+  setHoveredOverlap: (id) => set({ hoveredOverlapId: id }),
+  toggleUtilityFilter: (utility) =>
+    set((s) => ({
+      utilityFilter: s.utilityFilter.includes(utility)
+        ? s.utilityFilter.filter((u) => u !== utility)
+        : [...s.utilityFilter, utility],
+    })),
+  clearUtilityFilter: () => set({ utilityFilter: [] }),
 }))
