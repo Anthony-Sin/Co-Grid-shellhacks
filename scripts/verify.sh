@@ -21,15 +21,28 @@ while IFS= read -r f; do
     echo "  OVER LIMIT: $f ($n lines)"
     fail=1
   fi
-done < <(find src -name '*.py' -o -name '*.tsx' -o -name '*.ts' | grep -v node_modules)
+done < <(find src -name '*.py' -o -name '*.tsx' -o -name '*.ts' -o -name '*.css' | grep -v node_modules)
 [ "$fail" -eq 0 ] && echo "  all source files <= 500 lines"
 
 echo
 echo "== processed artifacts present =="
 for f in projects.geojson overlaps.json basemap.geojson city_state.json; do
   p="data/processed/$f"
-  if [ -f "$p" ]; then echo "  ok $f ($(du -h "$p" | cut -f1))"; else echo "  MISSING $f — run scripts/pipeline.sh"; fi
+  if [ -f "$p" ]; then echo "  ok $f ($(du -h "$p" | cut -f1))"; else echo "  MISSING $f — run scripts/pipeline.sh"; fail=1; fi
 done
 
 echo
-echo "verify complete."
+echo "== no secrets / raw data / env dirs tracked (AGENTS.md §4) =="
+bad_tracked=$(git ls-files | grep -vE '^\.env\.example$' | grep -cE '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true)
+bad_raw=$(git ls-files 'data/raw/*' | grep -vcE '^data/raw/(\.gitkeep|README\.md)$' || true)
+if [ "$bad_tracked" -gt 0 ] || [ "$bad_raw" -gt 0 ]; then
+  echo "  TRACKED FILES THAT SHOULD NOT BE COMMITTED:"
+  git ls-files | grep -vE '^\.env\.example$' | grep -E '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true
+  git ls-files 'data/raw/*' | grep -vE '^data/raw/(\.gitkeep|README\.md)$' || true
+  fail=1
+else
+  echo "  clean — no .env/venv/node_modules/secrets/raw-data tracked"
+fi
+
+echo
+if [ "$fail" -eq 0 ]; then echo "verify complete."; else echo "verify FAILED — see flagged items above"; exit 1; fi

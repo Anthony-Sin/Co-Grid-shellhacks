@@ -1,7 +1,7 @@
 """Build projects.geojson from the curated seed file + real HIFLD anchors.
 
 Seed file: data/seeds/projects_seed_statewide.json — the curated GA+SC
-statewide superset (283 filed projects; projects_seed.json's 73 corridor
+statewide superset (334 filed projects; projects_seed.json's 73 corridor
 records are its first 73). Authored ONLY from public filings
 (SCRTP/SERTP, GA/SC PSC dockets, IRPs). Each record supplies either
 explicit WGS84 geometry or named facilities resolved against downloaded
@@ -76,20 +76,40 @@ def _facility_index() -> list[tuple[str, str, float, float]]:
     return idx
 
 
+def _span_km(pts: set[tuple[float, float]]) -> float:
+    """Max pairwise haversine km across (lon,lat) points."""
+    import math
+    worst = 0.0
+    pts = list(pts)
+    for i, a in enumerate(pts):
+        for b in pts[i + 1:]:
+            p1, p2 = math.radians(a[1]), math.radians(b[1])
+            h = (math.sin(math.radians(b[1] - a[1]) / 2) ** 2
+                 + math.cos(p1) * math.cos(p2)
+                 * math.sin(math.radians(b[0] - a[0]) / 2) ** 2)
+            worst = max(worst, 2 * 6371 * math.asin(math.sqrt(h)))
+    return worst
+
+
 def resolve_facility(name: str, index: list[tuple[str, str, float, float]]) -> tuple[float, float]:
-    """Exact-normalized match, else unique substring match, else error."""
+    """Exact-normalized match, else unique substring match, else error.
+
+    Same-named entries within 0.5 km count as one facility (duplicate
+    nodes for a plant + its switchyard); farther apart they're genuinely
+    different sites sharing a name — error instead of silently picking.
+    """
     target = _norm(name)
-    exact = [r for r in index if r[0] == target]
-    if exact:
-        return exact[0][2], exact[0][3]
-    subs = [r for r in index if target in r[0] or r[0] in target]
-    uniq = {(r[2], r[3]) for r in subs}
-    if len(uniq) == 1:
-        return next(iter(uniq))
-    raise KeyError(
-        f"cannot resolve facility '{name}' "
-        f"({'ambiguous: '+str(sorted(uniq)) if uniq else 'no match in gazetteer/HIFLD'})"
-    )
+    for rows in ([r for r in index if r[0] == target],
+                 [r for r in index if target in r[0] or r[0] in target]):
+        uniq = {(r[2], r[3]) for r in rows}
+        if not uniq:
+            continue
+        if len(uniq) == 1 or _span_km(uniq) <= 0.5:
+            return sorted(uniq)[0]
+        raise KeyError(
+            f"cannot resolve facility '{name}' (ambiguous: {sorted(uniq)})"
+        )
+    raise KeyError(f"cannot resolve facility '{name}' (no match in gazetteer/HIFLD)")
 
 
 def build_geometry(seed: dict, index) -> tuple[dict, str]:

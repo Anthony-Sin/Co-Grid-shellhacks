@@ -53,12 +53,16 @@ the record and injects its real fields (tier, distance, timeline flags,
 shared/adjacent windows, zone) into the last user message as
 `[context: user selected {...}]`, so "explain this" resolves correctly.
 
-## Tools (15)
+## Tools (16)
 
 `stats` · `exec_summary` · `list_projects` · `get_project` · `top_overlaps` ·
 `get_overlap` · `projects_near` · `timeline_summary` · `impact_estimate`
 · `gazetteer` · `data_health` · `staging_clusters` · `playbook` ·
 `outage_conflicts` · `utility_matrix` · `define`
+
+`get_overlap` takes `overlap_id` (single) or `overlap_ids` (list ≤30,
+batch) — multi-record questions should use the list form so they don't
+burn a tool round per lookup inside the 6-round limit.
 
 ## Deterministic analysis (no model)
 
@@ -67,8 +71,8 @@ shared/adjacent windows, zone) into the last user message as
 | `/api/analysis/timeline` | yearly+quarterly bands, shared-window stats |
 | `/api/analysis/impacts?top=` | rough savings/crew math per overlap |
 | `/api/analysis/impact/{id}` | one overlap's impact detail |
-| `/api/analysis/clusters?radius_km=` | staging clusters (crew-yard rule) |
-| `/api/analysis/playbook?radius_km=&top=` | minimal season-years per cluster |
+| `/api/analysis/clusters?radius_km=` | yard-servable staging clusters + corridors |
+| `/api/analysis/playbook?radius_km=&top=` | minimal season-years per yard cluster |
 | `/api/analysis/calendar` | overlaps grouped by window start year |
 | `/api/analysis/conflicts` | mandatory joint-outage list (tier-1 + shared window) |
 | `/api/analysis/summary` | exec-summary card (dominant pair, peak season, top opportunity) |
@@ -76,6 +80,7 @@ shared/adjacent windows, zone) into the last user message as
 ## Failure modes (all handled server-side)
 
 - unconfigured → `configured:false`, chat → 503
-- provider 429/5xx → one retry, then `finish_reason:"error"`
+- provider 429/5xx → one retry, then `ChatError` → 502 (chat) or
+  `error`+`done` SSE events (stream) — never a hung stream
 - unknown tool / bad args → returned as data, model self-corrects
-- >8 rounds → hard stop, `finish_reason:"max_rounds"`
+- >6 rounds → hard stop, `finish_reason:"round_limit"`

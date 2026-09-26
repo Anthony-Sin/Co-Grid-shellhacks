@@ -46,8 +46,11 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "get_overlap": (
         tool_get_overlap,
-        "Full detail for one overlap record by overlap_id.",
-        {"overlap_id": "string (required)"},
+        "Full detail for overlap records. Pass overlap_id for one record, "
+        "or overlap_ids (list, <=30) to fetch several in one call — prefer "
+        "the list form for multi-record questions.",
+        {"overlap_id": "string (single record)",
+         "overlap_ids": "list<string> <=30 (batch fetch)"},
     ),
     "projects_near": (
         tool_projects_near,

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Full data pipeline: raw -> processed -> overlaps.
 # Run from repo root: ./scripts/pipeline.sh
-# (Download steps are separate: ./venv/bin/python -m src.ingestion.hifld_download
-#  and ./venv/bin/python -m src.ingestion.osm_download — network-bound.)
+# (Download steps are separate — network-bound, see README quick-start:
+#  hifld_download, osm_download, osm_pois, osm_power, osm_places,
+#  osm_borders, osm_roads_rivers.)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY=./venv/bin/python

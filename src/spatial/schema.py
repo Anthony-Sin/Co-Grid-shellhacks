@@ -9,7 +9,10 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Utility = Literal["GPC", "DESC", "SanteeCooper", "MEAG", "Other"]
+Utility = Literal[
+    "DESC", "GPC", "SanteeCooper", "GTC", "MEAG",
+    "DukeCarolinas", "DukeProgress", "DU", "GRID", "Other",
+]
 ProjectKind = Literal[
     "transmission_line", "substation", "plant", "upgrade", "reconductor"
 ]
@@ -31,6 +34,10 @@ class ProjectProps(BaseModel):
     location_confidence: LocationConfidence = "approximate"
     source: str = ""
     notes: str = ""
+    zones: list[str] = Field(default_factory=list)   # region tags (e.g. "savannah")
+    # how the geometry was produced: "explicit point" | "explicit line" |
+    # "HIFLD '<facility>'" | "endpoint straight-line" (gazetteer-resolved)
+    geometry_basis: str = ""
 
 
 class BasemapProps(BaseModel):
@@ -79,7 +86,7 @@ class OverlapRecord(BaseModel):
     score: float
     explanation: str = ""
     cost: Optional[dict] = None
-    zone: str = "savannah_river_corridor"
+    zone: str = "georgia_south_carolina"
     # GeoJSON polygon (WGS84): the "coordination zone" drawn as a hatched
     # highlight on the map — bridge between the two closest points.
     zone_geometry: Optional[dict] = None

@@ -1,5 +1,5 @@
 {
- "_readme": "Curated seed of REAL, publicly-filed planned projects \u2014 STATEWIDE superset of data/seeds/projects_seed.json. All 73 original records retained verbatim (Savannah River corridor + statewide coverage), plus additional real planned projects across Georgia (SERTP 2026 / GA ITS: metro Atlanta incl. Adamsville-East Point, Union City-Line Creek-Yates, Villa Rica-Wansley-Cavender corridors; Athens-Watkinsville-Winder; Macon-Warner Robins; Columbus-LaGrange-West Point-Farley; Albany/Valdosta/Moultrie; Rome-Bowen-Judy Mountain; Gainesville-Cornelia-Toccoa; Commerce-Middle Fork-East Walton; central GA Gordon-Sandersville-Warthen-Tomochichi-Rum Creek) and South Carolina (SCRTP 2026-2030 & 2024-2028 DESC filings: Charleston metro incl. Cainhoy-Clements Ferry-Jack Primus taps, Church Creek-Dawson-Faber Place; Columbia incl. VCS1-Denny Terrace/Pineland, Wateree-Killian/Hopkins, Scout/Millrace/Clements taps; Midlands Orangeburg-Cameron-Elloree; Pee Dee Conway-Marion-Red Bluff-Kingstree; Lowcountry Canadys-Ritter-Yemassee-Varnville; Santee Cooper committed table incl. Conway SS/Perry Rd, Varnville-Nixville, Indian Field, Batesburg). Every record cites a public source URL (SCRTP/SERTP plan docs, SC PSC dockets, GA ITS/IRPs). location_confidence: verified = named facility coordinate confirmed (OSM/HIFLD); endpoint_only = straight line between verified/named endpoint substations; approximate = town/site/community centroid or documented siting description, exact pad unpublished. NO fabricated entries; projects that could not be honestly located are omitted (see notes). Utility labels follow the existing seed (GPC, DESC, SanteeCooper, MEAG, GTC, DU, DukeCarolinas, DukeProgress \u2014 GTC/DU/Duke* exceed the Utility literal in src/spatial/schema.py but the ProjectProps.utility field is typed str).",
+ "_readme": "Curated seed of REAL, publicly-filed planned projects \u2014 STATEWIDE superset of data/seeds/projects_seed.json. All 73 original records retained verbatim (Savannah River corridor + statewide coverage), plus additional real planned projects across Georgia (SERTP 2026 / GA ITS: metro Atlanta incl. Adamsville-East Point, Union City-Line Creek-Yates, Villa Rica-Wansley-Cavender corridors; Athens-Watkinsville-Winder; Macon-Warner Robins; Columbus-LaGrange-West Point-Farley; Albany/Valdosta/Moultrie; Rome-Bowen-Judy Mountain; Gainesville-Cornelia-Toccoa; Commerce-Middle Fork-East Walton; central GA Gordon-Sandersville-Warthen-Tomochichi-Rum Creek) and South Carolina (SCRTP 2026-2030 & 2024-2028 DESC filings: Charleston metro incl. Cainhoy-Clements Ferry-Jack Primus taps, Church Creek-Dawson-Faber Place; Columbia incl. VCS1-Denny Terrace/Pineland, Wateree-Killian/Hopkins, Scout/Millrace/Clements taps; Midlands Orangeburg-Cameron-Elloree; Pee Dee Conway-Marion-Red Bluff-Kingstree; Lowcountry Canadys-Ritter-Yemassee-Varnville; Santee Cooper committed table incl. Conway SS/Perry Rd, Varnville-Nixville, Indian Field, Batesburg). Every record cites a public source URL (SCRTP/SERTP plan docs, SC PSC dockets, GA ITS/IRPs). location_confidence: verified = named facility coordinate confirmed (OSM/HIFLD); endpoint_only = straight line between verified/named endpoint substations; approximate = town/site/community centroid or documented siting description, exact pad unpublished. NO fabricated entries; projects that could not be honestly located are omitted (see notes). Second wave (+51): SERTP 2026 Preliminary Expansion Plan (SOCO/GTC/MEAG/DU/Duke* tables) + GA ITS Transmission 10-Year Plan via SELC hearing exhibits + SCRTP committed tables; adds GRID utility label (Gainesville RRC). Named stations use gazetteer-resolved facility/endpoints specs where available. Utility labels follow the existing seed (GPC, DESC, SanteeCooper, MEAG, GTC, DU, DukeCarolinas, DukeProgress \u2014 GTC/DU/Duke* exceed the Utility literal in src/spatial/schema.py but the ProjectProps.utility field is typed str).",
  "projects": [
   {
    "project_id": "DESC-JASPER-OKATIE-230-2",
@@ -166,7 +166,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://dms.psc.sc.gov/Attachments/Matter/9be1208b-209a-4827-9166-24ac7fe6b5d3 (Docket 2026-175-E, filed 7/2/2026, Exhibit A map)",
-   "notes": "B1272 ACSR->ACSS: Jasper\u2013Yemassee #1 (38.16 mi) & #2 (37.95 mi), Jasper\u2013Purrysburg #1&#2 (0.59 mi ea.), Jasper\u2013Okatie #2 (6.6 mi); 4000A terminals at Jasper/Okatie/Yemassee.",
+   "notes": "B1272 ACSR->ACSS: Jasper\u2013Yemassee #1 (38.16 mi) & #2 (37.95 mi), Jasper\u2013Purrysburg #1&#2 (0.59 mi ea.), Jasper\u2013Okatie #2 (6.6 mi); 4000A terminals at Jasper/Okatie/Yemassee. Jasper Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "savannah"
    ],
@@ -192,7 +192,7 @@
    "status": "proposed",
    "location_confidence": "endpoint_only",
    "source": "https://dms.psc.sc.gov/Attachments/Matter/9be1208b-209a-4827-9166-24ac7fe6b5d3 (Docket 2026-175-E p.4, Alternative B \u2014 evaluated w/ Southern Company & SCPSA, deferred)",
-   "notes": "Documented joint-line option ~3 mi across the river; DESC chose reconductor instead but flags it as future expansion strategy. Timeline unknown \u2014 flagged honestly.",
+   "notes": "Documented joint-line option ~3 mi across the river; DESC chose reconductor instead but flags it as future expansion strategy. Timeline unknown \u2014 flagged honestly. Jasper Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "savannah"
    ],
@@ -222,15 +222,9 @@
    "zones": [
     "augusta"
    ],
-   "line": [
-    [
-     -81.9092,
-     33.4334
-    ],
-    [
-     -81.6693,
-     33.5346
-    ]
+   "endpoints": [
+    "Urquhart Station",
+    "Toolebeck Substation"
    ]
   },
   {
@@ -366,10 +360,7 @@
    "zones": [
     "augusta"
    ],
-   "point": [
-    -81.9092,
-    33.4334
-   ]
+   "facility": "Urquhart Station"
   },
   {
    "project_id": "DESC-GRANITEVILLE-SANDBARFERRY-REACTOR",
@@ -458,10 +449,7 @@
    "zones": [
     "savannah"
    ],
-   "point": [
-    -81.1703,
-    32.3568
-   ]
+   "facility": "Plant McIntosh"
   },
   {
    "project_id": "GPC-MCINTOSH-PURRYSBURG-REACTORS",
@@ -526,7 +514,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP p.12, TEAMS 10785, need 6/1/2027, ~3.48 mi)",
-   "notes": "795 ACSR -> 1351 ACSS partial rebuild, Goshen(SAV) -> Kraft corridor, Chatham Co GA.",
+   "notes": "795 ACSR -> 1351 ACSS partial rebuild, Goshen(SAV) -> Kraft corridor, Chatham Co GA. Goshen = Effingham Co site (-81.21); gazetteer also lists a \"Goshen Substation\" near Augusta (-81.99) \u2014 kept explicit coords to avoid name collision.",
    "zones": [
     "savannah"
    ],
@@ -602,10 +590,7 @@
    "zones": [
     "savannah"
    ],
-   "point": [
-    -81.1751,
-    32.3521
-   ]
+   "facility": "McIntosh Substation"
   },
   {
    "project_id": "GPC-WEST-MCINTOSH-UPGRADES",
@@ -622,10 +607,7 @@
    "zones": [
     "savannah"
    ],
-   "point": [
-    -81.1825,
-    32.3544
-   ]
+   "facility": "West McIntosh Substation"
   },
   {
    "project_id": "GPC-CALVERT-WESTMCINTOSH-230",
@@ -642,15 +624,9 @@
    "zones": [
     "savannah"
    ],
-   "line": [
-    [
-     -81.4243,
-     32.3168
-    ],
-    [
-     -81.1825,
-     32.3544
-    ]
+   "endpoints": [
+    "UNKNOWN116860",
+    "West McIntosh Substation"
    ]
   },
   {
@@ -718,10 +694,7 @@
    "zones": [
     "savannah"
    ],
-   "point": [
-    -81.2532,
-    32.0068
-   ]
+   "facility": "Little Ogeechee Substation"
   },
   {
    "project_id": "GPC-MELDRIM-AUTOBANK",
@@ -738,10 +711,7 @@
    "zones": [
     "savannah"
    ],
-   "point": [
-    -81.3684,
-    32.1553
-   ]
+   "facility": "Meldrim Substation"
   },
   {
    "project_id": "GPC-COLEMAN-DEANFOREST-115",
@@ -758,15 +728,9 @@
    "zones": [
     "savannah"
    ],
-   "line": [
-    [
-     -81.2269,
-     32.1077
-    ],
-    [
-     -81.1887,
-     32.0835
-    ]
+   "endpoints": [
+    "UNKNOWN112065",
+    "Dean Forest Substation"
    ]
   },
   {
@@ -784,15 +748,9 @@
    "zones": [
     "savannah"
    ],
-   "line": [
-    [
-     -81.2269,
-     32.1077
-    ],
-    [
-     -81.3684,
-     32.1553
-    ]
+   "endpoints": [
+    "UNKNOWN112065",
+    "Meldrim Substation"
    ]
   },
   {
@@ -810,15 +768,9 @@
    "zones": [
     "savannah"
    ],
-   "line": [
-    [
-     -81.1445,
-     32.0412
-    ],
-    [
-     -81.0484,
-     32.0668
-    ]
+   "endpoints": [
+    "Boulevard Substation",
+    "Deptford Substation"
    ]
   },
   {
@@ -918,10 +870,7 @@
    "zones": [
     "augusta"
    ],
-   "point": [
-    -82.4142,
-    33.454
-   ]
+   "facility": "Thomson Primary Substation"
   },
   {
    "project_id": "GPC-EVANS-THURMOND-115",
@@ -938,15 +887,9 @@
    "zones": [
     "augusta"
    ],
-   "line": [
-    [
-     -82.1686,
-     33.544
-    ],
-    [
-     -82.1959,
-     33.6601
-    ]
+   "endpoints": [
+    "Evans Primary Substation",
+    "Thurmond Substation"
    ]
   },
   {
@@ -964,15 +907,9 @@
    "zones": [
     "augusta"
    ],
-   "line": [
-    [
-     -82.1686,
-     33.544
-    ],
-    [
-     -82.4142,
-     33.454
-    ]
+   "endpoints": [
+    "Evans Primary Substation",
+    "Thomson Primary Substation"
    ]
   },
   {
@@ -1066,15 +1003,9 @@
    "zones": [
     "charleston"
    ],
-   "line": [
-    [
-     -79.8423,
-     32.9414
-    ],
-    [
-     -79.7884,
-     32.8599
-    ]
+   "endpoints": [
+    "Cainhoy Substation",
+    "Hamlin Substation"
    ]
   },
   {
@@ -1148,15 +1079,9 @@
    "zones": [
     "columbia"
    ],
-   "line": [
-    [
-     -81.0407,
-     33.9803
-    ],
-    [
-     -81.0116,
-     33.9723
-    ]
+   "endpoints": [
+    "COIT GT",
+    "UNKNOWN170222"
    ]
   },
   {
@@ -1220,15 +1145,9 @@
    "zones": [
     "west_sc"
    ],
-   "line": [
-    [
-     -82.2015,
-     33.7363
-    ],
-    [
-     -82.2928,
-     33.9065
-    ]
+   "endpoints": [
+    "Modoc Substation",
+    "McCormick Substation"
    ]
   },
   {
@@ -1346,7 +1265,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24, ISD 6/1/2029, ~22 mi)",
-   "notes": "~22 mi rebuild of Kingstree\u2013Hemingway 115 kV as 230/115 double circuit \u2014 second 230 kV source into the Hemingway/Conway area. OSM Kingstree + Hemingway substations.",
+   "notes": "~22 mi rebuild of Kingstree\u2013Hemingway 115 kV as 230/115 double circuit \u2014 second 230 kV source into the Hemingway/Conway area. OSM Kingstree + Hemingway substations. Kingstree Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "peedee"
    ],
@@ -1376,15 +1295,9 @@
    "zones": [
     "peedee"
    ],
-   "line": [
-    [
-     -79.4133,
-     34.1566
-    ],
-    [
-     -78.8527,
-     33.93
-    ]
+   "endpoints": [
+    "UNKNOWN121770",
+    "UNKNOWN121596"
    ]
   },
   {
@@ -1480,15 +1393,9 @@
    "zones": [
     "athens"
    ],
-   "line": [
-    [
-     -83.3461,
-     33.9766
-    ],
-    [
-     -83.3845,
-     33.8604
-    ]
+   "endpoints": [
+    "ATHENA",
+    "EAST WATKINSVILLE"
    ]
   },
   {
@@ -1506,15 +1413,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.3021,
-     33.6086
-    ],
-    [
-     -84.3335,
-     33.6059
-    ]
+   "endpoints": [
+    "Ellenwood Substation",
+    "Morrow Substation"
    ]
   },
   {
@@ -1528,7 +1429,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027, ~24.3 mi)",
-   "notes": "1351 ACSR Drake rebuild Washington -> Jefferson Co + limiting-element replacements; drawn 24.9 mi vs filed 24.3 mi. OSM Sandersville #1 + Wadley substations.",
+   "notes": "1351 ACSR Drake rebuild Washington -> Jefferson Co + limiting-element replacements; drawn 24.9 mi vs filed 24.3 mi. OSM Sandersville #1 + Wadley substations. Wadley Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "central_ga"
    ],
@@ -1554,7 +1455,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2031)",
-   "notes": "New 500 kV line Plant Hatch -> Wadley Primary, (3) 1113 ACSR 100\u00b0C \u2014 backbone corridor through central-south GA. OSM Hatch + Wadley substations.",
+   "notes": "New 500 kV line Plant Hatch -> Wadley Primary, (3) 1113 ACSR 100\u00b0C \u2014 backbone corridor through central-south GA. OSM Hatch + Wadley substations. Wadley Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "central_ga"
    ],
@@ -1584,15 +1485,9 @@
    "zones": [
     "south_ga"
    ],
-   "line": [
-    [
-     -81.9249,
-     31.6031
-    ],
-    [
-     -82.1437,
-     31.423
-    ]
+   "endpoints": [
+    "Jesup Substation",
+    "OFFERMAN"
    ]
   },
   {
@@ -1662,15 +1557,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.3673,
-     33.482
-    ],
-    [
-     -84.2794,
-     33.2156
-    ]
+   "endpoints": [
+    "O'HARA",
+    "UNKNOWN116029"
    ]
   },
   {
@@ -1684,7 +1573,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2029, ~7.5 mi section)",
-   "notes": "Rebuild Nelson \u2013 McClain Mountain \u2013 Big Canoe section (~7.5 mi) of the Dawson Crossing\u2013Nelson BLACK circuit, 795 ACSS 200\u00b0C. Parallel WHITE circuit is Dalton Utilities' 2030 rebuild \u2014 same corridor, literal shared ROW. OSM Dawson Crossing + Nelson substations.",
+   "notes": "Rebuild Nelson \u2013 McClain Mountain \u2013 Big Canoe section (~7.5 mi) of the Dawson Crossing\u2013Nelson BLACK circuit, 795 ACSS 200\u00b0C. Parallel WHITE circuit is Dalton Utilities' 2030 rebuild \u2014 same corridor, literal shared ROW. OSM Dawson Crossing + Nelson substations. Nelson Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -1710,7 +1599,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/DU Dalton Utilities, in-service 2030, ~15.7 mi)",
-   "notes": "1351 ACSS Martin rebuild of the parallel WHITE circuit, Dawson Co -> Pickens Co; same corridor as GTC's BLACK-circuit rebuild (2029). OSM Dawson Crossing + Nelson substations.",
+   "notes": "1351 ACSS Martin rebuild of the parallel WHITE circuit, Dawson Co -> Pickens Co; same corridor as GTC's BLACK-circuit rebuild (2029). OSM Dawson Crossing + Nelson substations. Nelson Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -1792,13 +1681,13 @@
    "status": "planned",
    "location_confidence": "approximate",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/MEAG, in-service 2028)",
-   "notes": "New 230/115 kV sub relocating all lines except South Coweta + Griffin #1 from the existing South Griffin sub; terminates the converted Hampton 230 kV line. Site approx at unnamed OSM 115 kV yard S of Griffin \u2014 existing pad name unpublished.",
+   "notes": "New 230/115 kV sub relocating all lines except South Coweta + Griffin #1 from the existing South Griffin sub; terminates the converted Hampton 230 kV line. Site approx at unnamed OSM 115 kV yard S of Griffin \u2014 existing pad name unpublished. Anchor pinned explicitly - nearest OSM yard is unnamed (HIFLD id UNKNOWN116029).",
    "zones": [
     "atlanta"
    ],
    "point": [
-    -84.2794,
-    33.2156
+    -84.279383958,
+    33.2156255560001
    ]
   },
   {
@@ -1816,15 +1705,9 @@
    "zones": [
     "columbus"
    ],
-   "line": [
-    [
-     -84.9156,
-     32.6102
-    ],
-    [
-     -84.6932,
-     32.5888
-    ]
+   "endpoints": [
+    "Fortson Substation",
+    "Talbot County Energy Substation"
    ]
   },
   {
@@ -1914,15 +1797,9 @@
    "zones": [
     "west_sc"
    ],
-   "line": [
-    [
-     -81.5644,
-     33.9135
-    ],
-    [
-     -81.7662,
-     33.9973
-    ]
+   "endpoints": [
+    "Batesburg Substation",
+    "Saluda Substation"
    ]
   },
   {
@@ -1966,10 +1843,7 @@
    "zones": [
     "lowcountry"
    ],
-   "point": [
-    -80.3539,
-    32.7153
-   ]
+   "facility": "Adams Run Substation"
   },
   {
    "project_id": "DESC-FLATROCK-115",
@@ -2028,7 +1902,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.scrtp.com/assets/pdfs/home/2026-2030-2million-and-above-project-descriptions.pdf (Project 18 of 54, ISD 9/2027, Planned)",
-   "notes": "Upgrade 336 ACSR portion of DESCSQ #1151-Yemassee 115 kV line to 1272 ACSR for solar interconnection. OSM Fairfax + Yemassee substations.",
+   "notes": "Upgrade 336 ACSR portion of DESCSQ #1151-Yemassee 115 kV line to 1272 ACSR for solar interconnection. OSM Fairfax + Yemassee substations. Fairfax Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "lowcountry"
    ],
@@ -2058,15 +1932,9 @@
    "zones": [
     "midlands"
    ],
-   "line": [
-    [
-     -80.1253,
-     33.4234
-    ],
-    [
-     -80.1655,
-     33.954
-    ]
+   "endpoints": [
+    "UNKNOWN151891",
+    "Mayesville Switching Station"
    ]
   },
   {
@@ -2110,15 +1978,9 @@
    "zones": [
     "midlands"
    ],
-   "line": [
-    [
-     -80.709,
-     33.5637
-    ],
-    [
-     -80.5797,
-     33.5324
-    ]
+   "endpoints": [
+    "UNKNOWN151280",
+    "Elloree Substation"
    ]
   },
   {
@@ -2318,15 +2180,9 @@
    "zones": [
     "midlands"
    ],
-   "line": [
-    [
-     -80.8889,
-     33.4595
-    ],
-    [
-     -80.709,
-     33.5637
-    ]
+   "endpoints": [
+    "Orangeburg Primary Substation",
+    "UNKNOWN151280"
    ]
   },
   {
@@ -2344,15 +2200,9 @@
    "zones": [
     "midlands"
    ],
-   "line": [
-    [
-     -81.3286,
-     34.2904
-    ],
-    [
-     -81.0616,
-     34.0576
-    ]
+   "endpoints": [
+    "Virgil C. Summer Nuclear #2/3 Switching Station",
+    "Denny Terrace Substation"
    ]
   },
   {
@@ -2370,15 +2220,9 @@
    "zones": [
     "midlands"
    ],
-   "line": [
-    [
-     -81.3286,
-     34.2904
-    ],
-    [
-     -81.1503,
-     32.6119
-    ]
+   "endpoints": [
+    "Virgil C. Summer Nuclear #2/3 Switching Station",
+    "Pineland Substation"
    ]
   },
   {
@@ -2730,15 +2574,9 @@
    "zones": [
     "west_sc"
    ],
-   "line": [
-    [
-     -81.3286,
-     34.2904
-    ],
-    [
-     -81.6977,
-     33.8722
-    ]
+   "endpoints": [
+    "Virgil C. Summer Nuclear #2/3 Switching Station",
+    "Ward Substation"
    ]
   },
   {
@@ -2808,10 +2646,7 @@
    "zones": [
     "lowcountry"
    ],
-   "point": [
-    -80.6206,
-    33.0641
-   ]
+   "facility": "Canadys Substation"
   },
   {
    "project_id": "SCPSA-CONWAY-230-SS",
@@ -2890,13 +2725,13 @@
    "status": "under_construction",
    "location_confidence": "approximate",
    "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24 + description, ISD 12/1/2026)",
-   "notes": "New Indian Field 230-115 kV sub folds in the Harleyville-St George 115 kV line; Indian Fields community area W of St George (exact pad unpublished).",
+   "notes": "New Indian Field 230-115 kV sub folds in the Harleyville-St George 115 kV line; Indian Fields community area W of St George (exact pad unpublished). Anchor pinned explicitly - nearest OSM yard is unnamed (HIFLD id UNKNOWN120983).",
    "zones": [
     "lowcountry"
    ],
    "point": [
-    -80.5307,
-    33.1735
+    -80.530683321,
+    33.173464299
    ]
   },
   {
@@ -2914,10 +2749,7 @@
    "zones": [
     "west_sc"
    ],
-   "point": [
-    -81.5644,
-    33.9135
-   ]
+   "facility": "Batesburg Substation"
   },
   {
    "project_id": "SCPSA-VARNVILLE-NIXVILLE-115",
@@ -3240,15 +3072,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.4522,
-     33.6904
-    ],
-    [
-     -84.3335,
-     33.6059
-    ]
+   "endpoints": [
+    "East Point Water Works Substation",
+    "Morrow Substation"
    ]
   },
   {
@@ -3266,15 +3092,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.4522,
-     33.6904
-    ],
-    [
-     -84.3335,
-     33.6059
-    ]
+   "endpoints": [
+    "East Point Water Works Substation",
+    "Morrow Substation"
    ]
   },
   {
@@ -3288,7 +3108,7 @@
    "status": "planned",
    "location_confidence": "approximate",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2035)",
-   "notes": "Rebuild a section of the East Point-Union City (White) 230 kV line; replace limiting elements.",
+   "notes": "Rebuild a section of the East Point-Union City (White) 230 kV line; replace limiting elements. Union Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -3298,8 +3118,8 @@
      33.6904
     ],
     [
-     -84.54,
-     33.58
+     -84.5091,
+     33.5532
     ]
    ]
   },
@@ -3314,7 +3134,7 @@
    "status": "planned",
    "location_confidence": "approximate",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027)",
-   "notes": "Install fiber on the East Point-Union City 230 kV corridor.",
+   "notes": "Install fiber on the East Point-Union City 230 kV corridor. Union Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -3324,8 +3144,8 @@
      33.6904
     ],
     [
-     -84.54,
-     33.58
+     -84.5091,
+     33.5532
     ]
    ]
   },
@@ -3346,8 +3166,8 @@
    ],
    "line": [
     [
-     -84.54,
-     33.58
+     -84.5091,
+     33.5532
     ],
     [
      -84.54,
@@ -3396,7 +3216,7 @@
    "status": "planned",
    "location_confidence": "approximate",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2030 - two projects)",
-   "notes": "Rebuild 16.5 mi each of the Yates-Line Creek (Green) and (Red) 230 kV lines with 200C 1351 ACSS Martin.",
+   "notes": "Rebuild 16.5 mi each of the Yates-Line Creek (Green) and (Red) 230 kV lines with 200C 1351 ACSS Martin. Union Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -3406,8 +3226,8 @@
      33.4612
     ],
     [
-     -84.54,
-     33.5
+     -84.5091,
+     33.5532
     ]
    ]
   },
@@ -3426,15 +3246,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.3335,
-     33.6059
-    ],
-    [
-     -84.9042,
-     33.4616
-    ]
+   "endpoints": [
+    "Morrow Substation",
+    "Yates Common Substation"
    ]
   },
   {
@@ -3474,7 +3288,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2027)",
-   "notes": "Relay protection upgrade on the Jonesboro-Morrow 115 kV line; both endpoints OSM-verified.",
+   "notes": "Relay protection upgrade on the Jonesboro-Morrow 115 kV line; both endpoints OSM-verified. Jonesboro Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
@@ -3662,8 +3476,8 @@
    ],
    "line": [
     [
-     -84.02,
-     33.66
+     -84.0428,
+     33.6977
     ],
     [
      -84.1245,
@@ -3692,8 +3506,8 @@
      33.8681
     ],
     [
-     -84.02,
-     33.66
+     -84.0428,
+     33.6977
     ]
    ]
   },
@@ -3712,10 +3526,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -83.8824,
-    33.8681
-   ]
+   "facility": "Bay Creek Substation"
   },
   {
    "project_id": "GTC-EASTSOCIAL-SNELLVILLE-230",
@@ -3732,15 +3543,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -83.6793,
-     33.6739
-    ],
-    [
-     -84.0481,
-     33.8389
-    ]
+   "endpoints": [
+    "EAST SOCIAL CIRCLE",
+    "Snellville Substation"
    ]
   },
   {
@@ -3784,15 +3589,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.0008,
-     33.986
-    ],
-    [
-     -83.7531,
-     33.9955
-    ]
+   "endpoints": [
+    "Lawrenceville Primary Substation",
+    "Winder Primary Substation"
    ]
   },
   {
@@ -3810,15 +3609,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.0008,
-     33.986
-    ],
-    [
-     -83.7531,
-     33.9955
-    ]
+   "endpoints": [
+    "Lawrenceville Primary Substation",
+    "Winder Primary Substation"
    ]
   },
   {
@@ -3836,15 +3629,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -83.6988,
-     33.8379
-    ],
-    [
-     -83.7531,
-     33.9955
-    ]
+   "endpoints": [
+    "Doyle Substation",
+    "Winder Primary Substation"
    ]
   },
   {
@@ -3862,15 +3649,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -83.6988,
-     33.8379
-    ],
-    [
-     -83.6952,
-     33.8147
-    ]
+   "endpoints": [
+    "Doyle Substation",
+    "WALTON COUNTY POWER LLC"
    ]
   },
   {
@@ -3888,10 +3669,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -83.9659,
-    33.2852
-   ]
+   "facility": "Jackson Substation"
   },
   {
    "project_id": "GTC-MORNINGHORNET-BANK",
@@ -4026,15 +3804,9 @@
    "zones": [
     "athens"
    ],
-   "line": [
-    [
-     -83.5795,
-     33.9778
-    ],
-    [
-     -83.7531,
-     33.9955
-    ]
+   "endpoints": [
+    "Jefferson Rd Substation",
+    "Winder Primary Substation"
    ]
   },
   {
@@ -4052,10 +3824,7 @@
    "zones": [
     "athens"
    ],
-   "point": [
-    -83.7531,
-    33.9955
-   ]
+   "facility": "Winder Primary Substation"
   },
   {
    "project_id": "GPC-ELLENWOOD-NETWORK",
@@ -4072,10 +3841,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.3021,
-    33.6086
-   ]
+   "facility": "Ellenwood Substation"
   },
   {
    "project_id": "GPC-BIGSHANTY-500-BREAKER",
@@ -4092,10 +3858,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.5689,
-    33.9945
-   ]
+   "facility": "Big Shanty Substation"
   },
   {
    "project_id": "GPC-MORROW-BREAKER",
@@ -4112,10 +3875,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.3335,
-    33.6059
-   ]
+   "facility": "Morrow Substation"
   },
   {
    "project_id": "GPC-EASTPOINT-BREAKERS",
@@ -4132,10 +3892,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.4522,
-    33.6904
-   ]
+   "facility": "East Point Water Works Substation"
   },
   {
    "project_id": "GPC-SWITCHWAY-BREAKERS",
@@ -4186,15 +3943,15 @@
    "start_year": 2028,
    "end_year": 2030,
    "status": "planned",
-   "location_confidence": "approximate",
+   "location_confidence": "verified",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2029 + 2030)",
-   "notes": "Replace overstressed 230 kV breakers at Union City Primary + limiting line trap for the Ashley Park 500 kV line.",
+   "notes": "Replace overstressed 230 kV breakers at Union City Primary + limiting line trap for the Ashley Park 500 kV line. Union Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "atlanta"
    ],
    "point": [
-    -84.54,
-    33.58
+    -84.5090666,
+    33.5531702
    ]
   },
   {
@@ -4212,10 +3969,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.3673,
-    33.482
-   ]
+   "facility": "O'HARA"
   },
   {
    "project_id": "GPC-HILLVIEW-GRASSYHOLLOW-230",
@@ -4272,10 +4026,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.8548,
-    33.741
-   ]
+   "facility": "Villa Rica Substation"
   },
   {
    "project_id": "GPC-EASTVILLARICA-SS",
@@ -4786,15 +4537,9 @@
    "zones": [
     "atlanta"
    ],
-   "line": [
-    [
-     -84.2013,
-     33.0321
-    ],
-    [
-     -84.2794,
-     33.2156
-    ]
+   "endpoints": [
+    "Barnesville Primary Substation",
+    "UNKNOWN116029"
    ]
   },
   {
@@ -4812,15 +4557,9 @@
    "zones": [
     "central_ga"
    ],
-   "line": [
-    [
-     -84.2013,
-     33.0321
-    ],
-    [
-     -84.3125,
-     32.8999
-    ]
+   "endpoints": [
+    "Barnesville Primary Substation",
+    "Thomaston Primary Substation"
    ]
   },
   {
@@ -4864,10 +4603,7 @@
    "zones": [
     "macon"
    ],
-   "point": [
-    -83.6262,
-    32.8203
-   ]
+   "facility": "South Macon Substation"
   },
   {
    "project_id": "GPC-BROADWAY-SOUTHMACON-115",
@@ -4936,15 +4672,9 @@
    "zones": [
     "central_ga"
    ],
-   "line": [
-    [
-     -83.5996,
-     32.5651
-    ],
-    [
-     -83.1614,
-     32.2133
-    ]
+   "endpoints": [
+    "BONAIRE",
+    "UNKNOWN112006"
    ]
   },
   {
@@ -4962,10 +4692,7 @@
    "zones": [
     "macon"
    ],
-   "point": [
-    -83.5996,
-    32.5651
-   ]
+   "facility": "BONAIRE"
   },
   {
    "project_id": "MEAG-BARNESVILLE-BANKB",
@@ -4982,10 +4709,7 @@
    "zones": [
     "central_ga"
    ],
-   "point": [
-    -84.2013,
-    33.0321
-   ]
+   "facility": "Barnesville Primary Substation"
   },
   {
    "project_id": "GPC-BULLSLUICE-POWERSFERRY-230",
@@ -5048,15 +4772,9 @@
    "zones": [
     "macon"
    ],
-   "line": [
-    [
-     -83.6989,
-     32.9272
-    ],
-    [
-     -83.8418,
-     33.3208
-    ]
+   "endpoints": [
+    "ARKWRIGHT",
+    "Lloyd Shoals Dam"
    ]
   },
   {
@@ -5100,10 +4818,7 @@
    "zones": [
     "central_ga"
    ],
-   "point": [
-    -83.8418,
-    33.3208
-   ]
+   "facility": "Lloyd Shoals Dam"
   },
   {
    "project_id": "GPC-BARNESVILLE-115-NETWORK",
@@ -5146,15 +4861,9 @@
    "zones": [
     "central_ga"
    ],
-   "line": [
-    [
-     -83.0091,
-     33.016
-    ],
-    [
-     -82.8327,
-     33.0018
-    ]
+   "endpoints": [
+    "Deepstep Substation",
+    "Sandersville Substation #6"
    ]
   },
   {
@@ -5172,10 +4881,7 @@
    "zones": [
     "central_ga"
    ],
-   "point": [
-    -83.3169,
-    32.8825
-   ]
+   "facility": "Gordon Substation"
   },
   {
    "project_id": "GPC-WARTHEN-500-RECONFIG",
@@ -5192,10 +4898,7 @@
    "zones": [
     "central_ga"
    ],
-   "point": [
-    -82.8594,
-    33.1199
-   ]
+   "facility": "WARTHEN SUBSTATION"
   },
   {
    "project_id": "GTC-RIDDLEVILLE-115",
@@ -5338,15 +5041,9 @@
    "zones": [
     "columbus"
    ],
-   "line": [
-    [
-     -84.8,
-     33.38
-    ],
-    [
-     -84.6932,
-     32.5888
-    ]
+   "endpoints": [
+    "Dresden Substation",
+    "Talbot County Energy Substation"
    ]
   },
   {
@@ -5410,16 +5107,13 @@
    "start_year": 2028,
    "end_year": 2031,
    "status": "planned",
-   "location_confidence": "approximate",
+   "location_confidence": "verified",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2029 + 2031 jumper replacement)",
    "notes": "Replace five overstressed 230 kV breakers at Dresden; also replace Dresden-Yates 230 kV limiting jumpers (two filed GTC projects).",
    "zones": [
     "columbus"
    ],
-   "point": [
-    -84.8,
-    33.38
-   ]
+   "facility": "Dresden Substation"
   },
   {
    "project_id": "GTC-TALBOT-BREAKERS",
@@ -5436,10 +5130,7 @@
    "zones": [
     "columbus"
    ],
-   "point": [
-    -84.6932,
-    32.5888
-   ]
+   "facility": "Talbot County Energy Substation"
   },
   {
    "project_id": "GTC-HEARD-BREAKERS",
@@ -5476,10 +5167,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -85.0308,
-    33.411
-   ]
+   "facility": "Wansley Substation"
   },
   {
    "project_id": "GPC-TENASKA-BREAKERS",
@@ -5516,10 +5204,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.8965,
-    33.4612
-   ]
+   "facility": "Yates Switchyard"
   },
   {
    "project_id": "GPC-GOATROCK-REACTORS",
@@ -5536,10 +5221,7 @@
    "zones": [
     "columbus"
    ],
-   "point": [
-    -85.0825,
-    32.6083
-   ]
+   "facility": "Goat Rock Dam Substation"
   },
   {
    "project_id": "GPC-FIRSTAVE-NORTHCOLUMBUS-115",
@@ -5738,10 +5420,7 @@
    "zones": [
     "columbus"
    ],
-   "point": [
-    -84.9156,
-    32.6102
-   ]
+   "facility": "Fortson Substation"
   },
   {
    "project_id": "GPC-GREENVILLE-230-RINGBUS",
@@ -5758,10 +5437,7 @@
    "zones": [
     "columbus"
    ],
-   "point": [
-    -84.7197,
-    33.024
-   ]
+   "facility": "Greenville Primary Substation"
   },
   {
    "project_id": "MEAG-ATHENA-WARRENTON-230",
@@ -5982,10 +5658,7 @@
    "zones": [
     "athens"
    ],
-   "point": [
-    -83.3845,
-    33.8604
-   ]
+   "facility": "EAST WATKINSVILLE"
   },
   {
    "project_id": "GPC-BOWEN-JUDYMTN-230",
@@ -6106,10 +5779,7 @@
    "zones": [
     "north_ga"
    ],
-   "point": [
-    -84.9223,
-    34.1216
-   ]
+   "facility": "Bowen Substation"
   },
   {
    "project_id": "GPC-BOWEN10-AUTOBANK",
@@ -6126,10 +5796,7 @@
    "zones": [
     "north_ga"
    ],
-   "point": [
-    -84.9223,
-    34.1216
-   ]
+   "facility": "Bowen Substation"
   },
   {
    "project_id": "GPC-BREMEN-CROOKEDCREEK-115",
@@ -6192,15 +5859,9 @@
    "zones": [
     "north_ga"
    ],
-   "line": [
-    [
-     -83.8097,
-     34.263
-    ],
-    [
-     -83.8738,
-     34.2729
-    ]
+   "endpoints": [
+    "Gainesville Substation #2",
+    "McEver Road Substation"
    ]
   },
   {
@@ -6370,7 +6031,7 @@
    "status": "planned",
    "location_confidence": "endpoint_only",
    "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2034)",
-   "notes": "8.1 mi rebuild with 200C 1351 ACSS Martin; OSM Holly Springs + Nelson subs.",
+   "notes": "8.1 mi rebuild with 200C 1351 ACSS Martin; OSM Holly Springs + Nelson subs. Nelson Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
    "zones": [
     "north_ga"
    ],
@@ -6400,15 +6061,9 @@
    "zones": [
     "north_ga"
    ],
-   "line": [
-    [
-     -84.3858,
-     34.217
-    ],
-    [
-     -84.5348,
-     34.1952
-    ]
+   "endpoints": [
+    "Avery Substation",
+    "Holly Springs Substation"
    ]
   },
   {
@@ -6426,15 +6081,9 @@
    "zones": [
     "north_ga"
    ],
-   "line": [
-    [
-     -84.3858,
-     34.217
-    ],
-    [
-     -84.2834,
-     34.1742
-    ]
+   "endpoints": [
+    "Avery Substation",
+    "UNKNOWN111509"
    ]
   },
   {
@@ -6452,15 +6101,9 @@
    "zones": [
     "north_ga"
    ],
-   "line": [
-    [
-     -84.13,
-     34.1997
-    ],
-    [
-     -84.1336,
-     34.3781
-    ]
+   "endpoints": [
+    "Cumming Substation",
+    "Dawson Crossing Substation"
    ]
   },
   {
@@ -6602,15 +6245,9 @@
    "zones": [
     "south_ga"
    ],
-   "line": [
-    [
-     -82.1437,
-     31.4231
-    ],
-    [
-     -81.6808,
-     31.2934
-    ]
+   "endpoints": [
+    "Offerman Substation",
+    "Thalmann Substation"
    ]
   },
   {
@@ -6628,15 +6265,9 @@
    "zones": [
     "south_ga"
    ],
-   "line": [
-    [
-     -82.3993,
-     31.2233
-    ],
-    [
-     -82.4454,
-     31.8197
-    ]
+   "endpoints": [
+    "KETTLE CREEK PRIMARY",
+    "Pine Grove Substation"
    ]
   },
   {
@@ -6752,15 +6383,9 @@
    "zones": [
     "south_ga"
    ],
-   "line": [
-    [
-     -83.2924,
-     31.7293
-    ],
-    [
-     -83.5628,
-     31.9866
-    ]
+   "endpoints": [
+    "Fitzgerald Substation",
+    "PITTS"
    ]
   },
   {
@@ -6830,10 +6455,7 @@
    "zones": [
     "south_ga"
    ],
-   "point": [
-    -84.005,
-    30.9085
-   ]
+   "facility": "Thomasville Substation"
   },
   {
    "project_id": "GPC-BAINBRIDGE-TS",
@@ -6850,10 +6472,7 @@
    "zones": [
     "south_ga"
    ],
-   "point": [
-    -84.5488,
-    30.9115
-   ]
+   "facility": "East Bainbridge Substation"
   },
   {
    "project_id": "GTC-SOUTHHAZLEHURST-XFMR",
@@ -6890,10 +6509,7 @@
    "zones": [
     "atlanta"
    ],
-   "point": [
-    -84.5338,
-    33.3257
-   ]
+   "facility": "South Coweta Substation"
   },
   {
    "project_id": "GPC-LITTLEOGEECHEE-AUTOBANK",
@@ -6910,9 +6526,1125 @@
    "zones": [
     "savannah"
    ],
+   "facility": "Little Ogeechee Substation"
+  },
+  {
+   "project_id": "SCPSA-CAROLINAFOREST-TXF",
+   "utility": "SanteeCooper",
+   "name": "Carolina Forest 230-115 kV transformer addition",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2024,
+   "end_year": 2025,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.scrtp.com/assets/pdfs/meeting-archives/scrtp-meeting-2025-03-05-presentation.pdf (committed table p.24, ISD 12/1/2025)",
+   "notes": "Second transformer at the Carolina Forest 230-115 kV sub, Myrtle Beach load growth. OSM Carolina Forest Substation.",
+   "zones": [
+    "peedee"
+   ],
+   "facility": "Carolina Forest Substation"
+  },
+  {
+   "project_id": "DUKE-BUSHRIVER-LAURENS-100",
+   "utility": "DukeCarolinas",
+   "name": "Bush River Tie \u2013 Laurens Tie 100 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 100,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2026, 29 mi)",
+   "notes": "Full 29 mi double-circuit rebuild, 1158 ACSS/TW. Laurens Tie OSM-verified; Bush River end = unnamed OSM transmission yard in the Bush River corridor, Newberry Co (drawn ~27 mi).",
+   "zones": [
+    "midlands"
+   ],
+   "line": [
+    [
+     -81.649,
+     34.2523
+    ],
+    [
+     -82.0015,
+     34.5106
+    ]
+   ]
+  },
+  {
+   "project_id": "DUKE-OAKVALE-EGREENVILLE-100",
+   "utility": "DukeCarolinas",
+   "name": "Oakvale Tie \u2013 East Greenville Tie 100 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 100,
+   "start_year": 2026,
+   "end_year": 2027,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2027, 4.5 mi)",
+   "notes": "Rebuild the E. Greenville\u2013Verdae Retail 4.5 mi section (795 ACSS/TW) of the Oakvale\u2013E. Greenville line. E. Greenville = unnamed OSM Duke transmission yard NE Greenville; Verdae end approx on the Verdae Blvd corridor.",
+   "zones": [
+    "greenville"
+   ],
+   "line": [
+    [
+     -82.3234,
+     34.8977
+    ],
+    [
+     -82.32,
+     34.84
+    ]
+   ]
+  },
+  {
+   "project_id": "DUKE-HODGES-230-EXPANSION",
+   "utility": "DukeCarolinas",
+   "name": "Hodges Tie 230 kV switchyard expansion",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2027,
+   "end_year": 2028,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028)",
+   "notes": "Expand the 230 kV switchyard at Hodges Tie, Greenwood Co \u2014 long-lead item. Hodges community centroid; yard pad unpublished.",
+   "zones": [
+    "greenville"
+   ],
    "point": [
-    -81.2532,
-    32.0068
+    -82.2457,
+    34.2869
+   ]
+  },
+  {
+   "project_id": "DUKE-NGREENVILLE-TXF",
+   "utility": "DukeCarolinas",
+   "name": "North Greenville Tie 230/100 kV transformer replacement",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2027,
+   "end_year": 2028,
+   "status": "planned",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028)",
+   "notes": "Replace the 230/100 kV transformer at North Greenville Tie. OSM North Greenville Tie Substation.",
+   "zones": [
+    "greenville"
+   ],
+   "facility": "North Greenville Tie Substation"
+  },
+  {
+   "project_id": "DUKE-TIGER-CAMPOBELLO-100",
+   "utility": "DukeCarolinas",
+   "name": "Tiger Tie \u2013 Campobello 100 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 100,
+   "start_year": 2034,
+   "end_year": 2035,
+   "status": "planned",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2035, 11.8 mi)",
+   "notes": "11.8 mi 100 kV rebuild Tiger Tie -> Campobello Tie; drawn ~11.7 mi. OSM Tiger Tie + Campobello substations.",
+   "zones": [
+    "greenville"
+   ],
+   "endpoints": [
+    "TIGER TIE",
+    "CAMPOBELLO"
+   ]
+  },
+  {
+   "project_id": "DUKE-LEECC-BELTON-100",
+   "utility": "DukeCarolinas",
+   "name": "Lee CC \u2013 Belton Tie 100 kV new line",
+   "kind": "transmission_line",
+   "voltage_kv": 100,
+   "start_year": 2028,
+   "end_year": 2029,
+   "status": "planned",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2029, 6.4 mi)",
+   "notes": "New ~6.4 mi 100 kV line Lee CC -> Belton Tie; drawn ~5.9 mi. W.S. Lee plant + Belton Tie OSM-verified.",
+   "zones": [
+    "greenville"
+   ],
+   "endpoints": [
+    "W S LEE",
+    "Belton Tie Substation"
+   ]
+  },
+  {
+   "project_id": "DUKE-LEECC-LEESTEAM-100",
+   "utility": "DukeCarolinas",
+   "name": "Lee CC \u2013 Lee Steam 100 kV busline",
+   "kind": "upgrade",
+   "voltage_kv": 100,
+   "start_year": 2027,
+   "end_year": 2028,
+   "status": "planned",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028)",
+   "notes": "New 100 kV busline between Lee CC and Lee Steam within the W.S. Lee station complex, Anderson Co. Intra-site geometry shown at the plant point.",
+   "zones": [
+    "greenville"
+   ],
+   "facility": "W S LEE"
+  },
+  {
+   "project_id": "DUKE-LANCASTER-MONROE-100",
+   "utility": "DukeCarolinas",
+   "name": "Lancaster Main \u2013 Monroe Main 100 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 100,
+   "start_year": 2026,
+   "end_year": 2027,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2027, 23.8 mi)",
+   "notes": "23.8 mi double-circuit rebuild Lancaster Main (Lancaster Co SC) -> Monroe Main NC; drawn ~24 mi. Lancaster sub OSM-verified; Monroe end = Monroe NC centroid \u2014 NC pad unpublished.",
+   "zones": [
+    "midlands"
+   ],
+   "line": [
+    [
+     -80.7832,
+     34.7086
+    ],
+    [
+     -80.5495,
+     34.9854
+    ]
+   ]
+  },
+  {
+   "project_id": "DUKE-TIGER-TXF",
+   "utility": "DukeCarolinas",
+   "name": "Tiger Tie 230/100 kV autotransformer replacement",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2027,
+   "end_year": 2028,
+   "status": "planned",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2028)",
+   "notes": "Replace the autotransformer at Tiger Tie, Pickens Co. OSM Tiger Tie Substation.",
+   "zones": [
+    "greenville"
+   ],
+   "facility": "TIGER TIE"
+  },
+  {
+   "project_id": "DUKE-NEWPORT-MORNINGSTAR-230",
+   "utility": "DukeCarolinas",
+   "name": "Newport Tie \u2013 Morning Star 230 kV second line",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2033,
+   "end_year": 2035,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Carolinas BA, in-service 2035)",
+   "notes": "Second 230 kV line Newport Tie (York Co SC) -> Morning Star Tie (Gaston Co NC), bundled (2)1272 \u2014 part of the Newport 230 kV expansion. Newport OSM-verified; Morning Star approx (NC pad unpublished).",
+   "zones": [
+    "midlands"
+   ],
+   "line": [
+    [
+     -81.1213,
+     34.9979
+    ],
+    [
+     -81.18,
+     35.1
+    ]
+   ]
+  },
+  {
+   "project_id": "DUKEPROGRESS-CAMDENJCT-WATEREE-115",
+   "utility": "DukeProgress",
+   "name": "Camden Jct \u2013 DPC Wateree 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Duke Progress East BA, in-service 2026, ~5.27 mi)",
+   "notes": "Rebuild Camden Jct\u2013DPC Wateree 115 kV (795 ACSS/TW, ~5.27 mi). Camden Jct = tap junction approx on the Camden\u2013Wateree corridor (Camden sub proper is OSM-verified ~7.5 km NE at -80.541,34.302); Wateree end = HIFLD 'Camden South Carolina' plant yard at the Wateree River.",
+   "zones": [
+    "midlands"
+   ],
+   "line": [
+    [
+     -80.5945,
+     34.2476
+    ],
+    [
+     -80.656,
+     34.2338
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-ANTHONYSHOALS-WASHINGTON-115",
+   "utility": "GTC",
+   "name": "Anthony Shoals \u2013 Washington 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2024,
+   "end_year": 2025,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 20010, need 12/31/2025)",
+   "notes": "115 kV rebuild Anthony Shoals (Broad River hydro) -> Washington (Wilkes Co). Anthony Shoals OSM-verified; Washington end = town-centroid approx \u2014 GPC yard pad unpublished.",
+   "zones": [
+    "central_ga"
+   ],
+   "line": [
+    [
+     -82.6362,
+     34.0018
+    ],
+    [
+     -82.7392,
+     33.7359
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-ANTHONYSHOALS-STATCOM",
+   "utility": "GPC",
+   "name": "Anthony Shoals STATCOM",
+   "kind": "substation",
+   "voltage_kv": 115,
+   "start_year": 2024,
+   "end_year": 2025,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 20326, need 12/31/2025)",
+   "notes": "STATCOM installation at Anthony Shoals substation, Elbert/Wilkes Co area. OSM Anthony Shoals Substation.",
+   "zones": [
+    "central_ga"
+   ],
+   "facility": "ANTHONY SHOALS"
+  },
+  {
+   "project_id": "GTC-CAMDENIND-230115",
+   "utility": "GTC",
+   "name": "Camden Industrial Park 230/115 kV substation",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2024,
+   "end_year": 2025,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 20342, need 6/1/2025)",
+   "notes": "New 230/115 kV sub for the Camden Industrial Park load, Camden Co GA (Kingsland area). Site approx; pad unpublished.",
+   "zones": [
+    "south_ga"
+   ],
+   "point": [
+    -81.69,
+    30.92
+   ]
+  },
+  {
+   "project_id": "GRID-GAINESVILLE2-EQUIPMENT",
+   "utility": "GRID",
+   "name": "Gainesville #2 equipment replacement",
+   "kind": "substation",
+   "voltage_kv": 115,
+   "start_year": 2024,
+   "end_year": 2025,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GRID, in-service 2025)",
+   "notes": "GRID-owned equipment replacement at Gainesville #2 substation, Hall Co. OSM Gainesville #2 Substation.",
+   "zones": [
+    "north_ga"
+   ],
+   "facility": "Gainesville Substation #2"
+  },
+  {
+   "project_id": "GPC-GOATROCK-NOPELIKA-230",
+   "utility": "GPC",
+   "name": "Goat Rock \u2013 North Opelika 230 kV upgrade",
+   "kind": "upgrade",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026); ITS TYP TEAMS 20516",
+   "notes": "Uprate Goat Rock -> North Opelika (APC) 230 kV to 100\u00b0C + limiting elements at Goat Rock. Goat Rock Dam OSM-verified; N. Opelika end approx, Lee Co AL.",
+   "zones": [
+    "columbus"
+   ],
+   "line": [
+    [
+     -85.0825,
+     32.6083
+    ],
+    [
+     -85.39,
+     32.66
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-GOATROCK-230-SUB",
+   "utility": "GPC",
+   "name": "Goat Rock 230 kV breaker-and-a-half substation (new)",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (GPC 2025 IRP exhibits, 'New Goat Rock 230 kV Substation' interconnect package)",
+   "notes": "New 230 kV b-a-a-h substation at Goat Rock on the Chattahoochee; 8-cycle bus clearing, existing line-protection reuse per the filed interconnect scope. Goat Rock Dam OSM-verified.",
+   "zones": [
+    "columbus"
+   ],
+   "facility": "Goat Rock Dam Substation"
+  },
+  {
+   "project_id": "GPC-GOATROCK-SWITCH-TRAP",
+   "utility": "GPC",
+   "name": "Goat Rock 230 kV switch/jumper/line-trap replacement",
+   "kind": "upgrade",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 20516, need 6/1/2026)",
+   "notes": "Switch, jumper, and line-trap replacement at Goat Rock 230 kV. Goat Rock Dam Substation OSM-verified.",
+   "zones": [
+    "columbus"
+   ],
+   "facility": "Goat Rock Dam Substation"
+  },
+  {
+   "project_id": "GPC-GRADY-WESTEND-115",
+   "utility": "GPC",
+   "name": "Grady \u2013 West End 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026, 2.6 mi)",
+   "notes": "Full 2.6 mi 1351 ACSS rebuild Grady -> West End, Atlanta. Grady = GPC downtown Atlanta sub approx; West End = community centroid.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.3878,
+     33.7737
+    ],
+    [
+     -84.42,
+     33.74
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-ARKWRIGHT-BUS",
+   "utility": "GPC",
+   "name": "Arkwright bus and jumper replacement",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Bus + jumper replacement at Arkwright substation, Macon. Anchor: HIFLD Plant Arkwright / OSM Arkwright switchyard.",
+   "zones": [
+    "macon"
+   ],
+   "facility": "ARKWRIGHT"
+  },
+  {
+   "project_id": "GPC-KLONDIKE-RELAY",
+   "utility": "GPC",
+   "name": "Klondike relay modernization",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Relay modernization at Klondike 230 kV substation, DeKalb Co. OSM Klondike Substation.",
+   "zones": [
+    "atlanta"
+   ],
+   "facility": "Klondike Substation"
+  },
+  {
+   "project_id": "GPC-EASTPOINT-RELAY",
+   "utility": "GPC",
+   "name": "East Point 115/230 kV relay modernization",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Relay modernization on the 115 kV + 230 kV yards at East Point substation, Fulton Co. OSM East Point Water Works Substation (same anchor as the rest of the East Point package).",
+   "zones": [
+    "atlanta"
+   ],
+   "facility": "East Point Water Works Substation"
+  },
+  {
+   "project_id": "GPC-SCOTTDALE-RELAY",
+   "utility": "GPC",
+   "name": "Scottdale relay modernization",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Relay modernization at Scottdale substation, DeKalb Co. Site = community centroid approx; pad unpublished.",
+   "zones": [
+    "atlanta"
+   ],
+   "point": [
+    -84.26,
+    33.79
+   ]
+  },
+  {
+   "project_id": "GPC-MORROW-RELAY",
+   "utility": "GPC",
+   "name": "Morrow 115 kV relay upgrade",
+   "kind": "substation",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "115 kV relay upgrade at Morrow substation, Clayton Co. OSM Morrow Substation.",
+   "zones": [
+    "atlanta"
+   ],
+   "facility": "Morrow Substation"
+  },
+  {
+   "project_id": "GPC-MORROW-MOUNTAINVIEW-115",
+   "utility": "GPC",
+   "name": "Morrow \u2013 Mountain View 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026, 1.7 mi); ITS TYP TEAMS 19363",
+   "notes": "1.7 mi segment rebuild Morrow\u2013Mountain View 115 kV, Clayton Co. Morrow OSM-verified; Mountain View end = community centroid.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.3335,
+     33.6059
+    ],
+    [
+     -84.37,
+     33.62
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-FULLERRD-COLUMBUS1ST-115",
+   "utility": "GPC",
+   "name": "Fuller Road \u2013 Columbus First Ave 115 kV reconductor",
+   "kind": "reconductor",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Reconductor Fuller Road -> Columbus First Ave 115 kV. Fuller Rd sub approx (Columbus); First Ave approx downtown Columbus; pads unpublished.",
+   "zones": [
+    "columbus"
+   ],
+   "line": [
+    [
+     -85.0,
+     32.5
+    ],
+    [
+     -84.989,
+     32.462
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-GARRETTRD-TRAELN-230",
+   "utility": "GTC",
+   "name": "Garrett Road 230 kV switching station \u2013 Trae Lane",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA, in-service 2026)",
+   "notes": "New Garrett Road 230 kV switching station splitting the Villa Rica\u2013West line + bundled line Trae Lane -> Garrett Rd SS, Douglas/Carroll Co corridor. Both sites approx; pads unpublished.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.72,
+     33.74
+    ],
+    [
+     -84.65,
+     33.7
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-DRESDEN-500-BUSEXP",
+   "utility": "GTC",
+   "name": "Dresden 500 kV bus expansion",
+   "kind": "substation",
+   "voltage_kv": 500,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026)",
+   "notes": "500 kV bus expansion at Dresden substation, Coweta Co. OSM Dresden Substation.",
+   "zones": [
+    "atlanta"
+   ],
+   "facility": "Dresden Substation"
+  },
+  {
+   "project_id": "GTC-CONYERS-CORNISHMTN-115",
+   "utility": "GTC",
+   "name": "Conyers \u2013 Cornish Mountain 115 kV line upgrade",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026); ITS TYP TEAMS 21137, need 6/1/2026",
+   "notes": "115 kV line upgrade Conyers -> Cornish Mountain, Rockdale Co. Conyers end = unnamed OSM GPC transmission yard; Cornish Mountain = community centroid.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.0428,
+     33.6977
+    ],
+    [
+     -83.99,
+     33.63
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-GORDON-SANDERSVILLE-115",
+   "utility": "GTC",
+   "name": "Gordon \u2013 Sandersville #1 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026); ITS TYP TEAMS 20002, need 12/1/2026",
+   "notes": "115 kV rebuild Gordon -> Sandersville #1, Wilkinson/Washington Cos (~30 mi drawn). OSM Gordon + Sandersville #1 substations.",
+   "zones": [
+    "central_ga"
+   ],
+   "endpoints": [
+    "Gordon Substation",
+    "UNKNOWN113405"
+   ]
+  },
+  {
+   "project_id": "GTC-LIZARDLOPE-WESTOVER-115",
+   "utility": "GTC",
+   "name": "Lizard Lope \u2013 Westover 115 kV new line + subs",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026, ~19.8 mi); ITS TYP TEAMS 18691, need 3/1/2026",
+   "notes": "~19.8 mi new 115 kV line Lizard Lope -> Gillionville corridor + two new subs (Lizard Lope + Westover), Baker/Dougherty Cos. Both ends approx (community centroids); pads unpublished. Drawn ~14.7 mi < filed ~19.8 mi \u2014 both ends are community centroids.",
+   "zones": [
+    "south_ga"
+   ],
+   "line": [
+    [
+     -84.3,
+     31.52
+    ],
+    [
+     -84.05,
+     31.52
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-LAGRANGE-NOPELIKA-230",
+   "utility": "GTC",
+   "name": "LaGrange \u2013 North Opelika 230 kV new line",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026); ITS TYP TEAMS 19334, need 6/1/2026",
+   "notes": "New 230 kV line LaGrange Primary -> North Opelika (APC), 200\u00b0C conductor \u2014 continues to the GA/AL line per GPC scope. LaGrange Primary OSM-verified; drawn to the state line approx.",
+   "zones": [
+    "columbus"
+   ],
+   "line": [
+    [
+     -85.0157,
+     33.0241
+    ],
+    [
+     -85.13,
+     33.0
+    ]
+   ]
+  },
+  {
+   "project_id": "MEAG-DRESDEN-LAGRANGE-230",
+   "utility": "MEAG",
+   "name": "Dresden \u2013 LaGrange Primary 230 kV resag + jumper",
+   "kind": "upgrade",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/MEAG, in-service 2026); ITS TYP TEAMS 19598, need 6/1/2026",
+   "notes": "Resag Dresden -> LaGrange Primary 230 kV to 125\u00b0C + jumper upgrade. OSM Dresden + LaGrange Primary substations (~21 mi).",
+   "zones": [
+    "central_ga"
+   ],
+   "endpoints": [
+    "Dresden Substation",
+    "LaGrange Primary Substation"
+   ]
+  },
+  {
+   "project_id": "GTC-ROBINSSPRING-UPGRADES",
+   "utility": "GTC",
+   "name": "Robins Spring bus replacement + capacitor bank",
+   "kind": "substation",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/GTC, in-service 2026, two entries); ITS TYP TEAMS 19999+20001",
+   "notes": "Bus replacement + capacitor-bank installation at Robins Spring substation, Wilkinson Co (on the Gordon\u2013Sandersville corridor). OSM Robins Spring Substation.",
+   "zones": [
+    "central_ga"
+   ],
+   "facility": "Robins Spring Substation"
+  },
+  {
+   "project_id": "GPC-HILLSBRIDGE-500230",
+   "utility": "GPC",
+   "name": "Hills Bridge 500/230 kV substation",
+   "kind": "substation",
+   "voltage_kv": 500,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "New 500/230 kV sub looping the O'Hara\u2013Scherer 500 kV line + two 230 kV lines to the customer sub, Butts/Monroe Co. Site approx on that corridor; pad unpublished. Distinct site from the existing 230 kV Hills Bridge STATCOM location (Jenkins/Screven Co).",
+   "zones": [
+    "central_ga"
+   ],
+   "point": [
+    -84.09,
+    33.37
+   ]
+  },
+  {
+   "project_id": "GPC-KATHLEEN-AREA-230",
+   "utility": "GPC",
+   "name": "Kathleen area improvements (Bonaire \u2013 Kathleen 230 kV)",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026); ITS TYP TEAMS 20512, ~6 mi",
+   "notes": "~6 mi rebuild of the Bonaire Primary\u2013Kathleen 230 kV line + limiting elements toward Pitts. Bonaire Primary OSM-verified; Kathleen end = community centroid.",
+   "zones": [
+    "macon"
+   ],
+   "line": [
+    [
+     -83.5996,
+     32.5651
+    ],
+    [
+     -83.61,
+     32.5
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-STONEWALL-TELL-230",
+   "utility": "GPC",
+   "name": "Stonewall Tell Road 230 kV loop-in",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026); ITS TYP TEAMS 20216, CC",
+   "notes": "230 kV segment looping the Stonewall Tell Rd station into the East Point\u2013Union City 230 kV White line, S. Fulton Co. Site approx on that corridor.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.5,
+     33.63
+    ],
+    [
+     -84.485,
+     33.615
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-CASSPINE-23025",
+   "utility": "GPC",
+   "name": "Cass Pine 230/25 kV substation + Bartow network ties",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026); ITS TYP TEAMS 20151/20152, CC",
+   "notes": "New 230/25 kV networked sub Cass Pine, Bartow Co \u2014 interconnects Great Valley + Hill View 230 kV subs (customer-driven). Site approx, Cass area; pad unpublished.",
+   "zones": [
+    "north_ga"
+   ],
+   "point": [
+    -84.85,
+    34.2
+   ]
+  },
+  {
+   "project_id": "GPC-EMBLEM-RIVERSIDE-230",
+   "utility": "GPC",
+   "name": "Emblem Riverside 230 kV substation",
+   "kind": "substation",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "New 230 kV sub in the Emblem/Riverside area, Floyd Co + fiber/ICON comm ring. Site approx (community corridor); pad unpublished.",
+   "zones": [
+    "north_ga"
+   ],
+   "point": [
+    -85.28,
+    34.3
+   ]
+  },
+  {
+   "project_id": "GPC-FAYETTEVILLE-500230",
+   "utility": "GPC",
+   "name": "Fayetteville area 500/230 kV substation + 230 kV ties",
+   "kind": "substation",
+   "voltage_kv": 500,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026); ITS TYP TEAMS 20018 (QTS Fayetteville), 4/1/2026",
+   "notes": "New 500/230 kV sub w/ two autotransformers + two 230 kV lines to customer subs \u2014 Fayetteville (QTS data-center driven). Site approx, Fayette Co; pad unpublished.",
+   "zones": [
+    "atlanta"
+   ],
+   "point": [
+    -84.45,
+    33.45
+   ]
+  },
+  {
+   "project_id": "GPC-UNIONCITY-YATES-230-WHITE",
+   "utility": "GPC",
+   "name": "Union City (White) \u2013 Yates 230 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Section rebuild of the Union City\u2013Yates (White) 230 kV line + switch/trap replacements at Union City. Drawn as the full filed corridor; exact rebuild segment unpublished. OSM Union Substation \u2194 Yates Switchyard. Union Substation is name-ambiguous in the gazetteer \u2014 kept explicit coords.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.5090666,
+     33.5531702
+    ],
+    [
+     -84.8965275,
+     33.461186
+    ]
+   ]
+  },
+  {
+   "project_id": "DU-EASTDALTON-OOSTANAULA-115",
+   "utility": "DU",
+   "name": "East Dalton \u2013 Oostanaula 115 kV rebuild",
+   "kind": "transmission_line",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/DU Dalton Utilities, in-service 2026); ITS TYP TEAMS 18679, need 6/1/2026",
+   "notes": "Rebuild the East Dalton\u2013Oostanaula + Dalton\u2013East Dalton double-circuit 115 kV sections between the East Dalton sub and Dalton. Sites approx (Whitfield/Gordon Cos); pads unpublished.",
+   "zones": [
+    "north_ga"
+   ],
+   "line": [
+    [
+     -84.85,
+     34.77
+    ],
+    [
+     -84.94,
+     34.59
+    ]
+   ]
+  },
+  {
+   "project_id": "DU-LOOPERSFARM-SDALTON-230",
+   "utility": "DU",
+   "name": "Loopers Farm \u2013 South Dalton 230 kV networked switching station",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/DU, in-service 2026)",
+   "notes": "New 230 kV networked switching station on Loopers Farm\u2013South Dalton 230 kV + radialize South Dalton + new line Loopers Farm -> Jobs Creek, 1351 ACSS. Both sites approx (Whitfield Co); pads unpublished.",
+   "zones": [
+    "north_ga"
+   ],
+   "line": [
+    [
+     -84.99,
+     34.8
+    ],
+    [
+     -84.93,
+     34.7
+    ]
+   ]
+  },
+  {
+   "project_id": "GPC-BRUNSWICK-MCMANUS-115",
+   "utility": "GPC",
+   "name": "Brunswick \u2013 McManus 115 kV lines re-termination",
+   "kind": "upgrade",
+   "voltage_kv": 115,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "endpoint_only",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Re-terminate the Brunswick\u2013McManus 115 kV lines, Brunswick GA (Glynn Co). Endpoints OSM-resolved: West Brunswick Substation \u2194 McManus Switchyard (Plant McManus).",
+   "zones": [
+    "south_ga"
+   ],
+   "endpoints": [
+    "West Brunswick Substation",
+    "McManus Switchyard"
+   ]
+  },
+  {
+   "project_id": "GPC-WANSLEY-RELAYING",
+   "utility": "GPC",
+   "name": "Wansley line protective relaying replacement",
+   "kind": "upgrade",
+   "voltage_kv": 500,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "verified",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "Protective-relaying replacement on the Wansley line terminals. Plant Wansley HIFLD/OSM-verified.",
+   "zones": [
+    "atlanta"
+   ],
+   "facility": "Wansley Substation"
+  },
+  {
+   "project_id": "GPC-ADAMSVILLE-BUZZARDROOST-230",
+   "utility": "GPC",
+   "name": "Adamsville \u2013 Buzzard Roost 230 kV rebuild + jumper (SOCO)",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2025,
+   "end_year": 2026,
+   "status": "under_construction",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA/SOCO, in-service 2026)",
+   "notes": "SOCO-side rebuild + jumper replacement on the Adamsville\u2013Buzzard Roost 230 kV line (companion to the GTC entry). Both ends approx.",
+   "zones": [
+    "atlanta"
+   ],
+   "line": [
+    [
+     -84.51,
+     33.76
+    ],
+    [
+     -84.55,
+     33.7
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-EASTWALTON-ROCKVILLE-500",
+   "utility": "GTC",
+   "name": "East Walton \u2013 Rockville 500 kV line",
+   "kind": "transmission_line",
+   "voltage_kv": 500,
+   "start_year": 2026,
+   "end_year": 2027,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 09662 package, need 6/1/2027)",
+   "notes": "New 500 kV line East Walton -> Rockville (3-1113 ACSR), part of the East Walton project. Rockville = seeded anchor on the Scherer\u2013Warthen corridor; East Walton approx.",
+   "zones": [
+    "central_ga"
+   ],
+   "line": [
+    [
+     -83.6,
+     33.79
+    ],
+    [
+     -83.2124,
+     33.3246
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-BETHABARA-EASTWALTON-230",
+   "utility": "GTC",
+   "name": "Bethabara \u2013 East Walton 230 kV line",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2026,
+   "end_year": 2027,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 09662 package, need 6/1/2027)",
+   "notes": "New 230 kV line Bethabara -> East Walton (1351.5 ACSS). Bethabara sub OSM-verified; East Walton approx.",
+   "zones": [
+    "central_ga"
+   ],
+   "line": [
+    [
+     -83.5781,
+     33.9015
+    ],
+    [
+     -83.6,
+     33.79
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-BOSTWICK-EASTWALTON-230",
+   "utility": "GTC",
+   "name": "Bostwick \u2013 East Walton 230 kV line + Bostwick switching station",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2026,
+   "end_year": 2027,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.selc.org/wp-content/uploads/2025/09/2025.07.15-Hearing-Transcript-with-Exhibits.pdf (ITS TYP, TEAMS 09662 package, need 6/1/2027)",
+   "notes": "New Bostwick 230 kV switching station + Bostwick\u2013East Walton 230 kV line. Bostwick = town centroid, Morgan Co; East Walton approx.",
+   "zones": [
+    "central_ga"
+   ],
+   "line": [
+    [
+     -83.49,
+     33.75
+    ],
+    [
+     -83.6,
+     33.79
+    ]
+   ]
+  },
+  {
+   "project_id": "GTC-TOMOCHICHI-TOWALIGA-230",
+   "utility": "GTC",
+   "name": "Tomochichi \u2013 Towaliga River 230 kV lines",
+   "kind": "transmission_line",
+   "voltage_kv": 230,
+   "start_year": 2026,
+   "end_year": 2028,
+   "status": "planned",
+   "location_confidence": "approximate",
+   "source": "https://www.southeasternrtp.com/docs/general/2026/2026_SERTP_Preliminary_Expansion_Plan_Report_(Non-CEII).pdf (Southern BA, in-service 2028)",
+   "notes": "Two bundled 1351 ACSS 230 kV lines Tomochichi -> new Towaliga River 230 kV sub. Both pads unpublished \u2014 approx placements.",
+   "zones": [
+    "central_ga"
+   ],
+   "line": [
+    [
+     -83.95,
+     33.28
+    ],
+    [
+     -83.97,
+     33.15
+    ]
    ]
   }
  ]

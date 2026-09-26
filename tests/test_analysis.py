@@ -175,3 +175,56 @@ def test_build_timeline_shape_serializable():
     out = build_timeline({"features": feats}, {"overlaps": ovs})
     assert set(out) >= {"yearly", "quarterly", "windows"}
     json.dumps(out)
+
+
+# --- staging clusters -----------------------------------------------------------
+
+def _cl_ov(oid, lon, lat):
+    """Overlap fixture with a midpoint (clusters consume midpoints only)."""
+    ov = _ov(oid, "A", "B", None)
+    ov["midpoint"] = [lon, lat]
+    return ov
+
+
+def test_clusters_are_yard_servable_not_chained():
+    # Regression: single-linkage chaining used to emit one "cluster"
+    # spanning 200+ km and claim one yard could serve it — false under
+    # the 40 km rule. The yard-cover must bound every cluster.
+    from src.analysis.clusters import build_clusters
+    ovs = [
+        # a 5-stop chain: each hop ~33 km (<40), endpoints ~132 km apart —
+        # single linkage merges all five, but no one yard reaches them all
+        _cl_ov("OV-a", -81.00, 32.30),
+        _cl_ov("OV-b", -80.65, 32.30),
+        _cl_ov("OV-c", -80.30, 32.30),
+        _cl_ov("OV-d", -79.95, 32.30),
+        _cl_ov("OV-e", -79.60, 32.30),
+    ]
+    out = build_clusters({"overlaps": ovs}, radius_km=40.0)
+    assert out["overlaps_clustered"] == 5
+    assert out["corridor_count"] == 1            # still ONE corridor (honest context)
+    assert out["cluster_count"] == 2             # but TWO yards needed
+    for c in out["clusters"]:
+        assert c["max_site_distance_km"] <= 40.0
+        assert c["yard_site"]["lon"] is not None
+        ids = set(c["overlap_ids"])
+        assert len(ids) == c["size"]
+    json.dumps(out)
+
+
+def test_cluster_best_overlap_zero_distance_wins():
+    # Regression: `d or 9e9` treated 0.0 km as missing — a touching record
+    # must win best_overlap, not lose to a 5 km record in the same disk.
+    from src.analysis.clusters import build_clusters
+    ovs = [_cl_ov("OV-far", -81.0, 32.3), _cl_ov("OV-touch", -81.001, 32.3)]
+    ovs[1]["min_distance_km"] = 0.0
+    ovs[0]["min_distance_km"] = 5.0
+    [c] = build_clusters({"overlaps": ovs}, radius_km=40.0)["clusters"]
+    assert c["best_overlap"] == "OV-touch" and c["best_distance_km"] == 0.0
+
+
+def test_clusters_empty_and_nomids():
+    from src.analysis.clusters import build_clusters
+    out = build_clusters({"overlaps": [_ov("OV-1", "A", "B", None)]})
+    assert out["cluster_count"] == 0 and out["overlaps_clustered"] == 0
+    assert out["clusters"] == []

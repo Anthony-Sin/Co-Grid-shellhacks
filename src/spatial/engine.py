@@ -68,7 +68,7 @@ def _cross_utility_pairs(gdf: gpd.GeoDataFrame) -> list[tuple[int, int]]:
 
 def find_overlaps(
     gdf: gpd.GeoDataFrame,
-    zone: str = "savannah_river_corridor",
+    zone: str = "georgia_south_carolina",
     ids: Optional[Iterable[str]] = None,
 ) -> list[OverlapRecord]:
     """Compute all ranked overlap records for a projected project GDF."""
@@ -143,7 +143,7 @@ def find_overlaps(
 def run(
     projects_path: str | Path,
     out_path: str | Path,
-    zone: str = "savannah_river_corridor",
+    zone: str = "georgia_south_carolina",
 ) -> list[OverlapRecord]:
     """Full pipeline: load -> detect -> score -> write overlaps.json."""
     from .ranker import attach_explanations, attach_costs, score_overlaps

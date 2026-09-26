@@ -4,6 +4,7 @@ geopandas>=1.0
 shapely>=2.0
 pyproj>=3.6
 pandas>=2.2
+numpy>=1.26  # staging-cluster haversine matrix (also a pandas dep)
 requests>=2.32
 pydantic>=2.8
 python-dotenv>=1.0

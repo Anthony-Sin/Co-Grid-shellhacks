@@ -2,28 +2,25 @@
 
 All agents/producers/consumers MUST follow these schemas exactly.
 Coordinates in GeoJSON files: **WGS84 lon/lat (EPSG:4326)**.
-Projected math (distance, buffers): **EPSG:32617 (UTM 17N)** — covers both Savannah & Augusta.
-Scene-local rendering coords: produced by `src/processing/scene_export.py` only (see Scene JSON below).
+Projected math (distance, buffers): a **region-fit Lambert Conformal
+Conic** (`src/spatial/crs.py` — `+proj=lcc +lat_0=32.5 +lon_0=-82.0
++lat_1=31.0 +lat_2=34.5`), chosen over UTM 17N because western Georgia
+sits ~4.5° off UTM 17N's central meridian (~0.2% scale error at 40 km).
+Scene-local rendering coords: produced by `src/processing/build_city.py`
+and `src/processing/build_state.py` via `src/processing/projection.py`
+(see Scene JSON below).
 
 ## Region bounding boxes (WGS84)
 
-```python
-BBOXES = {
-    # Savannah metro: downtown Savannah, Effingham Co. (Plant McIntosh),
-    # Jasper / Okatie / Bluffton on the SC side of the Savannah River
-    "savannah":  {"min_lon": -81.55, "min_lat": 31.95, "max_lon": -80.75, "max_lat": 32.45},
-    # Augusta metro: Urquhart (Beech Island SC), Augusta GA, toward Thomson
-    "augusta":   {"min_lon": -82.30, "min_lat": 33.25, "max_lon": -81.60, "max_lat": 33.65},
-    # Full Georgia + South Carolina envelope (bbox-intersect also pulls
-    # border counties in FL/AL/TN/NC — intentional, for edge rendering)
-    "state":     {"min_lon": -85.70, "min_lat": 30.30, "max_lon": -78.00, "max_lat": 35.25},
-}
-```
+Single source of truth: `src/processing/projection.py` `SCENES` —
+`/api/regions` and every scene filter derive bounds/centers from it:
 
-Scene centers (for local-meter projection in the UI):
-- `savannah`: `[-81.10, 32.13]`
-- `augusta`:   `[-81.97, 33.45]`
-- `state`:     `[-81.85, 32.78]`
+- `savannah` bbox `(-81.55, 31.95, -80.75, 32.45)`, center `[-81.10, 32.13]`
+- `augusta` bbox `(-82.30, 33.25, -81.60, 33.65)`, center `[-81.97, 33.45]`
+- `state` bbox `(-85.70, 30.30, -78.00, 35.25)`, center `[-81.85, 32.78]`
+
+The state bbox slightly over-extends so bbox-intersect pulls border
+counties in FL/AL/TN/NC — intentional, for edge rendering.
 
 ## 1. `data/processed/projects.geojson` — utility planned projects
 
@@ -106,8 +103,10 @@ carries boundaries, corridors, rivers, and places only:
 
 ```json
 {
-  "generated_at": "ISO-8601",
-  "region": "savannah_river_corridor",
+  "generated_at": "ISO-8601 (mtime of projects.geojson — deterministic)",
+  "generated_at_note": "mtime of projects.geojson input — deterministic",
+  "region": "georgia_south_carolina",
+  "project_count": 334,
   "overlaps": [{
     "overlap_id": "OV-0001",
     "project_a": "GPC-...", "project_b": "DESC-...",
@@ -125,11 +124,18 @@ carries boundaries, corridors, rivers, and places only:
     "midpoint": [lon,lat],
     "score": 87.5,
     "explanation": "...",
-    "cost": {"shared_row_acres": 12.4, "est_savings_usd_low": 400000, "est_savings_usd_high": 1200000, "basis": "..."},
-    "zone": "savannah"
+    "cost": {"shared_row_km": 1.1, "shared_row_acres": 12.4, "est_savings_usd_low": 400000, "est_savings_usd_high": 1200000, "basis": "..."},
+    "zone": "savannah",
+    "zone_geometry": {"type": "Polygon", "coordinates": [[[lon,lat],...]]}
   }]
 }
 ```
+
+`overlap_id` (`OV-NNNN`) is the record's position in the canonical engine
+ordering (tier asc → distance asc → timeline-first). It is **not** a stable
+foreign key across regenerations — ids renumber whenever the ranked set
+changes. `zone_geometry` is the coordination-zone polygon rendered as the
+hatched map highlight (a capsule bridging the two closest points).
 
 ## 5. Tier definitions (IMMUTABLE)
 
@@ -159,9 +165,12 @@ don't meet has both flags false and both windows null.
 - `GET /api/city/{scene}` → city_<scene>.json
 - `GET /api/regions` → scene/tile index: id, label, lon/lat bounds, center,
   artifact name, `built` flag, size_mb (statewide entries may be `built: false`)
-- `GET /api/overlaps?tier=&timeline_only=` → overlaps.json
+- `GET /api/overlaps?tier=&timeline_only=&q=&zone=&sort=&limit=&offset=&geometry=&fields=`
+  → overlaps.json + `total` (post-filter count, for paging) + `offset`;
+  `geometry=false` strips `zone_geometry`; `fields=a,b,c` keeps only those keys
 - `GET /api/overlaps.csv?tier=&timeline_only=` → ranked flat CSV export
-- `GET /api/stats` → counts per utility/tier for dashboard header
+- `GET /api/stats` → counts per utility/tier + `staging_yards`,
+  `staging_corridors`, `peak_season`, per-utility `coverage`
 - `GET /api/raw/{path}` → raw filing (path-confined to `data/raw/`)
 
 Analysis API (`src/analysis/`, deterministic — no model):
@@ -171,11 +180,15 @@ Analysis API (`src/analysis/`, deterministic — no model):
 - `GET /api/analysis/impact/{overlap_id}` → shared_corridor_km, row_width_m,
   corridor/zone/shared-ROW acres, shared_window_months, crew_share_days,
   est_savings_usd_range {low, high, basis}, assumptions[], confidence
-- `GET /api/analysis/clusters?radius_km=` → staging clusters (union-find on
-  overlap midpoints): centroid, span, utilities, tiers, member overlap_ids
+- `GET /api/analysis/clusters?radius_km=` → yard-servable staging clusters
+  (greedy disk-cover on overlap midpoints — every member within
+  radius_km of the cluster's `yard_site`): cluster_id, yard_site,
+  max_site_distance_km, utilities, tiers, member overlap_ids,
+  corridor_id; `cluster_count` = yards needed. `corridors` lists the
+  wider connectivity chains (context, not single-yard groups)
 - `GET /api/analysis/calendar` → overlaps grouped by shared-window start year
 - `GET /api/analysis/playbook?radius_km=&top=` → minimal season-years per
-  staging cluster, peak concurrent sites (crew sizing)
+  yard cluster, peak concurrent sites (one yard's crew-sizing signal)
 - `GET /api/analysis/conflicts` → tier-1 + shared-window subset — the
   mandatory joint-outage scheduling list, bucketed by season year
 - `GET /api/analysis/nearby/{id}?radius_km=` → a site's staging neighborhood

@@ -107,8 +107,9 @@ def tool_impact_estimate(overlap_id: str) -> dict:
 
 
 def tool_staging_clusters(radius_km: float = 40.0, top: int = 8) -> dict:
-    """Which overlaps share one crew yard — clustered by midpoint proximity.
-    Answers 'where should a joint staging base go' directly."""
+    """Where shared staging yards could go — yard-servable clusters: every
+    member site sits within radius_km of the cluster's yard_site. Answers
+    'how many yards are needed and where' directly."""
     try:
         from src.analysis.clusters import build_clusters
         out = build_clusters({"overlaps": overlaps()},

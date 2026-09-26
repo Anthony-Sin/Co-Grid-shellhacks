@@ -127,6 +127,9 @@ export interface OverlapsResponse {
   region: string
   project_count?: number
   overlaps: OverlapRecord[]
+  /** rows matching filters before limit/offset (paging total) */
+  total?: number
+  offset?: number
 }
 
 export interface StatsResponse {
@@ -136,6 +139,11 @@ export interface StatsResponse {
   by_tier: Record<string, number>
   timeline_matches: number
   timeline_adjacent?: number
+  /** estimated staging yards needed (disk-cover, each ≤40 km radius) */
+  staging_yards?: number | null
+  staging_corridors?: number | null
+  peak_season?: { season: string; site_count: number } | null
+  coverage?: Record<string, number>
 }
 
 export interface RegionsResponse {

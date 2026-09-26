@@ -22,6 +22,7 @@ export const UTILITY_COLORS = {
   DUKEC: '#117A65',
   DUKEP: '#7D6608',
   DU: '#4A5A6A',
+  GRID: '#0E7C86',
   OTHER: '#6B7280',
 } as const
 
@@ -38,6 +39,7 @@ export function utilityColor(utility: string | null | undefined): string {
   if (u === 'DUKECAROLINAS' || u === 'DUKE PROGRESS CAROLINAS') return UTILITY_COLORS.DUKEC
   if (u === 'DUKEPROGRESS') return UTILITY_COLORS.DUKEP
   if (u === 'DU' || u.includes('DALTON')) return UTILITY_COLORS.DU
+  if (u === 'GRID') return UTILITY_COLORS.GRID
   return UTILITY_COLORS.OTHER
 }
 

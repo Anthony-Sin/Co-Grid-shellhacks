@@ -43,11 +43,13 @@ if (!CHROME) {
   process.exit(1)
 }
 
-// name|query presets — both scenes, map-only views, tier-1 close-ups,
+// name|query presets — all three scenes, map-only views, tier-1 close-ups,
 // arbitrary focus points. See src/ui/src/lib/urlParams.ts for params.
 const SHOTS = custom.length
   ? custom
   : [
+      'state_overview|scene=state&panel=1',
+      'state_map_only|scene=state&panel=0',
       'savannah_overview|scene=savannah&panel=1',
       'savannah_map_only|scene=savannah&panel=0',
       'augusta_overview|scene=augusta&panel=1',

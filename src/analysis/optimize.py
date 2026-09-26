@@ -4,13 +4,14 @@ joint-work plan.
 The question it answers: "if the utilities ran a shared program, what would
 each season look like?" Deterministic, no model:
 
-  1. staging clusters (union-find on midpoints, crew-yard radius)
+  1. staging clusters (yard-servable disks — every site within the
+     crew-yard radius of the cluster's yard site; see clusters.py)
   2. per cluster, per calendar year — which member sites have a shared
      build window covering that year  ->  "seasons"
   3. greedy set-cover picks the minimum season-years covering the cluster
-  4. honest metrics: concurrent-site peak (crew sizing signal), window
-     span, tier mix. No invented dollar figures — savings detail lives
-     in /api/analysis/impact per record.
+  4. honest metrics: concurrent-site peak (one yard's crew-sizing
+     signal), window span, tier mix. No invented dollar figures —
+     savings detail lives in /api/analysis/impact per record.
 
 Reads processed artifacts only. Read-only.
 """
@@ -79,8 +80,10 @@ def build_playbook(overlaps_data: dict, radius_km: float = 40.0,
         peak = max((len(v) for v in year_map.values()), default=0)
         out.append({
             "cluster_id": cl["cluster_id"],
+            "corridor_id": cl["corridor_id"],
             "centroid": cl["centroid"],
-            "span_km": cl["span_km"],
+            "yard_site": cl.get("yard_site"),
+            "max_site_distance_km": cl.get("max_site_distance_km"),
             "site_count": cl["size"],
             "utilities": cl["utilities_involved"],
             "tiers_present": cl["tiers_present"],
@@ -96,8 +99,10 @@ def build_playbook(overlaps_data: dict, radius_km: float = 40.0,
         "clusters": out,
         "note": (
             "Seasons = minimal set of calendar years covering all windowed "
-            "sites in a cluster (greedy set-cover). peak_concurrent_sites is "
-            "the largest single-year workload — the crew-sizing signal. "
-            "Unscheduled sites lack build windows in source data."
+            "sites in a cluster (greedy set-cover). Clusters are yard-"
+            "servable disks — every member within radius_km of the yard "
+            "site — so peak_concurrent_sites is one yard's largest "
+            "single-year workload (the crew-sizing signal). Unscheduled "
+            "sites lack build windows in source data."
         ),
     }

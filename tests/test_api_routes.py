@@ -41,6 +41,19 @@ class ApiRoutesTest(unittest.TestCase):
         assert len(rows) <= 5
         dists = [o["min_distance_km"] for o in rows]
         assert dists == sorted(dists), "distance sort must be ascending"
+
+    def test_overlaps_sort_distance_zero_first(self):
+        # Regression: `x or 1e9` used to treat 0.0 km as missing, sending
+        # all touching records (the best tier-1s) to the END of a
+        # distance-ascending list. Sort the FULL list — the head must be
+        # the zeros and the tail must be the largest real distance.
+        rows = client.get("/api/overlaps",
+                          params={"sort": "distance"}).json()["overlaps"]
+        dists = [o["min_distance_km"] for o in rows]
+        assert dists == sorted(dists), "full distance sort must be ascending"
+        assert dists[0] == 0.0, "touching records must sort first"
+        zeros = sum(1 for d in dists if d == 0.0)
+        assert zeros > 100, "the dataset's tier-1 zeros should lead, not trail"
         r = client.get("/api/overlaps", params={"zone": "charleston"})
         rows = r.json()["overlaps"]
         assert rows and all("charleston" in o["zone"].lower() for o in rows)
@@ -85,6 +98,27 @@ class ApiRoutesTest(unittest.TestCase):
         # absolute-path injection + deeper traversal also can't escape
         r = client.get("/api/raw//etc/passwd")
         assert r.status_code in (403, 404, 422)
+
+    def test_overlaps_pagination_and_geometry_toggle(self):
+        r = client.get("/api/overlaps", params={"limit": 10, "sort": "distance"})
+        page1 = r.json()
+        assert page1["total"] >= 1900 and page1["offset"] == 0
+        assert len(page1["overlaps"]) == 10
+        assert "zone_geometry" in page1["overlaps"][0]
+        r = client.get("/api/overlaps",
+                       params={"limit": 10, "offset": 10, "sort": "distance"})
+        page2 = r.json()
+        assert page2["offset"] == 10 and page2["total"] == page1["total"]
+        ids1 = {o["overlap_id"] for o in page1["overlaps"]}
+        ids2 = {o["overlap_id"] for o in page2["overlaps"]}
+        assert not (ids1 & ids2)                    # no repeat across pages
+        r = client.get("/api/overlaps",
+                       params={"limit": 3, "geometry": "false"})
+        for o in r.json()["overlaps"]:
+            assert "zone_geometry" not in o         # slim list view
+        r = client.get("/api/overlaps",
+                       params={"tier": 1, "limit": 5})
+        assert r.json()["total"] >= 130             # total ignores limit
 
     def test_projects_zone_filter_honest(self):
         # regression: a zone-less project used to match EVERY zone filter

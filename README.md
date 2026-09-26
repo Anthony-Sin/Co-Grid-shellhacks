@@ -1,6 +1,6 @@
 # CO-GRID — Savannah River Corridor + Statewide
 
-![CO-GRID state scene — GA + SC, monochrome sketch map, 283 planned projects, 1,503 ranked overlaps](docs/screenshot.png)
+![CO-GRID state scene — GA + SC, monochrome sketch map, 334 planned projects, 1,957 ranked overlaps](docs/screenshot.png)
 
 **Gridlock Challenge (Sperry Tech × Shell Hacks 2026).** Finds where two
 electric utilities' *planned* construction projects overlap geographically
@@ -10,7 +10,7 @@ opportunities into tiers and renders them on a stylized 3D map.
 Utilities tracked: **Georgia Power (GPC)** and **Dominion Energy South
 Carolina (DESC)** as the core pair, plus co-planners mined from the same
 public filings: **Santee Cooper, GTC, MEAG, Duke Carolinas, Duke Progress,
-Dalton Utilities** — 283 filed projects, 1,503 ranked overlaps: densest
+Dalton Utilities** — 334 filed projects, 1,957 ranked overlaps: densest
 in the Atlanta metro (GPC × GTC) and the Savannah River corridor
 (Savannah metro + Augusta), with statewide coverage (Charleston,
 Columbia, Macon, Pee Dee, north GA, upstate).
@@ -38,8 +38,7 @@ uv pip install --python venv/bin/python -r requirements.txt
 ./venv/bin/python -m src.ingestion.osm_power        # named substations (gazetteer)
 ./venv/bin/python -m src.ingestion.osm_places       # statewide cities/towns
 ./venv/bin/python -m src.ingestion.osm_borders      # state + county boundaries
-# state_roads_rivers.json: interstate/trunk corridors + named rivers —
-# one-off Overpass query documented in src/processing/build_state.py
+./venv/bin/python -m src.ingestion.osm_roads_rivers # interstate/trunk corridors + named rivers
 
 # --- run the processing pipeline ---
 ./scripts/pipeline.sh                 # raw -> processed -> overlaps.json
@@ -109,8 +108,8 @@ Deterministic analysis API (no model needed, `src/analysis/`):
 | `GET /api/analysis/impacts?top=N` | per-overlap cost/impact rows (shared-corridor km in UTM, ROW acres, savings range, crew-share days) |
 | `GET /api/analysis/impact/{id}` | one record, 404 on unknown id |
 | `GET /api/analysis/brief/{id}` | model-free prose brief for one overlap |
-| `GET /api/analysis/clusters?radius_km=` | staging clusters (union-find on midpoints, 40 km crew-yard rule) |
-| `GET /api/analysis/playbook?radius_km=&top=` | minimal season-years per cluster + peak concurrent sites |
+| `GET /api/analysis/clusters?radius_km=` | yard-servable staging clusters (every site ≤40 km of the yard) + connectivity corridors |
+| `GET /api/analysis/playbook?radius_km=&top=` | minimal season-years per yard cluster + peak concurrent sites |
 | `GET /api/analysis/calendar` | overlaps grouped by shared-window start year |
 | `GET /api/analysis/conflicts` | tier-1 + shared-window subset — mandatory joint-outage list |
 | `GET /api/analysis/matrix` | utility-pair × tier overlap matrix |
@@ -120,7 +119,9 @@ Other additions: `GET /api/regions` (scene index + per-zone overlap
 rollup — the contract for a region picker), `GET /api/meta` (artifact
 freshness), and `GET /api/overlaps.csv` (ranked flat export).
 `/api/overlaps` supports `tier`, `timeline_only`, `q`, `zone`,
-`sort=score|distance|year`, `limit`.
+`sort=score|distance|year`, `limit`, `offset` (paging — response
+carries `total` + `offset`), `geometry=false` (drops `zone_geometry`
+polygons), and `fields=` (comma-separated key allowlist).
 
 ## 2. Data sources (all public, zero API keys)
 
@@ -133,7 +134,7 @@ freshness), and `GET /api/overlaps.csv` (ranked flat export).
 
 `data/raw/` is read-only and gitignored; `data/processed/` is generated.
 The ONLY hand-authored data is `data/seeds/projects_seed_statewide.json`
-(283 rows — `projects_seed.json` is its 73-record corridor subset, kept
+(334 rows — `projects_seed.json` is its 73-record corridor subset, kept
 for reference) — every row cites a public filing URL. No mock data
 anywhere (AGENTS.md §7).
 
@@ -144,16 +145,21 @@ data/raw/            # read-only downloads (gitignored)
 data/seeds/          # curated, sourced project seeds (committed, small)
 data/processed/      # generated artifacts the API serves (gitignored)
 src/
-  ingestion/         # hifld_download.py, osm_download.py  (network)
-  processing/        # build_basemap / build_city / build_projects
+  ingestion/         # hifld_download, osm_download/osm_pois/osm_power/
+                     # osm_places/osm_borders/osm_roads_rivers  (network)
+  processing/        # build_basemap / build_city / build_state /
+                     # build_projects / build_gazetteer / projection
   spatial/           # engine.py (STRtree + closest-point), tiers.py,
-                     # timeline.py, ranker.py, schema.py
+                     # timeline.py, ranker.py, costmodel.py, crs.py, schema.py
   api/               # FastAPI app (port 8000)
-  analysis/          # timeline bands + impact/cost estimates (pure fns)
-  agent/             # tool-calling analyst (client/engine/routes/tools)
+  analysis/          # timeline bands + impact/cost estimates + staging
+                     # clusters/playbook/conflicts (pure fns + routes)
+  agent/             # 16-tool analyst (client/engine/routes/tools/tool_*)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
-tests/               # engine unit tests (synthetic fixtures, logic only)
+tests/               # engine + api-routes + agent + build-projects tests
+                     # (synthetic fixtures, logic only)
 docs/DATA_SCHEMA.md  # the contract every stage follows
+docs/AGENT.md        # agent config, tool inventory, SSE contract
 scripts/pipeline.sh  # one-shot regen
 scripts/screenshot.{sh,mjs}  # headless UI captures -> shots/
 ```
@@ -172,7 +178,7 @@ ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
 reserved for the data layer**: planned project geometry uses utility
 colors, coordination zones use tier colors with diagonal hatching.
 Large zones get airier hatching + fainter fills so markup never floods;
-the map renders the top ~40 scored zones (all 1,503 stay listed —
+the map renders the top ~40 scored zones (all 1,957 stay listed —
 the ranked panel caps the DOM at the top 200 rows).
 
 ### Performance notes

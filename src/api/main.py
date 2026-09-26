@@ -61,6 +61,24 @@ def _fresh(name: str) -> dict:
     return _cached(name, path.stat().st_mtime if path.exists() else 0.0)
 
 
+@lru_cache(maxsize=4)
+def _program_rollup(mtime: float) -> dict:  # noqa: ARG001 — mtime busts cache
+    """Staging/season rollup for /api/stats — cached on overlaps.json
+    mtime; the cluster build is O(records²) so it must not recompute
+    per request."""
+    from src.analysis.clusters import build_clusters
+    from src.analysis.optimize import build_playbook
+    ovs = _fresh("overlaps.json").get("overlaps", [])
+    cl = build_clusters({"overlaps": ovs}, 40.0)
+    pb = build_playbook({"overlaps": ovs}, 40.0, 5)
+    seasons = [s for c in pb.get("clusters", []) for s in c.get("seasons", [])]
+    return {
+        "staging_yards": cl.get("cluster_count", 0),   # estimated yards needed
+        "staging_corridors": cl.get("corridor_count", 0),
+        "peak_season": max(seasons, key=lambda s: s["site_count"], default=None),
+    }
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "processed": sorted(p.name for p in PROCESSED.glob("*"))}
@@ -122,19 +140,18 @@ def regions() -> dict:
     Each entry: id, label, lon/lat bounds, center, and which artifacts exist.
     The frontend can offer scene switching/tiles off this list without
     hardcoding geography."""
+    from src.processing.projection import SCENES
     out = []
-    for scene, label, bounds, center in [
-        ("savannah", "Savannah corridor",
-         [-81.42, 31.98, -80.78, 32.55], [-81.1, 32.13]),
-        ("augusta", "Augusta corridor",
-         [-82.35, 33.25, -81.60, 33.68], [-81.97, 33.45]),
+    for scene, label in [
+        ("savannah", "Savannah corridor"),
+        ("augusta", "Augusta corridor"),
     ]:
         p = PROCESSED / f"city_{scene}.json"
         out.append({
             "id": scene,
             "label": label,
-            "bounds": bounds,
-            "center": center,
+            "bounds": list(SCENES[scene]["bbox"]),
+            "center": list(SCENES[scene]["center"]),
             "artifact": f"city_{scene}.json",
             "built": p.exists(),
             "size_mb": round(p.stat().st_size / 1e6, 1) if p.exists() else None,
@@ -145,8 +162,8 @@ def regions() -> dict:
     out.append({
         "id": "state",
         "label": "Georgia + South Carolina (statewide)",
-        "bounds": [-85.65, 30.35, -78.50, 35.25],
-        "center": [-82.0, 32.8],
+        "bounds": list(SCENES["state"]["bbox"]),
+        "center": list(SCENES["state"]["center"]),
         "artifact": "basemap.geojson",
         "built": bm.exists(),
         "size_mb": round(bm.stat().st_size / 1e6, 1) if bm.exists() else None,
@@ -171,7 +188,11 @@ def regions() -> dict:
 
 _OVERLAP_SORTS = {
     "score": lambda r: (-r.get("score", 0)),
-    "distance": lambda r: (r.get("min_distance_km") or 1e9, -r.get("score", 0)),
+    # 0.0 km (touching) is a real distance, not missing — test for None,
+    # never `or` (falsy 0.0 used to send all tier-1 records to the end)
+    "distance": lambda r: (
+        r["min_distance_km"] if r.get("min_distance_km") is not None else 1e9,
+        -r.get("score", 0)),
     "year": lambda r: (
         (r.get("shared_window") or {}).get("start") or 9999,
         -r.get("score", 0)),
@@ -186,6 +207,10 @@ def overlaps(
     zone: Optional[str] = Query(None, description="region tag — matches zone labels incl. 'a / b' pairs"),
     sort: Optional[str] = Query(None, description="score | distance | year"),
     limit: Optional[int] = Query(None, ge=1, le=500),
+    offset: int = Query(0, ge=0, description="skip N rows after filter/sort (paging)"),
+    geometry: bool = Query(True, description="false drops zone_geometry polygons"),
+    fields: Optional[str] = Query(
+        None, description="comma-separated record keys to keep (slim payload)"),
 ) -> dict:
     data = _fresh("overlaps.json")
     rows = data.get("overlaps", [])
@@ -207,9 +232,17 @@ def overlaps(
         if sort not in _OVERLAP_SORTS:
             raise HTTPException(422, f"unknown sort {sort!r} — use score|distance|year")
         rows = sorted(rows, key=_OVERLAP_SORTS[sort])
+    total = len(rows)
+    if offset:
+        rows = rows[offset:]
     if limit is not None:
         rows = rows[:limit]
-    return {**data, "overlaps": rows}
+    if not geometry:
+        rows = [{k: v for k, v in r.items() if k != "zone_geometry"} for r in rows]
+    if fields:
+        keep = {k.strip() for k in fields.split(",") if k.strip()}
+        rows = [{k: r.get(k) for k in keep} for r in rows]
+    return {**data, "overlaps": rows, "total": total, "offset": offset}
 
 
 @app.get("/api/overlaps.csv")
@@ -281,16 +314,13 @@ def stats() -> dict:
         "timeline_adjacent": sum(1 for o in ovs if o.get("timeline_adjacent")),
     }
     # program-level rollup — staging regions + busiest shared season
+    # (cached on overlaps.json mtime — the cluster build is O(n²))
     try:
-        from src.analysis.clusters import build_clusters
-        from src.analysis.optimize import build_playbook
-        cl = build_clusters({"overlaps": ovs}, 40.0)
-        pb = build_playbook({"overlaps": ovs}, 40.0, 5)
-        seasons = [s for c in pb.get("clusters", []) for s in c.get("seasons", [])]
-        out["staging_regions"] = cl.get("cluster_count", 0)
-        out["peak_season"] = max(seasons, key=lambda s: s["site_count"], default=None)
+        mtime = (PROCESSED / "overlaps.json").stat().st_mtime
+        out.update(_program_rollup(mtime))
     except Exception:
-        out["staging_regions"] = None
+        out["staging_yards"] = None
+        out["staging_corridors"] = None
         out["peak_season"] = None
     # per-utility coverage: filed projects participating in >=1 overlap
     proj_ids = {

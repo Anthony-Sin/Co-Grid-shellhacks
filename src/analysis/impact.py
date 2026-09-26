@@ -84,17 +84,17 @@ def _impact_for(o: dict, by_id: dict) -> dict:
     # --- Land/ROW: tiers 1-2 only -----------------------------------------
     if land_share:
         if geom_a is None or geom_b is None:
-            corridor_km = None
+            corridor_len = None
             shared_row_acres, savings = None, None
             assumptions.append("Geometry missing — ROW fields null.")
         else:
-            corridor_km = shared_corridor_km(geom_a, geom_b)
-            est = estimate_row_savings(corridor_km, width_m)
+            corridor_len = shared_corridor_km(geom_a, geom_b)
+            est = estimate_row_savings(corridor_len, width_m)
             shared_row_acres = est["acres"]
             savings = {"low": est["low"], "high": est["high"],
                        "basis": est["basis"]}
     else:
-        corridor_km, shared_row_acres, savings = 0.0, 0.0, None
+        corridor_len, shared_row_acres, savings = 0.0, 0.0, None
         assumptions.append(
             "Tier 3-4: value is shared logistics/crews — land/ROW sharing "
             "is not meaningful at this separation; savings fields are "
@@ -119,7 +119,7 @@ def _impact_for(o: dict, by_id: dict) -> dict:
         "tier": tier,
         "timeline_overlap": bool(o.get("timeline_overlap")),
         "timeline_adjacent": bool(o.get("timeline_adjacent")),
-        "shared_corridor_km": corridor_km,
+        "shared_corridor_km": corridor_len,
         "row_width_m_assumed": width_m,
         "corridor_acres": shared_row_acres,
         "zone_area_acres": zone_area_acres,

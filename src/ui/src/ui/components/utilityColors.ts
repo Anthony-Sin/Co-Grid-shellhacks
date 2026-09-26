@@ -12,6 +12,7 @@ export const UTILITY_COLORS: Record<string, string> = {
   DukeCarolinas: '#117A65',
   DukeProgress: '#7D6608',
   DU: '#4A5A6A',
+  GRID: '#0E7C86',
 }
 
 export function utilityColor(utility: string | null | undefined): string {

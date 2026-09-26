@@ -158,19 +158,40 @@ def tool_top_overlaps(n: int = 10, tier: int | None = None,
     return {"shown": len(rows), "overlaps": [_overlap_brief(r) for r in rows]}
 
 
-def tool_get_overlap(overlap_id: str) -> dict:
-    """Full detail for one overlap: closest points, shared window, zone size."""
+def _overlap_detail(r: dict) -> dict:
+    return {
+        **_overlap_brief(r),
+        "closest_point_a": r.get("closest_point_a"),
+        "closest_point_b": r.get("closest_point_b"),
+        "midpoint": r.get("midpoint"),
+        "explanation": r.get("explanation"),
+        "zone": r.get("zone"),
+        "cost": r.get("cost"),
+    }
+
+
+def tool_get_overlap(overlap_id: str | None = None,
+                     overlap_ids: list | None = None) -> dict:
+    """Full detail for one overlap: closest points, shared window, zone size.
+
+    Pass `overlap_ids` (list, <=30) to fetch several records in ONE call —
+    a multi-record question should never burn a round per lookup."""
+    if overlap_ids is not None:
+        # tolerate a comma-joined string — models sometimes emit one
+        if isinstance(overlap_ids, str):
+            overlap_ids = [x.strip() for x in overlap_ids.split(",") if x.strip()]
+        if not isinstance(overlap_ids, list) or not overlap_ids:
+            return {"error": "overlap_ids must be a non-empty list"}
+        wanted = [str(x) for x in overlap_ids[:30]]
+        by_id = {r.get("overlap_id"): r for r in overlaps()}
+        found = [_overlap_detail(by_id[i]) for i in wanted if i in by_id]
+        missing = [i for i in wanted if i not in by_id]
+        return {"found": len(found), "overlaps": found, "missing": missing}
+    if not overlap_id:
+        return {"error": "provide overlap_id (one record) or overlap_ids (batch)"}
     for r in overlaps():
         if r.get("overlap_id") == overlap_id:
-            return {
-                **_overlap_brief(r),
-                "closest_point_a": r.get("closest_point_a"),
-                "closest_point_b": r.get("closest_point_b"),
-                "midpoint": r.get("midpoint"),
-                "explanation": r.get("explanation"),
-                "zone": r.get("zone"),
-                "cost": r.get("cost"),
-            }
+            return _overlap_detail(r)
     return {"error": f"no overlap '{overlap_id}'"}
 
 
@@ -214,7 +235,8 @@ def tool_gazetteer(name: str, limit: int = 10) -> dict:
     # alnum-only). Entries store `norm` = name stripped of non-alphanumerics,
     # so a longer query ("PLANTVOGTLE") contains the entry's norm
     # ("VOGTLE") — substring checks run BOTH directions. Only when that
-    # yields nothing do we fall back to individual >=3-char tokens.
+    # yields nothing do we fall back to individual >=4-char tokens
+    # (shorter tokens like "NOT" substring-match too loosely).
     q = unicodedata.normalize("NFKD", (name or "").upper())
     q = "".join(c for c in q if c.isalnum())
     if not q:

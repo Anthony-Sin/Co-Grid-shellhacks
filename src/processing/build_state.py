@@ -14,9 +14,12 @@ reads correctly at 500-km zoom:
   buildings/parks -> empty arrays, honestly (counts record 0)
 
 Sources are read-only raw files (AGENTS §2):
-  data/raw/osm/state_borders.json      (boundary=administrative rels)
-  data/raw/osm/state_roads_rivers.json (motorway/trunk + named rivers)
-  data/raw/osm/statewide_places.json   (place=city|town|suburb nodes)
+  data/raw/osm/state_borders.json      (boundary=administrative rels —
+    src.ingestion.osm_borders)
+  data/raw/osm/state_roads_rivers.json (motorway/trunk + named rivers —
+    src.ingestion.osm_roads_rivers)
+  data/raw/osm/statewide_places.json   (place=city|town|suburb nodes —
+    src.ingestion.osm_places)
 
 Usage: ./venv/bin/python -m src.processing.build_state
 """

@@ -93,10 +93,15 @@ export function useRegions(): ApiDataState<RegionsResponse> {
   return useApiData('regions', api.regions)
 }
 
-/** /api/analysis/impact/{id} — geometry-derived sharing estimate for one overlap */
+/** /api/analysis/impact/{id} — geometry-derived sharing estimate for one overlap.
+ *  Null selection resolves to an empty settled state without hitting the API —
+ *  no point issuing a guaranteed-404 request on every page load. */
 export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate> {
   const fetcher = useMemo(
-    () => () => api.impact(overlapId ?? '__none__'),
+    () => () =>
+      overlapId === null
+        ? Promise.resolve(null as unknown as ImpactEstimate)
+        : api.impact(overlapId),
     [overlapId],
   )
   return useApiData(`impact:${overlapId ?? 'none'}`, fetcher)
@@ -105,7 +110,10 @@ export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate
 /** /api/analysis/nearby/{id} — staging neighborhood count for the detail card */
 export function useNearby(overlapId: string | null, radiusKm = 15): ApiDataState<NearbyResponse> {
   const fetcher = useMemo(
-    () => () => api.nearby(overlapId ?? '__none__', radiusKm),
+    () => () =>
+      overlapId === null
+        ? Promise.resolve(null as unknown as NearbyResponse)
+        : api.nearby(overlapId, radiusKm),
     [overlapId, radiusKm],
   )
   return useApiData(`nearby:${overlapId ?? 'none'}:${radiusKm}`, fetcher)

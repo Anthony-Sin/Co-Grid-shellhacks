@@ -2,10 +2,10 @@ import { useAppStore } from '../../state/store'
 import { useStats } from '../hooks/useApiData'
 import type { SceneId } from '../../lib/projection'
 
-const SCENES: { id: SceneId; label: string }[] = [
-  { id: 'state', label: 'GA + SC' },
-  { id: 'savannah', label: 'Savannah' },
-  { id: 'augusta', label: 'Augusta' },
+const SCENES: { id: SceneId; label: string; sub: string }[] = [
+  { id: 'state', label: 'GA + SC', sub: 'Georgia + South Carolina' },
+  { id: 'savannah', label: 'Savannah', sub: 'Savannah River Corridor' },
+  { id: 'augusta', label: 'Augusta', sub: 'Augusta / Central Savannah River' },
 ]
 
 export function HeaderBar() {
@@ -20,7 +20,9 @@ export function HeaderBar() {
         <span className="brand-sep" aria-hidden>
           —
         </span>
-        <span className="brand-sub">Savannah River Corridor</span>
+        <span className="brand-sub">
+          {SCENES.find((s) => s.id === activeScene)?.sub ?? 'Georgia + South Carolina'}
+        </span>
       </div>
 
       <nav className="scene-switch" aria-label="Scene switcher">

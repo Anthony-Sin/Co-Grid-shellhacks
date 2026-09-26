@@ -39,6 +39,22 @@ class TestToolsAgainstRealData:
         assert detail["result"]["overlap_id"] == top["overlap_id"]
         assert detail["result"]["midpoint"]
 
+    def test_get_overlap_batch_mode(self):
+        # multi-record questions shouldn't burn a tool round per lookup —
+        # one call returns found records + honest missing ids.
+        ids = [o["overlap_id"] for o in
+               run_tool("top_overlaps", {"n": 3})["result"]["overlaps"]]
+        r = run_tool("get_overlap", {"overlap_ids": ids + ["OV-NOPE-1"]})
+        assert r["ok"]
+        res = r["result"]
+        assert res["found"] == 3 and res["missing"] == ["OV-NOPE-1"]
+        assert {o["overlap_id"] for o in res["overlaps"]} == set(ids)
+        # a comma-joined string is coerced (models emit those); empties error
+        r = run_tool("get_overlap", {"overlap_ids": f"{ids[0]}, {ids[1]}"})
+        assert r["result"]["found"] == 2
+        assert "error" in run_tool("get_overlap", {"overlap_ids": []})["result"]
+        assert "error" in run_tool("get_overlap", {})["result"]
+
     def test_unknown_and_bad_args_are_data_not_crashes(self):
         assert "error" in run_tool("nonexistent_tool", {})
         # domain-level "not found" rides inside result.error
