@@ -5,6 +5,7 @@ import { useAppStore } from '../../state/store'
 import { useProjects } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import { OverlapDetail } from './OverlapDetail'
+import { ProjectDetail } from './ProjectDetail'
 
 /**
  * Bottom-right rail: selected-overlap detail card docked above the legend.
@@ -57,7 +58,9 @@ export function Legend() {
 
   return (
     <div className="right-rail">
+      {/* selections are store-exclusive — at most one detail card renders */}
       <OverlapDetail />
+      <ProjectDetail />
 
       <div className="legend">
         <div className="legend-title">Overlap tiers · click to filter</div>

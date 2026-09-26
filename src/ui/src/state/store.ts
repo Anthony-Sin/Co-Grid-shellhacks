@@ -25,6 +25,9 @@ interface AppState {
   activeScene: SceneId
   /** Currently selected coordination overlap (overlaps.json `overlap_id`) */
   selectedOverlapId: string | null
+  /** Currently selected project (projects.geojson `project_id`) — mutually
+   * exclusive with selectedOverlapId: the right rail shows ONE detail card */
+  selectedProjectId: string | null
   /** Per-tier visibility toggles for map + ranked list */
   visibleTiers: Record<Tier, boolean>
   /** When true, only show overlaps where project timelines intersect */
@@ -48,6 +51,7 @@ interface AppState {
 
   setActiveScene: (scene: SceneId) => void
   selectOverlap: (id: string | null) => void
+  selectProject: (id: string | null) => void
   toggleTier: (tier: Tier) => void
   setTimelineOnly: (value: boolean) => void
   setHoveredProject: (id: string | null) => void
@@ -64,6 +68,7 @@ interface AppState {
 export const useAppStore = create<AppState>()((set) => ({
   activeScene: 'savannah',
   selectedOverlapId: null,
+  selectedProjectId: null,
   visibleTiers: { 1: true, 2: true, 3: true, 4: true },
   // Timeline overlap is the mandatory secondary signal (AGENTS.md §8) — on by default
   timelineOnly: true,
@@ -79,8 +84,12 @@ export const useAppStore = create<AppState>()((set) => ({
   setActiveScene: (scene) => set({ activeScene: scene }),
   // clearing focusTarget here: a deep-link ?focus= target is a one-shot —
   // any explicit selection/deselection releases it, otherwise the stale
-  // target would override every later fly-to forever
-  selectOverlap: (id) => set({ selectedOverlapId: id, focusTarget: null }),
+  // target would override every later fly-to forever. Selections are
+  // exclusive — picking an overlap clears any picked project (and vv).
+  selectOverlap: (id) =>
+    set({ selectedOverlapId: id, selectedProjectId: null, focusTarget: null }),
+  selectProject: (id) =>
+    set({ selectedProjectId: id, selectedOverlapId: null, focusTarget: null }),
   toggleTier: (tier) =>
     set((s) => ({
       visibleTiers: { ...s.visibleTiers, [tier]: !s.visibleTiers[tier] },

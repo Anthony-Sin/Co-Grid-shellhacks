@@ -6,8 +6,9 @@
  *    name truncated to 30 chars, utility-colored dot. pointerEvents:none
  *    so chips never block map panning.
  *  - an invisible hit sphere at the centroid wired to the store:
- *    hover -> setHoveredProject(id), click -> selectOverlap(null)
- *    (clicks on empty project space just dismiss the overlap selection)
+ *    hover -> setHoveredProject(id), click -> selectProject(id)
+ *    (opens the right-rail project detail card; store exclusivity also
+ *    clears any selected overlap — zones keep priority via stopPropagation)
  *  - ONE hover tooltip chip (hoveredProjectId from the store) floating
  *    above the name chip with the filed kind/voltage/window details —
  *    null-safe: missing fields are omitted, never rendered as "undefined"
@@ -122,7 +123,7 @@ function ProjectTooltip({ project }: { project: SceneProject }) {
 
 export function ProjectMarkers({ projects }: { projects: readonly SceneProject[] }) {
   const setHoveredProject = useAppStore((s) => s.setHoveredProject)
-  const selectOverlap = useAppStore((s) => s.selectOverlap)
+  const selectProject = useAppStore((s) => s.selectProject)
   const activeScene = useAppStore((s) => s.activeScene)
   const hoveredProjectId = useAppStore((s) => s.hoveredProjectId)
 
@@ -165,7 +166,7 @@ export function ProjectMarkers({ projects }: { projects: readonly SceneProject[]
             }}
             onClick={(e) => {
               e.stopPropagation()
-              selectOverlap(null)
+              selectProject(p.id)
             }}
           >
             <sphereGeometry args={[HIT_RADIUS, 8, 8]} />
