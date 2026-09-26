@@ -1,0 +1,152 @@
+/* ---- responsive breakpoints --------------------------------------------------
+   Chrome box math (viewport width W):
+   - .panel occupies x ∈ [14, 346]   (left:14 + width:332), z90
+   - .right-rail occupies x ∈ [W−336, W−14] (322px card + right:14), z90
+   - default .agent-bar is centered, width min(560px, 72vw): it clears the
+     panel only when W/2 − 280 ≥ 346 and the rail only when W/2 + 280 ≤
+     W − 336 — i.e. it needs W ≥ ~1252. Below that it must be re-pinned. */
+
+/* brand subtitle + separator crowd the scene switch on narrow headers */
+@media (max-width: 800px) {
+  .brand-sub,
+  .brand-sep {
+    display: none;
+  }
+}
+
+/* panel never wider than the viewport minus its margins */
+@media (max-width: 700px) {
+  .panel {
+    max-width: calc(100vw - 28px);
+  }
+}
+
+/* stats pill is the least-critical header item — drop it first */
+@media (max-width: 640px) {
+  .header-stats {
+    display: none;
+  }
+  .header-bar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+  .scene-btn {
+    padding: 5px 9px;
+  }
+}
+
+/* ---- scoped overrides for chrome owned by later/parallel sheets -------------
+   agentbar.css loads AFTER this file (main.tsx import order), while
+   detail.css / viewmodes.css load BEFORE it (imported via components in
+   App.tsx's subtree). Every override below uses .app-shell ancestry
+   (0,2,0+ specificity) so it wins regardless of real-world load order. */
+
+/* The open bar's column (chips + log + input) can reach several hundred px
+   tall (agentbar.css gives the log up to 60vh when expanded); bound the bar
+   so its top never slides under the 54px header on short viewports.
+   .agent-log scrolls internally, so it absorbs the shrink. */
+.app-shell .agent-bar {
+  max-height: calc(100vh - 76px);
+}
+
+/* The map-tools card (viewmodes.css: fixed, bottom-left, no height cap) can
+   run off the top of short viewports. Cap the wrap and let the card scroll
+   internally; the ink border + hard shadow survive on the card itself. */
+.app-shell .viewmodes-wrap {
+  max-height: calc(100vh - 88px);
+}
+
+.app-shell .viewmodes {
+  max-height: inherit;
+  overflow-y: auto;
+  /* the card is width:220 fixed — keep it inside the viewport on
+     ultra-narrow screens */
+  max-width: calc(100vw - 28px);
+}
+
+/* 860–1260px: pin the bar between the left panel + map-tools card and the
+   right rail. The bar is bottom-anchored like the cards, so horizontal
+   clearance is the only separation available. */
+@media (min-width: 860px) and (max-width: 1259.98px) {
+  .app-shell .agent-bar {
+    left: 360px; /* panel right edge 346 + 14 gap */
+    right: 350px; /* rail left edge (W−336) − 14 gap */
+    width: auto;
+    transform: none;
+  }
+
+  /* Panel collapsed → only the small .panel-reopen pill remains top-left,
+     but .viewmodes-wrap still occupies x∈[14,234] at bottom-left — reclaim
+     down to 250px, not further. Degrades to the 360px pin on engines
+     without :has() (still safe, just conservative). */
+  .app-shell:has(.panel-reopen) .agent-bar {
+    left: 250px;
+  }
+}
+
+/* <860px: the gap between the side chrome (W − 710px) is too narrow for a
+   usable input. The bar takes the full-width bottom strip; .right-rail and
+   .viewmodes-wrap lift clear of it (rail rule lives in components.css where
+   the rail base is defined). Chips switch to a single scrollable row so the
+   idle bar height stays a predictable ~117px — that constant is what the
+   132px lifts below are sized against.
+   z-index 95 > side chrome's 90 is required here: when a tall agent log
+   grows into the lifted cards' zone, an underlaid input/send button would
+   be dead chrome — the active bar must win over static cards. Header (z100)
+   still wins. */
+@media (max-width: 859.98px) {
+  .app-shell .agent-bar {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    transform: none;
+    z-index: 95;
+  }
+
+  .app-shell .agent-chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px; /* room for the thin scrollbar */
+  }
+
+  /* keep the panel's bottom clear of the idle bar strip (~125px + margin)
+     so list rows can't slide underneath it */
+  .panel {
+    max-height: calc(100% - 220px);
+  }
+
+  /* lift the map-tools card with the right rail */
+  .app-shell .viewmodes-wrap {
+    bottom: 132px;
+    max-height: calc(100vh - 202px);
+  }
+
+  /* when the conversation log exists the bar can grow min(40vh,340px)
+     taller — lift both bottom cards clear of that too. Expanded logs
+     (60vh) deliberately take over the screen; the bar's z95 keeps them
+     usable on top. */
+  .app-shell:has(.agent-log) .viewmodes-wrap {
+    bottom: calc(130px + min(40vh, 340px));
+    max-height: calc(100vh - 200px - min(40vh, 340px));
+  }
+}
+
+/* ---- reduced motion --------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-btn,
+  .vm-layer,
+  .vm-scene {
+    transition: none;
+  }
+
+  /* zone hatch breathing + camera glides honor the OS preference too */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
