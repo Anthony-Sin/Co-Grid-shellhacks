@@ -11,6 +11,12 @@
  * still deliver the buffered audio as a final result, resurrecting
  * just-sent words; abort() discards it and a dead-session guard drops
  * any late event either way.
+ *
+ * Terminal handlers are identity-guarded: an errored session can hold
+ * recRef while its queued end event is still in flight, so a fresh
+ * session may already own the mic by the time the stale onend lands —
+ * without the guard it would null out the live session's bookkeeping
+ * and leave an invisible capture running.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -43,6 +49,8 @@ export interface VoiceInput {
   /** 'denied' when the mic permission was refused — render a hint once */
   denied: boolean
   toggle: () => void
+  /** kill the capture with no pending write — rail collapse, teardown */
+  hush: () => void
 }
 
 export function useVoiceInput(
@@ -69,11 +77,15 @@ export function useVoiceInput(
     recRef.current?.stop()
   }, [])
 
-  useEffect(() => {
-    if (!recRef.current || draft === writtenRef.current) return
+  const hush = useCallback(() => {
+    if (!recRef.current) return
     deadRef.current = true
     recRef.current.abort()
-  }, [draft])
+  }, [])
+
+  useEffect(() => {
+    if (recRef.current && draft !== writtenRef.current) hush()
+  }, [draft, hush])
 
   const toggle = useCallback(() => {
     if (listening) {
@@ -104,10 +116,17 @@ export function useVoiceInput(
       setDraft(next)
     }
     rec.onend = () => {
+      // a superseded session's terminal event must not touch the live
+      // session's bookkeeping — Chrome can queue onend well past onerror
+      if (recRef.current !== rec) return
       recRef.current = null
       setListening(false)
     }
     rec.onerror = (e) => {
+      if (recRef.current !== rec) return
+      // the session is dead by definition here — detach so a fast
+      // re-toggle isn't blocked by this rec's still-queued onend
+      recRef.current = null
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setDenied(true)
       setListening(false)
     }
@@ -126,5 +145,5 @@ export function useVoiceInput(
   // the mic dies with the component — never leak a live capture session
   useEffect(() => () => recRef.current?.abort(), [])
 
-  return { supported: !!Ctor, listening, denied, toggle }
+  return { supported: !!Ctor, listening, denied, toggle, hush }
 }

@@ -297,6 +297,13 @@ export function AgentBar() {
   // speech-to-text dictation — Web Speech API, hidden when unsupported
   const voice = useVoiceInput(input, setInput)
 
+  // collapsing the rail must end the capture — the hook is mounted above
+  // the early-return, so without this a dictation session keeps recording
+  // into a hidden textarea with no on-screen indicator (invisible hot mic)
+  useEffect(() => {
+    if (!open) voice.hush()
+  }, [open, voice.hush])
+
   if (!open) {
     return (
       <button
