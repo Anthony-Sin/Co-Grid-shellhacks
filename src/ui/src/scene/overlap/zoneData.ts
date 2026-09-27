@@ -11,12 +11,28 @@
  */
 import type { GeoFeature, OverlapRecord, ProjectProps } from '../../lib/api'
 import { lonLatToLocal, type Vec2 } from '../../lib/projection'
+import {
+  geomLines,
+  geomPoints,
+  projectLine,
+  resampleLine,
+  sagWirePoints,
+} from '../grid/gridData'
 import { hatchPolygon, ringCentroid, ringRadius, stripClosing } from './hatch'
 
 /** Scene relevance radius — the 40km rule (AGENTS.md §8) for corridors;
  * the statewide scene widens it to cover the full envelope. */
 const SCENE_RELEVANCE_M = 40_000
 export const STATE_RELEVANCE_M = 460_000
+
+/** Ready-to-render [x, height, -y] tuple (three.js world coords). */
+export type V3 = [number, number, number]
+
+/** Planned-wire render constants — kept in lock-step with
+ *  grid/TransmissionLines.tsx (WIRE_H / PYLON_SPACING) so the overlap
+ *  glow underlay lands exactly on the drawn conductor. */
+const WIRE_H = 30
+const PYLON_SPACING = 320
 /** Signature diagonal hatch. */
 const HATCH_ANGLE_DEG = 45
 /** ~90m between hatch lines at small zones; grows with zone radius. */
@@ -184,4 +200,58 @@ function isRelevant(
     }
   }
   return false
+}
+
+/* ------------------------------------------------------------------ */
+/* project geometry for the line-glow layer                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One involved project's renderable geometry in scene-local coords.
+ * `wires` retraces the same sagging conductor path PlannedLines draws
+ * (straight, still elevated, for `endpoint_only` filings — their wire is
+ * dashed and unsagged there), so a thicker underlay reads as a halo,
+ * not a second line. `sites` holds the filed point(s) of point-sited
+ * projects (substations/plants with no route to stroke) — set only when
+ * there are no lines, mirroring how the grid layer treats them.
+ */
+export interface ProjectGeom {
+  wires: V3[][]
+  sites: Vec2[]
+}
+
+/**
+ * Project every filed project geometry once per scene — shared by the
+ * overlap glow layer (a project involved in N overlaps is computed once
+ * and the arrays shared by reference across its records).
+ */
+export function buildProjectGeoms(
+  projectsById: ProjectsById,
+  center: Vec2,
+): Map<string, ProjectGeom> {
+  const out = new Map<string, ProjectGeom>()
+  for (const [id, f] of projectsById) {
+    const parts = geomLines(f.geometry)
+    const wires: V3[][] = []
+    if (parts.length > 0) {
+      const straight = f.properties?.location_confidence === 'endpoint_only'
+      for (const part of parts) {
+        const anchors = resampleLine(projectLine(part, center), PYLON_SPACING)
+        if (anchors.length < 2) continue
+        wires.push(
+          straight
+            ? anchors.map((a): V3 => [a.x, WIRE_H, -a.y])
+            : sagWirePoints(anchors, WIRE_H),
+        )
+      }
+    }
+    const sites: Vec2[] =
+      wires.length === 0
+        ? geomPoints(f.geometry).map(([lon, lat]) =>
+            lonLatToLocal(lon, lat, center),
+          )
+        : []
+    out.set(id, { wires, sites })
+  }
+  return out
 }

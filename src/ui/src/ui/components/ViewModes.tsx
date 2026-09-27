@@ -196,9 +196,9 @@ function BuildWindow() {
 }
 
 /**
- * Basemap style switcher — a store-backed pair of pills. 'flat' unmounts
- * the extrusion layers entirely (the data fetches stay cached — only the
- * ~148k extrude cost re-runs, tile-by-tile, on the first sketch flip).
+ * Basemap style switcher — a store-backed pair of pills. Buildings are
+ * flat footprint fills in both modes; the styles differ only in land/
+ * water/road treatment (flat = clean carto, sketch = inked paper).
  */
 function StyleSection() {
   const mapStyle = useAppStore((s) => s.mapStyle)

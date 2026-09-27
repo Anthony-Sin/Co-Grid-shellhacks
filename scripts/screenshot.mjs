@@ -106,8 +106,10 @@ if (process.env.AGENT_E2E === '1') {
     await page.goto(`${BASE}/?scene=savannah`, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction('window.__cogridReady === true', { timeout: 120_000, polling: 500 })
       .catch(() => {})
-    // open the agent bar
+    // open the agent rail only if collapsed — the rail defaults open and
+    // the toggle would otherwise close it
     await page.evaluate(() => {
+      if (document.querySelector('.agent-input textarea')) return
       const btn = document.querySelector('.agent-bar-toggle')
       if (btn) btn.click()
     })
@@ -116,11 +118,11 @@ if (process.env.AGENT_E2E === '1') {
     // (Quick chips kick off multi-round chains that can run minutes on a
     // thinking model; E2E verifies the path, not the benchmark.)
     const clicked = await page.evaluate(() => {
-      const input = document.querySelector('.agent-input input')
+      const input = document.querySelector('.agent-input textarea')
       const form = document.querySelector('.agent-input')
       if (!input || !form) return false
       const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value').set
+        window.HTMLTextAreaElement.prototype, 'value').set
       setter.call(input, 'what is SERTP? one sentence')
       input.dispatchEvent(new Event('input', { bubbles: true }))
       return true

@@ -1,6 +1,17 @@
 /**
- * OverlapZones — the coordination layer: color-coded hatched zones +
- * connector arcs, styled like axonometric planning-map markup.
+ * OverlapZones — the coordination layer. Two zoom regimes:
+ *
+ *  • overview (zoom < ~0.01, e.g. the whole GA+SC sheet): NO zone
+ *    circles — a 40km hatched capsule at statewide scale floods the map
+ *    and reads as wrong. Instead the overlap is line-centric (see
+ *    OverlapLines): each record's two involved planned lines carry a
+ *    tier-colored glow halo, the closest points get tier-colored dots
+ *    (tier-1 touching gets a bullseye), and only featured records draw
+ *    the connector arc + `T{n} · A⇄B · km` pill (top-N by score +
+ *    selected + hovered — capped so pills never swarm).
+ *  • corridor (zoom ≥ ~0.01): zones render as SOFT overlays — translucent
+ *    tier fill + thin ink outline. The signature diagonal hatch is kept
+ *    ONLY for the selected zone (the focus affordance).
  *
  * Data: fetched ONCE per session (module-cached promise — the component is
  * remounted per scene via `key` in CityCanvas, so a module cache avoids
@@ -9,30 +20,40 @@
  * renders nothing and warns once — never fakes content (AGENTS.md §7).
  *
  * Filters (zustand store — shared with the ranked list via passesMapFilters):
- *   visibleTiers[tier] = false → record not rendered at all
- *   utilityFilter / yearFilter → hard filters, same predicate as the list
- *   timelineOnly && !timeline_overlap → rendered as thin dashed outline +
- *     faint dashed arc (flagged, not erased)
- *   selectedOverlapId → that zone raises/pops full-opacity + beacon column,
+ *   visibleTiers[tier] = false → record not rendered at all — the tier's
+ *     glow, dots, zone, arc and pill all vanish (the involved line reverts
+ *     to a plain planned line, so toggling reads instantly)
+ *   utilityFilter / yearFilter → hard filters, same predicate as the list;
+ *     a side whose project fails passesProjectFilters draws no glow (no
+ *     phantom lines over hidden wires)
+ *   timelineOnly && !timeline_overlap → zone = thin dashed outline,
+ *     glow/dots faint (flagged, not erased)
+ *   selectedOverlapId → glow/marker break out brighter + beacon column,
  *     everything else dims to ~40% — BUT a selected record that fails the
  *     hard filters still doesn't draw (honest absence; the panel's
  *     "outside current filters" banner is the disclosure, not the map)
  *   hoveredOverlapId → brushed highlight (~70% of selected) from list or map
  *   layers.labels → gates ZoneLabel chips + connector pill chips
+ *   layers.projects → gates connectors AND the line glows (a glow over a
+ *     hidden wire would be a phantom line); closest-point dots are record
+ *     markup and stay
  *
- * Top-3 scored visible records also get a floating ZoneLabel chip.
+ * Top-3 scored visible records also get a floating ZoneLabel chip when
+ * the projects layer is off (the pill fallback).
  */
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { api, type OverlapRecord } from '../../lib/api'
 import { deduped } from '../../ui/hooks/useApiData'
-import { passesMapFilters } from '../../lib/overlapFilters'
+import { passesMapFilters, passesProjectFilters } from '../../lib/overlapFilters'
 import { TIER_COLORS } from '../../lib/palette'
 import { SCENE_CENTERS } from '../../lib/projection'
+import { useZoomAtLeast } from '../city/cityUtils'
 import { STATE_RELEVANCE_M } from './zoneData'
 import { useAppStore } from '../../state/store'
 import { ConnectorLink } from './ConnectorLink'
-import { buildZoneDatum, type ProjectsById, type ZoneDatum } from './zoneData'
+import { OverlapLines } from './OverlapLines'
+import { buildProjectGeoms, buildZoneDatum, type ProjectsById, type ZoneDatum } from './zoneData'
 import { ZoneLabel } from './ZoneLabel'
 import { ZonePolygon } from './ZonePolygon'
 
@@ -61,11 +82,20 @@ function loadData(): Promise<LoadedData> {
 /** How many ranked label chips to float above the map. */
 const TOP_LABEL_COUNT = 3
 /**
- * Max zones drawn at once — ~160 tier-4 capsules at once would saturate the
- * map into a solid wash (all records remain listed/selectable in the panel;
- * a selection is always rendered even when outside the top-N).
+ * Max records drawn at once — glows/dots are merged buckets so hundreds
+ * of records stay cheap; the score-ordered cap is a safety rail for the
+ * per-record zone polygons at corridor zoom. All records remain listed/
+ * selectable in the panel; a selection is always rendered even when
+ * outside the top-N.
  */
-const MAX_RENDERED = 40
+const MAX_RENDERED = 200
+/** Connector arc+pill cap — selected/hovered records always feature on
+ *  top of the best-scored N (the pill is an Html root each; a swarm of
+ *  them was both expensive and unreadable at statewide zoom). */
+const PILL_CAP = 12
+/** Ortho zoom where soft zone overlays fade in — corridor-scale reading
+ *  starts ~0.01 (state overview sits at 0.0022). Hysteresis below. */
+const ZONE_ZOOM = 0.01
 /** Selected-zone beacon column dimensions. */
 const BEACON_RADIUS = 200
 const BEACON_HEIGHT = 300
@@ -81,13 +111,17 @@ export function OverlapZones() {
   const zoneFilter = useAppStore((s) => s.zoneFilter)
   const searchText = useAppStore((s) => s.searchText)
   const showLabels = useAppStore((s) => s.layers.labels)
-  // layers.projects gates connectors too (store contract) — arcs reference
-  // project endpoints that aren't drawn when the project layer is off
+  // layers.projects gates connectors AND line glows (store contract) —
+  // both reference project geometry that isn't drawn when the layer is off
   const showProjects = useAppStore((s) => s.layers.projects)
   // zones layer is opt-in (default off): when off, only the explicitly
   // selected record renders — the map stays clean but a click still
   // answers "where is this overlap?"
   const zonesOn = useAppStore((s) => s.layers.zones)
+
+  // Zone polygons only earn their keep at corridor zoom — below this the
+  // record renders as glow+dots (OverlapLines) with no circles.
+  const corridorZoom = useZoomAtLeast(ZONE_ZOOM, 0.7)
 
   const [data, setData] = useState<LoadedData | null>(null)
   const [failed, setFailed] = useState(false)
@@ -128,12 +162,46 @@ export function OverlapZones() {
       .filter((d) => d.relevant)
   }, [data, activeScene])
 
+  /** Projected wire/site geometry per project — shared by every record
+   *  that touches it, computed once per scene. */
+  const geomById = useMemo(
+    () => (data ? buildProjectGeoms(data.projectsById, SCENE_CENTERS[activeScene]) : null),
+    [data, activeScene],
+  )
+
+  /** The panel's project predicate per project_id — a project hidden by
+   *  the utility/zone/year/search filters draws no glow (honest absence,
+   *  same rule the connector arcs already obey). */
+  const projectOk = useMemo(() => {
+    if (!data) return null
+    const m = new Map<string, boolean>()
+    for (const [id, f] of data.projectsById) {
+      const p = f.properties
+      m.set(
+        id,
+        passesProjectFilters(
+          {
+            id,
+            name: p?.name ?? '',
+            utility: p?.utility ?? '',
+            startYear: p?.start_year ?? null,
+            endYear: p?.end_year ?? null,
+            zones: p?.zones ?? [],
+          },
+          { utilityFilter, yearRange: yearFilter, zone: zoneFilter, search: searchText },
+        ),
+      )
+    }
+    return m
+  }, [data, utilityFilter, yearFilter, zoneFilter, searchText])
+
   /** Hard filters (tier/utility/year — same predicate as the ranked list)
    *  fully hide a record; the timeline filter only restyles it. The gate
    *  runs BEFORE the zones-off selection path and the top-N cap alike: a
    *  filtered-out record never draws, selected or not (honest absence —
    *  the panel surfaces "outside current filters" with a show-anyway
-   *  reveal, so the map can stay strict).
+   *  reveal, so the map can stay strict). Render order is always
+   *  score-desc so the best opportunities draw first under the cap.
    *  With the zones layer off only the selected record renders at all. */
   const rendered = useMemo(() => {
     const q = searchText.trim().toLowerCase()
@@ -160,24 +228,40 @@ export function OverlapZones() {
     if (!zonesOn) {
       return eligible.filter((d) => d.rec.overlap_id === selectedOverlapId)
     }
+    eligible.sort((a, b) => b.rec.score - a.rec.score)
+    const top = eligible.slice(0, MAX_RENDERED)
+    // a selected (or list-hovered) record past the cap still renders —
+    // the pill/beacon must answer for it
+    for (const id of [selectedOverlapId, hoveredOverlapId]) {
+      if (id && !top.some((d) => d.rec.overlap_id === id)) {
+        const extra = eligible.find((d) => d.rec.overlap_id === id)
+        if (extra) top.push(extra)
+      }
+    }
     if (eligible.length <= MAX_RENDERED) {
       console.debug(`[OverlapZones] rendering ${eligible.length} of ${datums.length} scene-relevant overlaps`)
-      return eligible
+    } else {
+      console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
     }
-    const top = eligible
-      .slice()
-      .sort((a, b) => b.rec.score - a.rec.score)
-      .slice(0, MAX_RENDERED)
-    if (
-      selectedOverlapId &&
-      !top.some((d) => d.rec.overlap_id === selectedOverlapId)
-    ) {
-      const sel = eligible.find((d) => d.rec.overlap_id === selectedOverlapId)
-      if (sel) top.push(sel)
-    }
-    console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
     return top
-  }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, zoneFilter, searchText, selectedOverlapId, data])
+  }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, zoneFilter, searchText, selectedOverlapId, hoveredOverlapId, data])
+
+  /** Featured records draw the connector arc + `T{n} · A⇄B · km` pill:
+   *  the best-scored PILL_CAP (timeline-honest) plus selected + hovered. */
+  const featured = useMemo(() => {
+    const ids = new Set<string>()
+    let n = 0
+    for (const d of rendered) {
+      if (n >= PILL_CAP) break
+      if (timelineOnly && !d.rec.timeline_overlap) continue
+      ids.add(d.rec.overlap_id)
+      n++
+    }
+    for (const id of [selectedOverlapId, hoveredOverlapId]) {
+      if (id && rendered.some((d) => d.rec.overlap_id === id)) ids.add(id)
+    }
+    return ids
+  }, [rendered, timelineOnly, selectedOverlapId, hoveredOverlapId])
 
   /** Top-3 scored records eligible for floating labels (timeline-honest). */
   const labelIds = useMemo(() => {
@@ -194,44 +278,92 @@ export function OverlapZones() {
     [rendered, selectedOverlapId],
   )
 
+  /* drei <Html> quirk under frameloop="demand": pills mounted in the same
+   * commit that first reveals the layer never reach the DOM (their portal
+   * ref isn't attached in time) — a second commit fixes them. Nudge one
+   * re-render once records first render so the featured pills exist. */
+  const [, nudge] = useState(0)
+  useEffect(() => {
+    if (rendered.length > 0) nudge((n) => (n === 0 ? 1 : n))
+  }, [rendered.length])
+
   if (failed || !data) return null
+
+  // TEMP DEBUG
+  ;(window as unknown as { __ov?: unknown }).__ov = {
+    rendered: rendered.length,
+    featured: featured.size,
+    featuredIds: [...featured].slice(0, 5),
+    corridorZoom,
+    showProjects,
+    showLabels,
+    selectedOverlapId,
+  }
 
   return (
     <group>
-      {rendered.map((d) => {
-        const selected = d.rec.overlap_id === selectedOverlapId
-        const highlighted = d.rec.overlap_id === hoveredOverlapId
-        const dimmed = selectedDatum !== null && !selected
-        const outlineOnly = timelineOnly && !d.rec.timeline_overlap
-        return (
-          <Fragment key={d.rec.overlap_id}>
+      {/* soft zone overlays — corridor zoom only; at statewide overview
+          circles would flood the sheet, so the glow layer carries it */}
+      {corridorZoom &&
+        rendered.map((d) => {
+          const selected = d.rec.overlap_id === selectedOverlapId
+          return (
             <ZonePolygon
+              key={d.rec.overlap_id}
               datum={d}
-              dimmed={dimmed}
+              dimmed={selectedDatum !== null && !selected}
               selected={selected}
-              highlighted={highlighted}
-              outlineOnly={outlineOnly}
+              highlighted={d.rec.overlap_id === hoveredOverlapId}
+              outlineOnly={timelineOnly && !d.rec.timeline_overlap}
             />
-            {showProjects && (
-              <ConnectorLink
-                datum={d}
-                dimmed={dimmed}
-                selected={selected}
-                highlighted={highlighted}
-                faint={outlineOnly}
-                showChip={showLabels}
-              />
-            )}
-            {/* ZoneLabel is the fallback chip for when the connector's
-                midpoint pill isn't showing (projects layer off) — rendering
-                both for the same record stacked two labels on the same
-                centroid (QA collision), and the pill now carries the tier. */}
-            {showLabels && !showProjects && labelIds.has(d.rec.overlap_id) && (
-              <ZoneLabel datum={d} />
-            )}
-          </Fragment>
-        )
-      })}
+          )
+        })}
+
+      {/* line-centric markup at every zoom: tier glows retracing the
+          involved project lines, closest-point dots, tier-1 bullseyes,
+          selected/hovered breakouts */}
+      <OverlapLines
+        datums={rendered}
+        geomById={geomById}
+        projectOk={projectOk}
+        selectedId={selectedOverlapId}
+        hoveredId={hoveredOverlapId}
+        dimmed={selectedDatum !== null}
+        timelineOnly={timelineOnly}
+        showLines={showProjects}
+      />
+
+      {/* connector arc + pill — featured records only (top-N + selected +
+          hovered), so the Html pills never swarm */}
+      {showProjects &&
+        rendered.map((d) => {
+          if (!featured.has(d.rec.overlap_id)) return null
+          const selected = d.rec.overlap_id === selectedOverlapId
+          return (
+            <ConnectorLink
+              key={d.rec.overlap_id}
+              datum={d}
+              dimmed={selectedDatum !== null && !selected}
+              selected={selected}
+              highlighted={d.rec.overlap_id === hoveredOverlapId}
+              faint={timelineOnly && !d.rec.timeline_overlap}
+              showChip={showLabels}
+            />
+          )
+        })}
+
+      {/* ZoneLabel is the fallback chip for when the connector's
+          midpoint pill isn't showing (projects layer off) — rendering
+          both for the same record stacked two labels on the same
+          centroid (QA collision), and the pill now carries the tier. */}
+      {showLabels &&
+        !showProjects &&
+        rendered.map(
+          (d) =>
+            labelIds.has(d.rec.overlap_id) && (
+              <ZoneLabel key={d.rec.overlap_id} datum={d} />
+            ),
+        )}
 
       {/* soft light column marking the selected zone */}
       {selectedDatum && <SelectionBeacon datum={selectedDatum} />}

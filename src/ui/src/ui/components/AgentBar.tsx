@@ -108,18 +108,32 @@ export function AgentBar() {
       if (e.key !== 'Escape') return
       const s = useAppStore.getState()
       if (s.selectedOverlapId || s.selectedProjectId) return
+      if (!open) return
+      // the rail handled this keypress — stop it before OverlapPanel's
+      // document-level bubble listener also collapses the left rail
+      e.stopPropagation()
       if (abortRef.current) abortRef.current.abort()
       else setOpen(false)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [])
+  }, [open])
 
   // a selection surfaces its detail card inside this rail — reopen the
   // rail so a map/list click is never answered by hidden chrome
   useEffect(() => {
     if (selectedOverlapId || selectedProjectId) setOpen(true)
   }, [selectedOverlapId, selectedProjectId])
+
+  // a pinned record id that no longer matches the live selection is
+  // stale — without this, send() prepends the old pin while the POST body
+  // carries the new selection and the model sees two different ids
+  useEffect(() => {
+    const ctx = useAppStore.getState().agentContext
+    if (ctx?.id && ctx.id !== selectedOverlapId && ctx.id !== selectedProjectId) {
+      clearAgentContext()
+    }
+  }, [selectedOverlapId, selectedProjectId, clearAgentContext])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -160,8 +174,13 @@ export function AgentBar() {
     const typed = text.trim()
     if (!typed || busy) return
     // the pinned chip rides the message as a compact context prefix —
-    // the model sees the canonical id; the pin stays for follow-ups
-    const content = agentContext ? contextPrefix(agentContext) + typed : typed
+    // the model sees the canonical id; the pin stays for follow-ups.
+    // Skip it when the pin IS the live selection — the POST body already
+    // injects that record; the prefix would be a duplicate.
+    const pinnedIsLive =
+      agentContext?.kind === 'overlap' && agentContext.id === selectedOverlapId
+    const content =
+      agentContext && !pinnedIsLive ? contextPrefix(agentContext) + typed : typed
 
     // backend unreachable — visible, honest failure instead of a dead click
     if (healthState === 'failed') {
@@ -378,8 +397,10 @@ export function AgentBar() {
                     !(a.label === 'Explain selected' && selectedOverlapId))
                 }
                 onClick={() => {
-                  // a click on an enabled chip always starts a run — mark
-                  // it used so the suggestion collapses out of the way
+                  // only consume the chip when send() will actually run —
+                  // marking it used on a no-op (mid-health-check, busy race)
+                  // eats the suggestion without ever asking the model
+                  if (busy || healthState === 'loading' || !health) return
                   setUsedChips((s) => new Set(s).add(a.label))
                   send(a.prompt)
                 }}

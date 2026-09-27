@@ -1,14 +1,18 @@
 /**
- * ZonePolygon — the hatched "affected area" polygon for one overlap.
+ * ZonePolygon — the "affected area" polygon for one overlap, rendered
+ * only at corridor zoom (the parent gates it — at statewide overview the
+ * overlap layer shows line glows + dots instead of flooding circles).
  *
  * Rendered flat at y≈7 (above ground/roads, below buildings) inside a
  * -90° X-rotated group so children use planar local-meter coords
  * ([x, y] → world [x, h, -y]):
- *   • translucent fill (tier color, ~0.35 opacity)
- *   • merged diagonal hatch LineSegments (signature look, breathing opacity)
- *   • ink outline — solid, or thin+dashed when the record is only being
- *     flagged (timelineOnly filter: `timeline_overlap=false` stays honest —
- *     outlined, not erased, per AGENTS.md §7).
+ *   • translucent fill (tier color, soft — tier-scaled + size-scaled)
+ *   • ink outline — thin solid; thin+dashed when the record is only
+ *     flagged (timelineOnly filter: `timeline_overlap=false` stays
+ *     honest — outlined, not erased, per AGENTS.md §7)
+ *   • the signature diagonal hatch is reserved for the SELECTED zone —
+ *     it's the focus affordance, not blanket markup (QA: hatched 40km
+ *     capsules over the whole map read as noise).
  *
  * `selected` raises the zone and pushes opacities to full; `highlighted`
  * (list/map hover brushing) eases ~70% of the way toward that styling;
@@ -72,8 +76,11 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
   )
 
   // One merged LineSegments holding every hatch line (x,y pairs → xyz @ z=0).
+  // The hatch is the SELECTED-zone affordance — building the buffer only
+  // when selected keeps ~200 resting zones from each owning a GPU buffer
+  // they never draw.
   const hatchGeom = useMemo(() => {
-    if (datum.hatch.length === 0) return null
+    if (!selected || datum.hatch.length === 0) return null
     const pos = new Float32Array((datum.hatch.length / 2) * 3)
     for (let i = 0, j = 0; i < datum.hatch.length; i += 2, j += 3) {
       pos[j] = datum.hatch[i]
@@ -83,7 +90,7 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     return g
-  }, [datum])
+  }, [datum, selected])
 
   // Closed planar ring for the drei <Line> border (solid or dashed). The
   // border's vertical lift is baked into the points' z — drei <Line> spreads
@@ -189,7 +196,8 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
         </mesh>
       )}
 
-      {/* signature diagonal hatching — one merged LineSegments */}
+      {/* signature diagonal hatching — the selected-zone focus affordance
+          only (hatchGeom is null until this record is selected) */}
       {!outlineOnly && hatchGeom && (
         <lineSegments geometry={hatchGeom} position-z={Z_HATCH} renderOrder={11}>
           <lineBasicMaterial
@@ -202,7 +210,7 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
         </lineSegments>
       )}
 
-      {/* ink border — solid normally; thin dashes when merely flagged
+      {/* ink border — thin solid normally; dashes when merely flagged
           (clickable either way — flagged zones are still real records) */}
       {outlineOnly ? (
         <Line
@@ -220,7 +228,7 @@ export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly 
         <Line
           points={borderPts}
           color={ink}
-          lineWidth={1.75}
+          lineWidth={selected ? 2 : 1.4}
           transparent
           opacity={borderOpacity}
           onClick={onSelect}
