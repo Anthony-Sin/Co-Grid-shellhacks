@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MapControls } from '@react-three/drei'
 import { useShallow } from 'zustand/react/shallow'
@@ -184,16 +184,24 @@ export function CityCanvas() {
   // zones layer off by default — but an explicit selection still draws its
   // own zone polygon so the map answers "where is this overlap?"
   const hasSelection = useAppStore((s) => s.selectedOverlapId != null)
+  // ?lowfx — demo/weak-hardware mode: on software GL (SwiftShader, CI
+  // captures) each frame costs seconds; a lower pixel ratio + no shadow
+  // map keeps camera flights visibly moving. No effect on real GPUs —
+  // the flag is opt-in only.
+  const lowfx = useMemo(
+    () => new URLSearchParams(window.location.search).has('lowfx'),
+    [],
+  )
 
   return (
     <div className="canvas-wrap">
       <Canvas
         orthographic
         flat
-        shadows="soft"
+        shadows={lowfx ? false : 'soft'}
         frameloop="demand"
-        dpr={[1, 1.5]}
-        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
+        dpr={lowfx ? 0.6 : [1, 1.5]}
+        gl={{ alpha: true, antialias: !lowfx, powerPreference: 'high-performance' }}
         camera={{
           position: STATE_VIEW.position as unknown as [number, number, number],
           zoom: STATE_VIEW.zoom,

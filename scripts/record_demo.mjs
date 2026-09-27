@@ -435,12 +435,52 @@ await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 900,
 // downloads must land in ~/Downloads — chromium kiosk otherwise prompts
 await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() =>
   cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() => {}))
+// Chromium renders native title= tooltips as a dark box that doesn't
+// rasterize under swiftshader — on camera it's a black rectangle stuck
+// over the panel for ~10s. Strip every title attr + re-strip any that
+// mount later (observer survives HMR within the session).
+await page.evaluateOnNewDocument(() => {
+  const strip = (root) => {
+    const t = root.querySelectorAll?.('[title]') ?? []
+    t.forEach((e) => e.removeAttribute('title'))
+    if (root.getAttribute?.('title') !== undefined && root.getAttribute?.('title'))
+      root.removeAttribute('title')
+  }
+  const boot = () => {
+    strip(document)
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === 'attributes') m.target.removeAttribute('title')
+        else m.addedNodes.forEach((n) => strip(n))
+      }
+    }).observe(document.documentElement, {
+      childList: true, subtree: true, attributes: true, attributeFilter: ['title'],
+    })
+  }
+  if (document.documentElement) boot()
+  else document.addEventListener('DOMContentLoaded', boot, { once: true })
+})
 // reload so the app mounts against the final viewport — but the dev
 // server + 40MB of artifacts can exceed the nav timeout under
-// swiftshader; a live app is fine to record against as-is
-await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => console.log('  reload timed out — continuing on the live page'))
+// swiftshader; a live app is fine to record against as-is.
+// ?lowfx: caps pixel ratio + drops the shadow map so frames actually
+// move during the capture (SwiftShader renders ~9s/frame at full dpr).
+await page.goto('http://127.0.0.1:3210/?lowfx', { waitUntil: 'domcontentloaded', timeout: 45000 })
+  .catch(() => page.reload({ waitUntil: 'domcontentloaded' }).catch(() => console.log('  reload timed out — continuing on the live page')))
 await page.waitForFunction('window.__cogridReady===true', { timeout: 120000, polling: 500 }).catch(() => {})
-await sleep(4000) // let the post-mount render burst finish before X input
+// pre-warm: under software GL each frame is seconds — hold until a few
+// real frames have presented so the cut opens on the drawn network,
+// not a bare basemap (this wait is pre-marks, never on camera)
+await page.evaluate(() => new Promise((res) => {
+  let n = 0
+  const t0 = performance.now()
+  const tick = () => {
+    if (++n >= 3 || performance.now() - t0 > 20000) return res(n)
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+})).catch(() => {})
+await sleep(1500)
 // snapshot the statewide resting view — the outro flies back to it
 const home = await page.evaluate(() => {
   const c = window.__cogridControls
