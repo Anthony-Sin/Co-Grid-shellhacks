@@ -3,6 +3,23 @@ tool AND the /api/overlaps.csv export route so both surfaces apply
 identical semantics (a download link the agent hands back is faithful
 to the result set it described)."""
 
+import json
+
+
+def _as_list(v):
+    """list arg arrived as a string — accept comma-joined or JSON-array."""
+    if isinstance(v, list):
+        return v
+    s = str(v).strip()
+    if s.startswith("["):
+        try:
+            out = json.loads(s)
+            if isinstance(out, list):
+                return [str(x).strip() for x in out]
+        except ValueError:
+            pass
+    return [x.strip() for x in s.split(",") if x.strip()]
+
 # Zone labels are state-derived; a record's composite zone ('a / b')
 # touches both sides honestly — a state filter keeps records whose zone
 # mentions ANY zone of that state (river-border composites count both).
@@ -43,8 +60,7 @@ def filter_records(rows: list[dict],
         u = str(utility).strip()
         rows = [r for r in rows if u in (r.get("utilities") or [])]
     if utilities:
-        pair = utilities if isinstance(utilities, list) else [
-            x.strip() for x in str(utilities).split(",") if x.strip()]
+        pair = _as_list(utilities)
         if len(pair) == 1:
             raise ValueError(
                 "utilities expects an exact PAIR like 'GPC,MEAG' — "

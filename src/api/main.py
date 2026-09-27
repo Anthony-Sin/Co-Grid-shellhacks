@@ -264,6 +264,10 @@ _OVERLAP_SORTS = {
 def overlaps(
     tier: Optional[int] = Query(None, ge=1, le=4),
     timeline_only: bool = Query(False),
+    adjacent_only: bool = Query(False, description="end-to-start handoffs only (excl. timeline_only)"),
+    missing_dates: bool = Query(False, description="records with no shared or adjacent window"),
+    utility: Optional[str] = Query(None, description="either side, e.g. GPC"),
+    utilities: Optional[str] = Query(None, description="exact pair 'A,B' or JSON list"),
     q: Optional[str] = Query(None, description="substring match on ids, project names, utilities"),
     zone: Optional[str] = Query(None, description="region tag — matches zone labels incl. 'a / b' pairs"),
     state: Optional[str] = Query(None, description="ga | sc — records whose zone touches that state"),
@@ -274,6 +278,8 @@ def overlaps(
     fields: Optional[str] = Query(
         None, description="comma-separated record keys to keep (slim payload)"),
 ) -> dict:
+    if timeline_only and adjacent_only:
+        raise HTTPException(422, "timeline_only and adjacent_only are exclusive")
     data = _fresh("overlaps.json")
     rows = data.get("overlaps", [])
     if tier is not None:
@@ -281,10 +287,11 @@ def overlaps(
     if zone:
         z = zone.strip().lower()
         rows = [r for r in rows if z in (r.get("zone") or "").lower()]
-    if state:
+    if utility or utilities or state or adjacent_only or missing_dates:
         from src.analysis.filters import filter_records as _fr
         try:
-            rows = _fr(rows, state=state)
+            rows = _fr(rows, utility=utility, utilities=utilities, state=state,
+                       adjacent_only=adjacent_only, missing_dates=missing_dates)
         except ValueError as e:
             raise HTTPException(422, str(e)) from e
     if timeline_only:

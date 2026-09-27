@@ -206,9 +206,17 @@ def tool_get_overlap(overlap_id: str | None = None,
     Pass `overlap_ids` (list, <=30) to fetch several records in ONE call —
     a multi-record question should never burn a round per lookup."""
     if overlap_ids is not None:
-        # tolerate a comma-joined string — models sometimes emit one
+        # tolerate a comma-joined OR JSON-array string — models sometimes
+        # emit '["OV-1","OV-2"]' even when the spec says array
         if isinstance(overlap_ids, str):
-            overlap_ids = [x.strip() for x in overlap_ids.split(",") if x.strip()]
+            s = overlap_ids.strip()
+            if s.startswith("["):
+                try:
+                    overlap_ids = json.loads(s)
+                except ValueError:
+                    overlap_ids = s
+            if isinstance(overlap_ids, str):
+                overlap_ids = [x.strip() for x in s.split(",") if x.strip()]
         if not isinstance(overlap_ids, list) or not overlap_ids:
             return {"error": "overlap_ids must be a non-empty list"}
         wanted = [str(x) for x in overlap_ids[:30]]
