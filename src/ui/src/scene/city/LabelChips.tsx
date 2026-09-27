@@ -55,6 +55,22 @@ const CHIP_Y = 62
 const capForZoom = (zoom: number): number =>
   zoom >= 0.03 ? 20 : zoom >= 0.006 ? 12 : 6
 
+/** Metro cores that carry the app's building extracts — at statewide
+ *  overview these outrank bigger out-of-state context cities (Charlotte,
+ *  Jacksonville) that OSM includes for orientation. Honest emphasis:
+ *  these ARE the places the data is about. */
+const FEATURED_METROS = new Set([
+  'savannah',
+  'augusta',
+  'atlanta',
+  'columbia',
+  'charleston',
+  'greenville',
+  'columbus',
+  'athens',
+  'macon',
+])
+
 interface Label extends OverlayLabel {
   text: string
 }
@@ -74,6 +90,8 @@ function pickLabels(data: CityScene): Label[] {
       .filter((p) => p.name && p.name.length < MAX_NAME_LEN)
       .sort(
         (a, b) =>
+          Number(FEATURED_METROS.has(b.name.trim().toLowerCase())) -
+            Number(FEATURED_METROS.has(a.name.trim().toLowerCase())) ||
           (POI_PRIORITY[b.kind] ?? 0) - (POI_PRIORITY[a.kind] ?? 0) ||
           (b.pop ?? 0) - (a.pop ?? 0),
       )
