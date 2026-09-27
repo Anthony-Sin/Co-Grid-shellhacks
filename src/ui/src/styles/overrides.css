@@ -126,8 +126,8 @@
 
   /* lift the map-tools card with the right rail */
   .app-shell .viewmodes-wrap {
-    bottom: 132px;
-    max-height: calc(100vh - 202px);
+    bottom: 142px;
+    max-height: calc(100vh - 212px);
   }
 
   /* when the conversation log exists the bar can grow min(40vh,340px)
@@ -135,8 +135,8 @@
      (60vh) deliberately take over the screen; the bar's z95 keeps them
      usable on top. */
   .app-shell:has(.agent-log) .viewmodes-wrap {
-    bottom: calc(130px + min(40vh, 340px));
-    max-height: calc(100vh - 200px - min(40vh, 340px));
+    bottom: calc(140px + min(40vh, 340px));
+    max-height: calc(100vh - 210px - min(40vh, 340px));
   }
 }
 
@@ -156,13 +156,25 @@
   }
 }
 
-/* ≥860px with the left rail open: the bottom-left map-tools card would
-   paint over the rail's filter/table area (rail occupies x∈[0,390]) —
-   shift it right of the rail. Collapsed rail = only the small reopen
-   pill top-left, so the card can reclaim the corner. */
-@media (min-width: 860px) {
+/* With the left rail open, the bottom-left map-tools card/pill paints
+   over the rail's filter/table area — move it right of the rail's edge.
+   700px+: rail is 390px and ≥298px of map remains → a 220px card fits.
+   <700px: the rail narrows to calc(100vw − 96px), leaving <110px — no
+   room beside it, so the card docks top-right under the header instead
+   (the ≤560 legend collapse keeps that corner free). A collapsed rail
+   (:has .panel-reopen) leaves the corner open → default position. */
+@media (min-width: 700px) {
   .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap {
     left: 404px;
+  }
+}
+
+@media (max-width: 699.98px) {
+  .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap {
+    left: auto;
+    right: 12px;
+    top: 64px;
+    bottom: auto;
   }
 }
 

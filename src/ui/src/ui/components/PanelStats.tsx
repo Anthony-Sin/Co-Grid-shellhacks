@@ -167,6 +167,7 @@ export function PanelStats({ records, total, tierCounts, onAskAgent }: PanelStat
               >
                 <span className="pnl-top4-rank mono">#{i + 1}</span>
                 <span className="dot" style={{ background: t?.color ?? '#888' }} />
+                <span className="pnl-top4-id mono">{o.overlap_id.replace('OV-', '')}</span>
                 <span className="pnl-top4-km mono">
                   {o.min_distance_km <= 0 ? '0' : o.min_distance_km < 10
                     ? o.min_distance_km.toFixed(1)

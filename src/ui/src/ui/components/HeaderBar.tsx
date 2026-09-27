@@ -104,7 +104,7 @@ export function HeaderBar() {
           dangles) drop below ~1100px; every figure renders only when the
           field is actually present. */}
       {s ? (
-        <div className="header-stats" title="Live counts from /api/stats + /api/analysis/impacts">
+        <div className="header-stats" title="Dataset-wide counts from /api/stats + /api/analysis/impacts — these stay UNFILTERED; the left rail's KPI block tracks the current filter view">
           <span>
             <b className="mono">{fmtInt(s.projects)}</b> projects
           </span>

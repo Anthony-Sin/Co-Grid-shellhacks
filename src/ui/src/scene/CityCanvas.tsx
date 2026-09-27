@@ -215,7 +215,11 @@ export function CityCanvas() {
         <MapControls
           makeDefault
           enableDamping
-          dampingFactor={0.09}
+          // 0.09 damping + zoomToCursor chased the still-gliding anchor
+          // each wheel tick — QA measured ~40km of drift off the aimed
+          // feature over 10 ticks. Lower damping settles the glide
+          // sooner so the next tick re-anchors a stable point.
+          dampingFactor={0.055}
           target={[0, 0, 0]}
           minPolarAngle={0}
           maxPolarAngle={0.55}
@@ -225,10 +229,12 @@ export function CityCanvas() {
           // The zoom range is ~640x (statewide 0.0022 -> street 1.4):
           // default speed (1.0, ~5%/notch) needs ~100 wheel ticks to reach
           // building detail — effectively unreachable, reads as a "cut
-          // off" empty map. 2.4 gets overview->street in ~10 ticks.
+          // off" empty map. 1.9 gets overview->street in ~13 ticks; higher
+          // values re-anchor the zoomToCursor point mid-glide and the
+          // view drifts off the aimed feature.
           // zoomToCursor keeps the pointed feature centered like every
           // tiled web map.
-          zoomSpeed={2.4}
+          zoomSpeed={1.9}
           zoomToCursor
         />
       </Canvas>

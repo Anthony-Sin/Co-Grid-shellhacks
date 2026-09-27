@@ -188,3 +188,10 @@
   font-size: 9px;
   opacity: 0.65;
 }
+
+/* overlap-id suffix — differentiates the otherwise identical "0km"
+   tier-1 rows (QA: four buttons all read "#n 0km") */
+.pnl-top4-id {
+  font-size: 9px;
+  opacity: 0.7;
+}

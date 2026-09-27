@@ -426,7 +426,7 @@ button.pnl-chip:hover {
    position:absolute off the dock's top, so it is unaffected. */
 @media (max-width: 859.98px) {
   .app-shell .panel-dock {
-    bottom: 132px;
+    bottom: 142px;
   }
 
   /* the lifted bottom edge floats over the map — finish it like the
@@ -439,7 +439,7 @@ button.pnl-chip:hover {
   /* once a conversation exists the bar grows min(40vh,340px) taller —
      lift the rail above that too (same rule as .right-rail) */
   .app-shell:has(.agent-log) .panel-dock {
-    bottom: calc(130px + min(40vh, 340px));
+    bottom: calc(140px + min(40vh, 340px));
   }
 }
 

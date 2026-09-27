@@ -126,7 +126,7 @@ export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, sho
               transition: 'transform 140ms ease, opacity 140ms ease',
             }}
           >
-            {datum.labelA} ⇄ {datum.labelB} · {datum.rec.min_distance_km.toFixed(1)} km
+            T{datum.rec.tier} · {datum.labelA} ⇄ {datum.labelB} · {datum.rec.min_distance_km.toFixed(1)} km
           </button>
         </Html>
       )}

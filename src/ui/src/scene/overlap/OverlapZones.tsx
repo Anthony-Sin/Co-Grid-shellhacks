@@ -222,7 +222,11 @@ export function OverlapZones() {
                 showChip={showLabels}
               />
             )}
-            {showLabels && labelIds.has(d.rec.overlap_id) && (
+            {/* ZoneLabel is the fallback chip for when the connector's
+                midpoint pill isn't showing (projects layer off) — rendering
+                both for the same record stacked two labels on the same
+                centroid (QA collision), and the pill now carries the tier. */}
+            {showLabels && !showProjects && labelIds.has(d.rec.overlap_id) && (
               <ZoneLabel datum={d} />
             )}
           </Fragment>

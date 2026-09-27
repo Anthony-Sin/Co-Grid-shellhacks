@@ -24,11 +24,12 @@ export function Legend() {
   const clearUtilityFilter = useAppStore((s) => s.clearUtilityFilter)
   const [meta, setMeta] = useState<MetaResponse | null>(null)
   // narrow viewports start collapsed — the open legend would cover the
-  // left rail with no escape (QA: 430px had x161–416 painting over x0–334)
+  // left rail with no escape (QA: 430px had x161–416 painting over x0–334).
+  // <860 keeps the right side free for the shifted map-tools card too.
   const [collapsed, setCollapsed] = useState(
     () =>
       typeof window !== 'undefined' &&
-      window.matchMedia('(max-width: 560px)').matches,
+      window.matchMedia('(max-width: 859.98px)').matches,
   )
 
   // One-shot freshness fetch — artifact build dates for the sources fold.

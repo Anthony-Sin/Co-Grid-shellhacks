@@ -384,15 +384,15 @@
    unconditional so the rail doesn't jump when the bar toggles open/shut. */
 @media (max-width: 859.98px) {
   .right-rail {
-    bottom: 132px;
-    max-height: calc(100vh - 202px);
+    bottom: 142px;
+    max-height: calc(100vh - 212px);
   }
 
   /* once a conversation exists the bar grows min(40vh,340px) taller —
      lift the rail above that too, and shrink its cap to match. */
   .app-shell:has(.agent-log) .right-rail {
-    bottom: calc(130px + min(40vh, 340px));
-    max-height: calc(100vh - 200px - min(40vh, 340px));
+    bottom: calc(140px + min(40vh, 340px));
+    max-height: calc(100vh - 210px - min(40vh, 340px));
   }
 }
 
