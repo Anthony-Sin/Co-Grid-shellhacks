@@ -5,8 +5,10 @@
  *
  * Feature-detected: unsupported browsers hide the mic button entirely.
  * Finals append to the draft; interim words render live so the user
- * sees them land. Listening state survives until toggled off, a hard
- * error, or unmount — send() does not steal the mic mid-dictation.
+ * sees them land. Listening survives until toggled off, a hard error,
+ * unmount — or an external draft edit: send() clearing the field (or
+ * the user typing mid-utterance) ends the session rather than letting
+ * already-sent words resurrect on the next onresult.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -52,10 +54,20 @@ export function useVoiceInput(
   /** draft text the user had before dictation — interim words sit on top */
   const baseRef = useRef('')
   const finalsRef = useRef('')
+  /** last value this hook wrote via setDraft — any other draft value is
+   * an external edit (send() clearing the field, manual typing). Trying
+   * to rebase mid-utterance would double-append the in-flight interim,
+   * so the session ends instead: sent text can never resurrect, and a
+   * user edit is never overwritten by the next result. */
+  const writtenRef = useRef<string | null>(null)
 
   const stop = useCallback(() => {
     recRef.current?.stop()
   }, [])
+
+  useEffect(() => {
+    if (recRef.current && draft !== writtenRef.current) recRef.current.stop()
+  }, [draft])
 
   const toggle = useCallback(() => {
     if (listening) {
@@ -69,6 +81,7 @@ export function useVoiceInput(
     rec.interimResults = true
     baseRef.current = draft
     finalsRef.current = ''
+    writtenRef.current = draft
     rec.onresult = (e) => {
       let interim = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -78,9 +91,14 @@ export function useVoiceInput(
       }
       const spoken = finalsRef.current + interim
       const glue = baseRef.current && spoken && !baseRef.current.endsWith(' ') ? ' ' : ''
-      setDraft(baseRef.current + glue + spoken.trimStart())
+      const next = baseRef.current + glue + spoken.trimStart()
+      writtenRef.current = next
+      setDraft(next)
     }
-    rec.onend = () => setListening(false)
+    rec.onend = () => {
+      recRef.current = null
+      setListening(false)
+    }
     rec.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setDenied(true)
       setListening(false)
@@ -89,6 +107,9 @@ export function useVoiceInput(
     try {
       rec.start()
       setListening(true)
+      // a session that actually started clears a stale denied flag — the
+      // permission may have been granted since the last refusal
+      setDenied(false)
     } catch {
       setListening(false)
     }

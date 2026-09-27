@@ -7,6 +7,19 @@
  * Harness: scripts/demo_capture.sh (Xvfb + chromium kiosk + CDP :9222 +
  * ffmpeg grab). Usage: node scripts/record_demo.mjs [segmentId ...]
  * Wall-clock segment boundaries land in /tmp/demo_marks.json.
+ *
+ * Reliability notes (hard-won across takes):
+ *  - bare-X chromium maps content at 800×600 regardless of window size —
+ *    Emulation.setDeviceMetricsOverride THEN reload, so the app mounts
+ *    against the final viewport
+ *  - FocusRig arrivals are POLLED (zoom settles), not slept — fixed
+ *    sleeps under swiftshader produce dead zones in the cut
+ *  - the home flight must call __cogridInvalidate, not controls.update()
+ *    (damping state reasserts and snaps the camera back)
+ *  - the export deliverable opens in a second TAB — LibreOffice cold
+ *    starts exceed any usable segment length in this environment
+ *  - synthetic page.mouse/keyboard beats xdotool: X focus grabs stall
+ *    under render load
  */
 import puppeteer from 'puppeteer-core'
 import { execSync } from 'node:child_process'
@@ -14,14 +27,13 @@ import fs from 'node:fs'
 
 const CDP = 'http://127.0.0.1:9222'
 const SCRIPT = JSON.parse(fs.readFileSync(new URL('./demo_script.json', import.meta.url)))
+const EXPORT_DIR = '/home/ANT/projects/Co-Grid-shellhacks/exports'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** real X cursor ops so the capture shows deliberate motion.
  * NOTE: no --sync — under swiftshader render load the X input queue
  * lags and --sync can block for minutes; fire-and-forget lands fine. */
 const mouse = (x, y) => execSync(`DISPLAY=:99 xdotool mousemove ${Math.round(x)} ${Math.round(y)}`)
-const click = () => execSync('DISPLAY=:99 xdotool click 1')
-const type = (s) => execSync(`DISPLAY=:99 xdotool type --delay 40 --clearmodifiers ${JSON.stringify(s)}`)
 
 async function centerOf(page, sel) {
   return page.evaluate((s) => {
@@ -37,6 +49,21 @@ const store = async (page, fn) => {
   // can still be mid-mount when a segment starts; poll briefly first
   await page.waitForFunction('!!window.__cogridStore', { timeout: 30000, polling: 300 }).catch(() => {})
   return page.evaluate(`window.__cogridStore.getState().${fn}`)
+}
+
+/** wait until the FocusRig zoom holds steady near corridor level —
+ * demand-mode rendering means a fixed sleep routinely lands mid-flight */
+async function waitArrived(page, maxMs = 25000) {
+  const t0 = Date.now()
+  let last = -1, still = 0
+  while (Date.now() - t0 < maxMs) {
+    const z = await page.evaluate(() => window.__cogridControls?.object?.zoom ?? -1).catch(() => -1)
+    if (z > 0.05 && Math.abs(z - last) < 0.005) { if (++still >= 3) return z }
+    else still = 0
+    last = z
+    await sleep(600)
+  }
+  return last
 }
 
 const actions = {
@@ -56,63 +83,73 @@ const actions = {
     // zoom behavior (CDP wheel at statewide scale barely moves the camera)
     await mouse(880, 600); await sleep(300)
     await store(page, `selectOverlap('OV-0004')`)
-    await sleep(9000) // camera flight + hatch + rail card + snapshot render
+    const z = await waitArrived(page)
+    console.log(`  corridor arrived at zoom ${z}`)
+    await sleep(3500) // dwell: zone hatch + crossing lines + rail card + snapshot
   },
   async click_top_pick(page) {
     const c = await centerOf(page, '.top-picks button')
     if (c) { mouse(c.x, c.y); await sleep(350); await page.mouse.click(c.x, c.y) }
-    await sleep(2800) // FocusRig flight + zone hatch + rail card + snapshot
+    await waitArrived(page)
+    // hold until the detail card finishes populating, not just in-flight
+    await page.waitForFunction(() =>
+      !document.body.textContent.includes('loading overlap detail'), { timeout: 20000 }).catch(() => {})
+    await sleep(3000)
   },
-  async agent_ask_macon(page) {
+  async agent_ask_macon(page, home, seg) {
+    const prompt = seg?.prompt || 'zoom to Macon'
     const c = await centerOf(page, '.agent-input textarea')
     if (c) { mouse(c.x, c.y); await sleep(250) }
     // synthetic CDP click+type — guaranteed focus; xdotool typing needs a
     // real X focus grab that stalls under render load
     await page.evaluate(() => document.querySelector('.agent-input textarea')?.focus())
     await page.click('.agent-input textarea').catch(() => {})
-    await page.keyboard.type('which overlaps share crews near Macon?', { delay: 45 })
+    await page.keyboard.type(prompt, { delay: 55 })
     // verify the text landed — if focus was lost, force it and retry once
     const typed = await page.evaluate(() => document.querySelector('.agent-input textarea')?.value ?? '')
-    if (!typed.includes('Macon')) {
+    if (!typed.toLowerCase().includes('macon')) {
       await page.evaluate(() => document.querySelector('.agent-input textarea')?.focus())
-      await page.keyboard.type('which overlaps share crews near Macon?', { delay: 45 })
+      await page.keyboard.type(prompt, { delay: 55 })
     }
     await sleep(400)
     await page.keyboard.press('Enter')
-    await sleep(10000) // tool progress + streamed reply stay on screen
+    await sleep(11000) // one tool call → map flight + streamed reply on screen
   },
-  async export_and_open(page) {
-    const chip = await page.evaluate(() => {
-      const b = [...document.querySelectorAll('button')]
-        .find((x) => /export/i.test(x.textContent || ''))
-      if (!b) return null
-      b.scrollIntoView({ block: 'center' })
-      const r = b.getBoundingClientRect()
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
-    })
-    if (chip) { mouse(chip.x, chip.y); await sleep(350); await page.mouse.click(chip.x, chip.y) }
-    await sleep(9000) // export run streams; link lands in the log
-    const latest = execSync(
-      'ls -t /home/ANT/projects/Co-Grid-shellhacks/exports/* 2>/dev/null | head -1 || true',
-    ).toString().trim()
-    if (latest) execSync(`DISPLAY=:99 setsid libreoffice --norestore '${latest}' >/dev/null 2>&1 &`)
-    await sleep(6000)
-    // bare Xvfb has no WM — unmap the sheet by closing soffice so the
-    // kiosk browser is visible again for the outro
-    execSync('pkill -f "soffic[e]" 2>/dev/null || true')
-    await sleep(1200)
+  async export_and_open(page, home, seg, browser) {
+    // click the rail CSV export (real /api/overlaps.csv download)…
+    const a = await page.$('a[href*="overlaps.csv"]')
+    if (a) {
+      const r = await a.boundingBox()
+      if (r) { mouse(r.x + r.width / 2, r.y + r.height / 2); await sleep(300); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2) }
+    }
+    await sleep(2500)
+    // …then show the deliverable in a second tab — the generated HTML
+    // report is a real styled artifact that paints instantly (LibreOffice
+    // cold-start under capture load exceeded 30s and never shipped)
+    const latest = execSync(`ls -t ${EXPORT_DIR}/*.html 2>/dev/null | head -1 || true`).toString().trim()
+    if (latest) {
+      const tab = await browser.newPage()
+      await tab.goto('file://' + latest, { waitUntil: 'load' }).catch(() => {})
+      await sleep(6000)
+      await tab.close()
+      await page.bringToFront()
+    }
+    await sleep(1500)
   },
   async zoom_out_state(page, home) {
-    await store(page, `selectOverlap(null)`) // collapse the detail card
-    // ease the camera back to the statewide view captured at setup —
-    // controls.update() fires 'change' which r3f auto-invalidates on
-    await page.evaluate((h) => {
+    await store(page, `selectOverlap(null)`).catch(() => {}) // collapse the detail card
+    await sleep(400)
+    if (!home) return
+    // ease back to the statewide pose captured at setup — write target +
+    // zoom directly and invalidate; controls.update() reasserts the
+    // damping state and snaps the camera back
+    await page.evaluate((h) => new Promise((res) => {
       const c = window.__cogridControls
       const cam = c.object
       const from = c.target.clone(), z0 = cam.zoom
       const t0 = performance.now()
       const step = () => {
-        const k = Math.min(1, (performance.now() - t0) / 1600)
+        const k = Math.min(1, (performance.now() - t0) / 2200)
         const e = 1 - Math.pow(1 - k, 3)
         const d = c.target.clone()
         c.target.set(from.x + (h.tx - from.x) * e, 0, from.z + (h.tz - from.z) * e)
@@ -120,12 +157,13 @@ const actions = {
         cam.position.sub(d)
         cam.zoom = z0 + (h.zoom - z0) * e
         cam.updateProjectionMatrix()
-        c.update?.()
+        window.__cogridInvalidate?.()
         if (k < 1) requestAnimationFrame(step)
+        else res(cam.zoom)
       }
       step()
-    }, home)
-    await sleep(3200)
+    }), home).then((z) => console.log('  flew home, zoom', z)).catch((e) => console.log('  fly err:', e.message))
+    await sleep(3000)
     await mouse(700, 450)
   },
 }
@@ -136,11 +174,14 @@ const marks = []
 const browser = await puppeteer.connect({ browserURL: CDP })
 const page = (await browser.pages()).find((p) => p.url().includes('3210')) || (await browser.pages())[0]
 await page.bringToFront()
+const cdp = await page.createCDPSession()
 // bare-X chromium maps the content view at 800×600 regardless of window
 // size — force the real viewport via emulation, then reload so the app
 // mounts against the final size (mid-flight overrides leave it blank)
-const cdp = await page.createCDPSession()
 await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false })
+// downloads must land in ~/Downloads — chromium kiosk otherwise prompts
+await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: '/home/ANT/Downloads' }).catch(() =>
+  cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: '/home/ANT/Downloads' }).catch(() => {}))
 await page.reload({ waitUntil: 'domcontentloaded' })
 await page.waitForFunction('window.__cogridReady===true', { timeout: 120000, polling: 500 }).catch(() => {})
 await sleep(4000) // let the post-mount render burst finish before X input
@@ -149,12 +190,13 @@ const home = await page.evaluate(() => {
   const c = window.__cogridControls
   return c ? { tx: c.target.x, tz: c.target.z, zoom: c.object.zoom } : null
 })
+console.log('home:', JSON.stringify(home))
 
 for (const s of segs) {
   const t0 = Date.now()
   marks.push({ id: s.id, start_ms: t0 })
   console.log(`[seg ${s.id}] ${s.action} (target ${s.dur_s}s)`)
-  try { await actions[s.action](page, home) } catch (e) { console.log(`  action error: ${e.message}`) }
+  try { await actions[s.action](page, home, s, browser) } catch (e) { console.log(`  action error: ${e.message}`) }
   const pad = s.dur_s * 1000 - (Date.now() - t0)
   if (pad > 0) await sleep(pad)
   marks[marks.length - 1].end_ms = Date.now()

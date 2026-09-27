@@ -60,15 +60,24 @@ with `./scripts/verify.sh`.
 ```bash
 ./scripts/screenshot.sh                        # all presets -> shots/
 ./scripts/screenshot.sh --out=/tmp/shots       # custom dir
-./scripts/screenshot.sh "name|scene=augusta&select=OV-0004&panel=0"
+./scripts/screenshot.sh "name|select=OV-0004&panel=0"
 ```
 
 Requires the dev server + API running and a system `chromium` binary
 (software WebGL via `--enable-unsafe-swiftshader`, works GPU-less).
-Deep-link params (`src/ui/src/lib/urlParams.ts`):
+Deep-link params (`src/ui/src/lib/urlParams.ts` — the build is
+single-scene statewide, so `scene=` is a no-op):
 
-`?scene=savannah|augusta` `?select=<overlap_id>` (flies the camera)
-`?focus=<lon>,<lat>` `?panel=0|1` `?tiers=1,2,3,4` `?timeline=0|1`
+`?select=<overlap_id>` (flies the camera) `?focus=<lon>,<lat>`
+`?panel=0|1` `?tiers=1,2,3,4` `?timeline=0|1`
+
+### Narrated demo (74s)
+
+Video: https://youtu.be/jv0fVHTFf-g (unlisted) — real UI footage, no
+slides. Transcript: `cogrid_transcript.txt`. Regenerate the capture
+with `scripts/demo_capture.sh start` + `scripts/record_demo.mjs`
+(segment timings in `scripts/demo_script.json`); rendered mp4s are
+gitignored — the published cut lives on YouTube.
 
 ### AI coordination analyst (optional, server-side key)
 
@@ -98,8 +107,12 @@ tools/bad args return `{error}` instead of crashing the loop. The engine
 `tools` + a JSON-fallback for models that can't emit `tool_calls`) and
 passes through the model's `reasoning` field when present.
 
-The UI mounts a minimal Drive-style `AgentBar` (bottom pill + quick chips)
-that sends conversation history + the selected overlap id as context.
+The UI mounts the analyst as a full-height right rail (`AgentBar`):
+conversation history + the selected overlap id go as context, detail
+cards render inside it, and the composer's mic button dictates
+questions via the Web Speech API (feature-detected — hidden where
+unsupported, nothing leaves the page beyond the browser's speech
+service).
 
 Deterministic analysis API (no model needed, `src/analysis/`):
 

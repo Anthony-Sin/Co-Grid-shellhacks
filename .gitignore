@@ -39,6 +39,10 @@ exports/
 # headless UI captures (regenerable via scripts/screenshot.sh)
 shots/
 
+# rendered demo video — regenerated via scripts/demo_capture.sh +
+# scripts/record_demo.mjs; published cut lives on YouTube, not in git
+*.mp4
+
 # local design reference images (not part of the app)
 ref_img/
 
