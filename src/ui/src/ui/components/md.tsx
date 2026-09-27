@@ -1,5 +1,6 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import type { AgentTrace } from '../../lib/api'
+import type { MapUiAction } from '../../lib/mapActions'
 
 /**
  * md.tsx — dependency-free reply rendering for the agent bar: a mini
@@ -19,9 +20,38 @@ import type { AgentTrace } from '../../lib/api'
 
 export type OverlapSelectFn = (overlapId: string, scene?: string) => void
 
+/** One follow-up chip under a selection-summary message. `prompt` rides
+ * the normal send() path (model call, shows as a user bubble); `focus`
+ * applies a map_focus-style ui_action locally — no model needed.
+ * `explain` marks the chip eligible for the deterministic-brief fallback
+ * when the agent is unconfigured (the brief route resolves the LIVE
+ * selected overlap, so it only stays honest while sel.id is selected). */
+export interface SelChip {
+  label: string
+  prompt?: string
+  focus?: MapUiAction
+  explain?: boolean
+}
+
+/** Payload of a `kind: 'selection'` message — the assistant-role summary
+ * posted into the log when a NEW record is selected. `headline` is the
+ * flat one-liner also used as `content` (so chat history sent to the
+ * backend carries the same summary); `fired` holds labels of the
+ * one-shot chips already consumed on THIS message. */
+export interface SelectionMsg {
+  recordKind: 'overlap' | 'project'
+  id: string
+  headline: string
+  title: string
+  sub?: string
+  tags: string[]
+  chips: SelChip[]
+  fired: string[]
+}
+
 /** One agent-log message. `kind` drives honest-state styling
- * (error = dashed ⚠ box, note = muted); `progress` marks the transient
- * live-tool line that the real reply replaces. */
+ * (error = dashed ⚠ box, note = muted, selection = record summary);
+ * `progress` marks the transient live-tool line the real reply replaces. */
 export interface Msg {
   role: 'user' | 'assistant'
   content: string
@@ -30,7 +60,8 @@ export interface Msg {
   rounds?: number
   tokens?: number | null
   stoppedEarly?: boolean
-  kind?: 'error' | 'note'
+  kind?: 'error' | 'note' | 'selection'
+  sel?: SelectionMsg
   progress?: boolean
 }
 

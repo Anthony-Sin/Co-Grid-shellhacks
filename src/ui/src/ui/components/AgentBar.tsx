@@ -3,9 +3,9 @@ import { api, type AgentHealth, type AgentTrace } from '../../lib/api'
 import { streamAgentChat } from '../../lib/agentStream'
 import { contextPrefix, inferDraftContext } from '../../lib/agentContext'
 import { applyMapAction, mapActionFromTrace } from '../../lib/mapActions'
-import { selectOverlapInScene } from '../../lib/selectOverlap'
-import { MsgView, type Msg, type OverlapSelectFn } from './md'
+import { MsgView, type Msg } from './md'
 import { AgentRailSelection } from './AgentRailSelection'
+import { selectOvFromLog, useSelectionMessages } from './SelectionMessage'
 import { useAppStore } from '../../state/store'
 import {
   QUICK_ACTIONS, briefErrCopy, dropProgress, errText, freezeProgress,
@@ -38,8 +38,6 @@ import {
 export function AgentBar() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
   const selectedProjectId = useAppStore((s) => s.selectedProjectId)
-  const selectOverlap = useAppStore((s) => s.selectOverlap)
-  const setActiveScene = useAppStore((s) => s.setActiveScene)
   const promptDraft = useAppStore((s) => s.agentPromptDraft)
   const setPromptDraft = useAppStore((s) => s.setAgentPromptDraft)
   const agentContext = useAppStore((s) => s.agentContext)
@@ -147,20 +145,6 @@ export function AgentBar() {
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [input, open])
-
-  const onSelectOv = useCallback<OverlapSelectFn>(
-    (oid, scene) => {
-      if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
-        // deep-link form carries its own authoritative scene
-        setActiveScene(scene)
-        selectOverlap(oid)
-      } else {
-        // bare OV-id — resolve the record's zone → scene
-        selectOverlapInScene(oid)
-      }
-    },
-    [setActiveScene, selectOverlap],
-  )
 
   /** A map_focus tool event anywhere in the run drives the map — the
    * SSE tool event carries the result preview, so the action lands live
@@ -303,6 +287,11 @@ export function AgentBar() {
     }
   }
 
+  // a NEW selection posts an assistant summary + one-shot follow-up
+  // chips into this same log — posting, dedupe, and chip firing live in
+  // ./SelectionMessage (kept out of this file for the 500-line cap)
+  const renderSelMsg = useSelectionMessages({ setMsgs, send, busy, healthState, health })
+
   if (!open) {
     return (
       <button
@@ -364,8 +353,8 @@ export function AgentBar() {
 
       {msgs.length > 0 ? (
         <div className="agent-log" ref={listRef} role="log" aria-live="polite">
-          {msgs.map((m, i) => (
-            <MsgView key={i} m={m} onSelect={onSelectOv} />
+          {msgs.map((m, i) => renderSelMsg(m, i) ?? (
+            <MsgView key={i} m={m} onSelect={selectOvFromLog} />
           ))}
           {/* skip the generic spinner while a ⚙ progress line already
               shows which tool is running — one indicator, not two */}
