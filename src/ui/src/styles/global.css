@@ -80,11 +80,13 @@ button {
   top: 0;
   left: 0;
   right: 0;
-  height: 54px;
+  /* slim 44px strip — every child (incl. the stats pill) must fit INSIDE;
+     the side rails start flush at top:44px to match */
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 16px;
+  gap: 14px;
+  padding: 0 14px;
   background: rgba(232, 228, 218, 0.92);
   border-bottom: 2px solid #2b2b2b;
   backdrop-filter: blur(3px);
@@ -151,9 +153,11 @@ button {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 14px;
-  font-size: 12px;
+  gap: 7px;
+  /* ~27px tall — comfortably inside the 44px bar (was clipping its
+     top/bottom edges against the old strip) */
+  padding: 3px 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   background: rgba(245, 242, 234, 0.95);
@@ -175,7 +179,7 @@ button {
 
 .panel {
   position: absolute;
-  top: 70px;
+  top: 56px;
   left: 14px;
   width: 332px;
   max-height: calc(100% - 140px);
@@ -191,7 +195,7 @@ button {
 
 .panel-reopen {
   position: absolute;
-  top: 70px;
+  top: 56px;
   left: 14px;
   padding: 8px 14px;
   font-size: 12px;
@@ -333,8 +337,9 @@ button {
 
 .legend {
   position: relative; /* anchors the .legend-fold toggle */
-  /* shrinkable inside .right-rail — capped at 40vh and scrolls internally,
-     so the rail's own max-height can never be exceeded by its children */
+  /* currently unmounted (Legend.tsx is kept but not rendered — the left
+     rail already carries its tier/utility filters); styles kept so a
+     remount needs no CSS surgery */
   flex: 0 1 auto;
   min-height: 0;
   max-height: 40vh;
@@ -414,7 +419,7 @@ button {
 /* ---- floating label chips (inside drei Html) ------------------------------ */
 
 /* DOM overlay over the canvas — must sit UNDER the app chrome (.panel/
- * .right-rail/.header-bar are z≈90-100). Without an explicit z-index the
+ * .agent-rail/.header-bar are z≈90-100). Without an explicit z-index the
  * overlay creates no stacking context in .canvas-wrap, so each chip's own
  * zIndex would compete in the ROOT context and paint over the rails. */
 .label-overlay {
@@ -473,6 +478,7 @@ button {
 .vm-clear:focus-visible,
 .vm-layer:focus-visible,
 .agent-bar-toggle:focus-visible,
+.agent-rail-head button:focus-visible,
 .agent-chips button:focus-visible {
   outline: 2px dashed #2b2b2b;
   outline-offset: 2px;
@@ -497,6 +503,8 @@ button {
 .panel-body,
 .overlap-detail,
 .legend,
+.agent-log,
+.agent-detail,
 .agent-chips {
   scrollbar-width: thin;
   scrollbar-color: rgba(43, 43, 43, 0.45) transparent;
@@ -505,6 +513,8 @@ button {
 .panel-body::-webkit-scrollbar,
 .overlap-detail::-webkit-scrollbar,
 .legend::-webkit-scrollbar,
+.agent-log::-webkit-scrollbar,
+.agent-detail::-webkit-scrollbar,
 .agent-chips::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -513,6 +523,8 @@ button {
 .panel-body::-webkit-scrollbar-thumb,
 .overlap-detail::-webkit-scrollbar-thumb,
 .legend::-webkit-scrollbar-thumb,
+.agent-log::-webkit-scrollbar-thumb,
+.agent-detail::-webkit-scrollbar-thumb,
 .agent-chips::-webkit-scrollbar-thumb {
   background: rgba(43, 43, 43, 0.32);
   border: 2px solid transparent;
@@ -523,6 +535,8 @@ button {
 .panel-body::-webkit-scrollbar-thumb:hover,
 .overlap-detail::-webkit-scrollbar-thumb:hover,
 .legend::-webkit-scrollbar-thumb:hover,
+.agent-log::-webkit-scrollbar-thumb:hover,
+.agent-detail::-webkit-scrollbar-thumb:hover,
 .agent-chips::-webkit-scrollbar-thumb:hover {
   background: rgba(43, 43, 43, 0.55);
   background-clip: content-box;
@@ -531,6 +545,8 @@ button {
 .panel-body::-webkit-scrollbar-track,
 .overlap-detail::-webkit-scrollbar-track,
 .legend::-webkit-scrollbar-track,
+.agent-log::-webkit-scrollbar-track,
+.agent-detail::-webkit-scrollbar-track,
 .agent-chips::-webkit-scrollbar-track {
   background: transparent;
 }

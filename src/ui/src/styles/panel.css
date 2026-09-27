@@ -18,7 +18,7 @@
 
 .app-shell .panel-dock {
   position: absolute;
-  top: 54px; /* flush under the 54px header (header stays z100 above) */
+  top: 44px; /* flush under the 44px header (header stays z100 above) */
   left: 0;
   bottom: 0;
   display: flex;
@@ -26,8 +26,7 @@
   z-index: 90;
   /* the dock's flex box is wider/taller than its cards (e.g. the strip
      under the short edge tab) — only the cards themselves take clicks,
-     so the map stays draggable through the gaps (same trick as
-     .right-rail in components.css) */
+     so the map stays draggable through the gaps */
   pointer-events: none;
 }
 
@@ -43,7 +42,7 @@
   position: relative;
   top: auto;
   left: auto;
-  width: 390px; /* rail right edge 390 — overrides.css pins the agent bar at 404 */
+  width: 390px; /* rail right edge 390 — overrides.css parks map tools at 404 */
   height: 100%;
   max-height: none;
   background: #f0ede5; /* opaque paper — pinned chrome, not a floating card */
@@ -97,7 +96,8 @@
 }
 
 /* closed: the tab leaves the flex row and hugs the viewport's left edge
-   (also carries .panel-reopen for the agent-bar :has() space reclaim) */
+   (also carries .panel-reopen so overrides.css's :has() rules can tell
+   "rail closed" from "rail open") */
 .app-shell .panel-dock.is-closed .panel-tab {
   position: absolute;
   top: 14px;
@@ -420,13 +420,16 @@ button.pnl-chip:hover {
    Responsive + reduced motion
    ========================================================================== */
 
-/* <860px: the agent bar takes the full-width bottom strip (z95, see
-   overrides.css) — lift the rail's bottom edge clear of that ~120px zone,
-   mirroring the right rail's lift in components.css. The edge tab is
-   position:absolute off the dock's top, so it is unaffected. */
-@media (max-width: 859.98px) {
+/* <1100px: the agent rail becomes a full-width bottom sheet (z95, see
+   overrides.css) — lift the rail's bottom edge clear of it so nothing
+   covers the left rail's bottom. The edge tab is position:absolute off
+   the dock's top, so it is unaffected. */
+@media (max-width: 1099.98px) {
+  /* idle sheet ≈ 212px tall (head + hint + one chip row + input) —
+     measured at 760×900; the lift must exceed it or the sheet's top edge
+     covers the rail's bottom ink border */
   .app-shell .panel-dock {
-    bottom: 142px;
+    bottom: 248px;
   }
 
   /* the lifted bottom edge floats over the map — finish it like the
@@ -436,10 +439,12 @@ button.pnl-chip:hover {
     box-shadow: 5px 5px 0 rgba(43, 43, 43, 0.12);
   }
 
-  /* once a conversation exists the bar grows min(40vh,340px) taller —
-     lift the rail above that too (same rule as .right-rail) */
-  .app-shell:has(.agent-log) .panel-dock {
-    bottom: calc(140px + min(40vh, 340px));
+  /* once the sheet carries content (a conversation log or a detail card)
+     it can grow to its 54vh cap — reserve the full cap so the rail's
+     bottom is never covered mid-run */
+  .app-shell:has(.agent-log) .panel-dock,
+  .app-shell:has(.overlap-detail) .panel-dock {
+    bottom: calc(54vh + 4px);
   }
 }
 

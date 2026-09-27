@@ -1,11 +1,12 @@
 /* ---- responsive breakpoints --------------------------------------------------
-   Chrome box math (viewport width W):
-   - the left rail occupies x ∈ [0, 390]  (docked full-height rail), z90
-   - .right-rail occupies x ∈ [W−336, W−14] (322px card + right:14), z90
-   - default .agent-bar is centered, width min(560px, 72vw): it clears the
-     left rail only when W/2 − 280 ≥ 390 and the right rail only when
-     W/2 + 280 ≤ W − 336 — i.e. it needs W ≥ ~1340. Below that it must
-     be re-pinned. */
+   Chrome box math (viewport width W, height H):
+   - the left rail (.panel-dock .panel) occupies x ∈ [0, 390], z90, docked
+     full-height under the 44px header
+   - the agent rail (.agent-rail) occupies x ∈ [W−360, W], z90, docked
+     full-height under the same header — it is NEVER a floating bar at any
+     width (≥1100px: right rail; <1100px: bottom sheet, z95 — below that
+     width the strip between the rails can't host the 220px map-tools card)
+   - the map canvas effectively lives between the two rails */
 
 /* brand subtitle + separator crowd the scene switch on narrow headers */
 @media (max-width: 800px) {
@@ -42,19 +43,11 @@
    App.tsx's subtree). Every override below uses .app-shell ancestry
    (0,2,0+ specificity) so it wins regardless of real-world load order. */
 
-/* The open bar's column (chips + log + input) can reach several hundred px
-   tall (agentbar.css gives the log up to 60vh when expanded); bound the bar
-   so its top never slides under the 54px header on short viewports.
-   .agent-log scrolls internally, so it absorbs the shrink. */
-.app-shell .agent-bar {
-  max-height: calc(100vh - 76px);
-}
-
 /* The map-tools card (viewmodes.css: fixed, bottom-left, no height cap) can
    run off the top of short viewports. Cap the wrap and let the card scroll
    internally; the ink border + hard shadow survive on the card itself. */
 .app-shell .viewmodes-wrap {
-  max-height: calc(100vh - 88px);
+  max-height: calc(100vh - 72px);
 }
 
 .app-shell .viewmodes {
@@ -65,116 +58,72 @@
   max-width: calc(100vw - 28px);
 }
 
-/* 860–1340px: pin the bar between the left rail + map-tools card and the
-   right rail. The bar is bottom-anchored like the cards, so horizontal
-   clearance is the only separation available. */
-@media (min-width: 860px) and (max-width: 1339.98px) {
-  .app-shell .agent-bar {
-    left: 404px; /* left rail right edge 390 + 14 gap */
-    right: 350px; /* right rail left edge (W−336) − 14 gap */
-    width: auto;
-    transform: none;
-  }
-
-  /* Rail collapsed → only the small .panel-reopen pill remains top-left,
-     but .viewmodes-wrap still occupies x∈[14,234] at bottom-left — reclaim
-     down to 250px, not further. Degrades to the 404px pin on engines
-     without :has() (still safe, just conservative). */
-  .app-shell:has(.panel-reopen) .agent-bar {
-    left: 250px;
-  }
-}
-
-/* <860px: the gap between the side chrome (W − 754px) is too narrow for a
-   usable input. The bar takes the full-width bottom strip; .right-rail and
-   .viewmodes-wrap lift clear of it (rail rule lives in components.css where
-   the rail base is defined). Chips switch to a single scrollable row so the
-   idle bar height stays a predictable ~117px — that constant is what the
-   132px lifts below are sized against.
-   z-index 95 > side chrome's 90 is required here: when a tall agent log
-   grows into the lifted cards' zone, an underlaid input/send button would
-   be dead chrome — the active bar must win over static cards. Header (z100)
-   still wins. */
-@media (max-width: 859.98px) {
-  .app-shell .agent-bar {
-    left: 12px;
-    right: 12px;
-    width: auto;
-    transform: none;
-    z-index: 95;
-  }
-
-  .app-shell .agent-chips {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 2px; /* room for the thin scrollbar */
-  }
-
-  /* keep the panel's bottom clear of the idle bar strip (~125px + margin)
-     so list rows can't slide underneath it */
-  .panel {
-    max-height: calc(100% - 220px);
-  }
-
-  /* the same lift when a conversation log exists — the bar grows
-     min(40vh,340px) taller than the idle strip, so the rail must yield
-     that much more or its bottom rows slide under the chip row */
-  .app-shell:has(.agent-log) .panel {
-    max-height: calc(100% - 220px - min(40vh, 340px));
-  }
-
-  /* lift the map-tools card with the right rail */
-  .app-shell .viewmodes-wrap {
-    bottom: 142px;
-    max-height: calc(100vh - 212px);
-  }
-
-  /* when the conversation log exists the bar can grow min(40vh,340px)
-     taller — lift both bottom cards clear of that too. Expanded logs
-     (60vh) deliberately take over the screen; the bar's z95 keeps them
-     usable on top. */
-  .app-shell:has(.agent-log) .viewmodes-wrap {
-    bottom: calc(140px + min(40vh, 340px));
-    max-height: calc(100vh - 210px - min(40vh, 340px));
-  }
-}
-
-/* ≤560px: the viewport can't fit both rails side by side — the right rail
-   starts collapsed (Legend default) but detail cards still need to fit:
-   cap them at the viewport width so an open card never exceeds the screen. */
-@media (max-width: 560px) {
-  .app-shell .right-rail {
-    right: 10px;
-    left: auto;
-    align-items: flex-end;
-  }
-
-  .app-shell .right-rail .overlap-detail,
-  .app-shell .right-rail .project-detail {
-    width: min(322px, calc(100vw - 24px));
-  }
-}
-
 /* With the left rail open, the bottom-left map-tools card/pill paints
    over the rail's filter/table area — move it right of the rail's edge.
-   700px+: rail is 390px and ≥298px of map remains → a 220px card fits.
-   <700px: the rail narrows to calc(100vw − 96px), leaving <110px — no
-   room beside it, so the card docks top-right under the header instead
-   (the ≤560 legend collapse keeps that corner free). A collapsed rail
-   (:has .panel-reopen) leaves the corner open → default position. */
-@media (min-width: 700px) {
+   ≥1100px: the map strip between the rails is ≥350px — a 220px card fits.
+   (<1100px the card docks top-right instead — see the sheet rules below.) */
+@media (min-width: 1100px) {
   .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap {
     left: 404px;
   }
 }
 
-@media (max-width: 699.98px) {
-  .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap {
+/* <1100px: the rails take 390 + 360 = 750px — the strip between them is
+   under 350px, so the agent rail becomes a full-width bottom sheet (ink
+   top edge, opaque paper, z95 > side chrome so a tall sheet's input never
+   dies under static cards). The left rail's bottom edge lifts clear in
+   panel.css — nothing covers the map center or the rail's bottom. Chips
+   collapse to a single scrollable row so the idle sheet stays ~212px. */
+@media (max-width: 1099.98px) {
+  .app-shell .agent-rail {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    /* the lift constants in panel.css key off this cap — keep them in
+       sync: sheet can grow to 54vh once a log or detail card exists */
+    max-height: 54vh;
+    border-left: none;
+    border-top: 2px solid #2b2b2b;
+    border-radius: 0;
+    box-shadow: 0 -5px 0 rgba(43, 43, 43, 0.12);
+    z-index: 95;
+  }
+
+  /* inside the sheet the detail region + log share the cap — bound each
+     so neither can starve the pinned input row */
+  .app-shell .agent-rail .agent-detail {
+    max-height: 22vh;
+  }
+
+  .app-shell .agent-log {
+    max-height: 24vh;
+  }
+
+  .app-shell .agent-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px; /* room for the thin scrollbar */
+  }
+
+  /* nowrap means chips must keep their natural width and scroll off —
+     default flex-shrink would squeeze labels into two lines instead */
+  .app-shell .agent-chips button {
+    flex: none;
+  }
+
+  /* map-tools card — at <1100px the bottom edge belongs to the sheet, so
+     the card docks top-right under the 44px header whether the left rail
+     is open or closed (that corner is free: legend unmounted, rail is a
+     bottom sheet here). Same specificity as the ≥1100 rule so order wins. */
+  .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap,
+  .app-shell:has(.panel-reopen) .viewmodes-wrap {
     left: auto;
     right: 12px;
-    top: 64px;
+    top: 56px;
     bottom: auto;
+    max-height: calc(100vh - 76px);
   }
 }
 
@@ -195,4 +144,3 @@
     animation-iteration-count: 1 !important;
   }
 }
-

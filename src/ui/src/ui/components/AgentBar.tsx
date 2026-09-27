@@ -5,6 +5,7 @@ import { contextPrefix, inferDraftContext } from '../../lib/agentContext'
 import { applyMapAction, mapActionFromTrace } from '../../lib/mapActions'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { MsgView, type Msg, type OverlapSelectFn } from './md'
+import { AgentRailSelection } from './AgentRailSelection'
 import { useAppStore } from '../../state/store'
 import {
   QUICK_ACTIONS, briefErrCopy, dropProgress, errText, freezeProgress,
@@ -12,10 +13,12 @@ import {
 } from '../agentbarShared'
 
 /**
- * AgentBar — floating bottom command bar for the CO-GRID analyst agent.
- * Drive-style: a pill input with quick-action chips above it. The backend
- * (/api/agent/chat) runs a tool-calling loop over real pipeline data —
- * this component owns the connection; md.tsx owns reply rendering.
+ * AgentBar — the analyst agent DOCKED as a full-height right rail
+ * (mirrors the left rail: opaque paper, one ink edge against the map).
+ * Column: [rail head] → [detail card region — only while a selection
+ * exists; the cards it hosts come straight from the store] → [pinned
+ * "selected" context header naming the record] → [agent log, grows]
+ * → [quick chips + input pinned to the bottom].
  *
  * Selection-aware: when an overlap is selected on the map, its id is sent
  * as context so "explain this" resolves against the real record.
@@ -24,8 +27,9 @@ import {
  * input (store.agentContext); each submitted message repeats it as a
  * compact `[context: …]` prefix. Input is an auto-growing textarea —
  * Enter submits, Shift+Enter newline. Quick chips hide once used (a
- * "⟲ suggestions" ghost restores them). The agent's `map_focus` tool
- * drives the map — its ui_action is applied live from the tool trace.
+ * "⟲ suggestions" ghost restores them) and the whole chip row collapses
+ * while a run is streaming. The agent's `map_focus` tool drives the map —
+ * its ui_action is applied live from the tool trace.
  *
  * Honest states only: backend-down, unconfigured, cancelled, and
  * interrupted runs all surface visible messages — nothing fails silently.
@@ -33,6 +37,7 @@ import {
 
 export function AgentBar() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
+  const selectedProjectId = useAppStore((s) => s.selectedProjectId)
   const selectOverlap = useAppStore((s) => s.selectOverlap)
   const setActiveScene = useAppStore((s) => s.setActiveScene)
   const promptDraft = useAppStore((s) => s.agentPromptDraft)
@@ -46,7 +51,6 @@ export function AgentBar() {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(true)
-  const [expanded, setExpanded] = useState(false)
   // quick chips are one-shot suggestions — once used they hide for the
   // session; the ⟲ ghost restores them
   const [usedChips, setUsedChips] = useState<Set<string>>(new Set())
@@ -92,10 +96,13 @@ export function AgentBar() {
     return () => cancelAnimationFrame(id)
   }, [promptDraft, setPromptDraft, setAgentContext])
 
-  // Escape aborts a running call; otherwise collapses the bar. This
-  // listener mounts at app start — BEFORE any detail card's listener —
-  // so it runs first: bail while a selection exists and let the detail
-  // card consume the keypress (one Esc = one dismissal, not two).
+  // Escape aborts a running call; otherwise collapses the rail. Bail
+  // while a selection exists and let the detail card / left rail consume
+  // the keypress (one Esc = one dismissal, not two). The listener MUST
+  // run in the capture phase: OverlapPanel's own Esc handler is on
+  // `document` (bubble), so a bubble-phase listener here would observe
+  // the store AFTER the selection was already cleared and wrongly
+  // collapse the rail on the same keypress.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -104,9 +111,15 @@ export function AgentBar() {
       if (abortRef.current) abortRef.current.abort()
       else setOpen(false)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [])
+
+  // a selection surfaces its detail card inside this rail — reopen the
+  // rail so a map/list click is never answered by hidden chrome
+  useEffect(() => {
+    if (selectedOverlapId || selectedProjectId) setOpen(true)
+  }, [selectedOverlapId, selectedProjectId])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -276,10 +289,10 @@ export function AgentBar() {
       <button
         type="button"
         className="agent-bar-toggle"
-        aria-label="show analyst bar"
+        aria-label="show analyst rail"
         onClick={() => setOpen(true)}
       >
-        analyst ✦
+        <span className="agent-bar-toggle-label">✦ analyst</span>
       </button>
     )
   }
@@ -288,6 +301,7 @@ export function AgentBar() {
   const offline = healthState === 'failed' || unconfigured
   const inputDisabled = busy || healthState === 'loading' || unconfigured
   const freshChips = QUICK_ACTIONS.filter((a) => !usedChips.has(a.label))
+  const showChips = !busy && (freshChips.length > 0 || usedChips.size > 0)
   const placeholder =
     healthState === 'loading'
       ? 'checking agent…'
@@ -300,40 +314,9 @@ export function AgentBar() {
             : 'Ask about overlaps, projects, timelines…'
 
   return (
-    <div className={`agent-bar${expanded ? ' is-expanded' : ''}`}>
-      <div className="agent-chips">
-        {freshChips.map((a) => (
-          <button
-            key={a.label}
-            type="button"
-            disabled={
-              busy ||
-              healthState !== 'ok' ||
-              (!!health &&
-                !health.configured &&
-                !(a.label === 'Explain selected' && selectedOverlapId))
-            }
-            onClick={() => {
-              // a click on an enabled chip always starts a run — mark it
-              // used so the suggestion collapses out of the way
-              setUsedChips((s) => new Set(s).add(a.label))
-              send(a.prompt)
-            }}
-          >
-            {a.label}
-          </button>
-        ))}
-        {usedChips.size > 0 && (
-          <button
-            type="button"
-            className="agent-suggest"
-            aria-label="restore suggestion chips"
-            title="bring the suggestion chips back"
-            onClick={() => setUsedChips(new Set())}
-          >
-            ⟲ suggestions
-          </button>
-        )}
+    <aside className="agent-rail" aria-label="Analyst rail">
+      <div className="agent-rail-head">
+        <h2 className="agent-rail-title">✦ analyst</h2>
         {offline && (
           <button
             type="button"
@@ -345,21 +328,10 @@ export function AgentBar() {
             ⟳ retry
           </button>
         )}
-        {msgs.length > 0 && (
-          <button
-            type="button"
-            className="agent-expand"
-            aria-label={expanded ? 'collapse log' : 'expand log'}
-            title={expanded ? 'collapse log' : 'expand log'}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? '⌃ collapse' : '⌄ expand'}
-          </button>
-        )}
         <button
           type="button"
           className="agent-hide"
-          aria-label="hide agent bar"
+          aria-label="hide analyst rail"
           title="hide"
           onClick={() => setOpen(false)}
         >
@@ -367,7 +339,11 @@ export function AgentBar() {
         </button>
       </div>
 
-      {msgs.length > 0 && (
+      {/* selection region — detail card (scrollable) + pinned context
+          header naming the record; own component (AGENTS.md 500-line cap) */}
+      <AgentRailSelection />
+
+      {msgs.length > 0 ? (
         <div className="agent-log" ref={listRef} role="log" aria-live="polite">
           {msgs.map((m, i) => (
             <MsgView key={i} m={m} onSelect={onSelectOv} />
@@ -378,70 +354,116 @@ export function AgentBar() {
             <div className="agent-msg assistant agent-thinking">analyzing…</div>
           )}
         </div>
-      )}
-
-      {agentContext && (
-        <div className="agent-context" aria-label="pinned context">
-          <span
-            className="agent-context-chip"
-            title={agentContext.id ?? agentContext.label}
-          >
-            ◎ <span className="agent-context-label">{agentContext.label}</span>
-            <button
-              type="button"
-              aria-label="remove pinned context"
-              title="unpin"
-              onClick={clearAgentContext}
-            >
-              ×
-            </button>
-          </span>
+      ) : (
+        <div className="agent-rail-empty" aria-hidden>
+          {healthState === 'ok' && health?.configured
+            ? 'no messages yet — pick a suggestion or ask below'
+            : 'the analyst log lives here once the agent answers'}
         </div>
       )}
 
-      <form
-        className="agent-input"
-        onSubmit={(e) => {
-          e.preventDefault()
-          send(input)
-        }}
-      >
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={input}
-          disabled={inputDisabled}
-          aria-label="ask the analyst"
-          placeholder={placeholder}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter submits; Shift+Enter newline; don't submit mid-IME
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault()
-              e.currentTarget.form?.requestSubmit()
-            }
-          }}
-        />
-        {busy ? (
-          <button
-            type="button"
-            className="agent-stop"
-            aria-label="stop run"
-            title="stop"
-            onClick={() => abortRef.current?.abort()}
-          >
-            ■
-          </button>
-        ) : (
-          <button
-            type="submit"
-            aria-label="send"
-            disabled={!input.trim() || healthState === 'loading' || unconfigured}
-          >
-            ↑
-          </button>
+      <div className="agent-foot">
+        {/* one-shot chips: a press consumes the chip for the session, and
+            the whole row hides while a run streams — ⟲ restores them */}
+        {showChips && (
+          <div className="agent-chips">
+            {freshChips.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                disabled={
+                  healthState !== 'ok' ||
+                  (!!health &&
+                    !health.configured &&
+                    !(a.label === 'Explain selected' && selectedOverlapId))
+                }
+                onClick={() => {
+                  // a click on an enabled chip always starts a run — mark
+                  // it used so the suggestion collapses out of the way
+                  setUsedChips((s) => new Set(s).add(a.label))
+                  send(a.prompt)
+                }}
+              >
+                {a.label}
+              </button>
+            ))}
+            {usedChips.size > 0 && (
+              <button
+                type="button"
+                className="agent-suggest"
+                aria-label="restore suggestion chips"
+                title="bring the suggestion chips back"
+                onClick={() => setUsedChips(new Set())}
+              >
+                ⟲ suggestions
+              </button>
+            )}
+          </div>
         )}
-      </form>
-    </div>
+
+        {agentContext && (
+          <div className="agent-context" aria-label="pinned context">
+            <span
+              className="agent-context-chip"
+              title={agentContext.id ?? agentContext.label}
+            >
+              ◎ <span className="agent-context-label">{agentContext.label}</span>
+              <button
+                type="button"
+                aria-label="remove pinned context"
+                title="unpin"
+                onClick={clearAgentContext}
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        )}
+
+        <form
+          className="agent-input"
+          onSubmit={(e) => {
+            e.preventDefault()
+            send(input)
+          }}
+        >
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={input}
+            disabled={inputDisabled}
+            aria-label="ask the analyst"
+            placeholder={placeholder}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter submits; Shift+Enter newline; don't submit mid-IME
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                e.currentTarget.form?.requestSubmit()
+              }
+            }}
+          />
+          {busy ? (
+            <button
+              type="button"
+              className="agent-stop"
+              aria-label="stop run"
+              title="stop"
+              onClick={() => abortRef.current?.abort()}
+            >
+              ■
+            </button>
+          ) : (
+            <button
+              type="submit"
+              aria-label="send"
+              disabled={!input.trim() || healthState === 'loading' || unconfigured}
+            >
+              ↑
+            </button>
+          )}
+        </form>
+      </div>
+    </aside>
   )
 }

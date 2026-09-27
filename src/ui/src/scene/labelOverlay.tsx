@@ -97,15 +97,28 @@ const _placed: ScreenBox[] = []
 const _blocked: ScreenBox[] = []
 
 /** Chrome keep-out zones (CSS px, centered-box form) — chips whose box
- *  overlaps the left rail, the header strip, or the idle agent-bar strip
- *  are DROPPED from placement entirely (declutter-style, not clipped):
- *  a label half-hidden behind UI chrome reads as a bug, an absent one
- *  is honest. Right rail is skipped — it's bottom-anchored and variable. */
+ *  overlaps the left rail, the header strip, or the agent rail are
+ *  DROPPED from placement entirely (declutter-style, not clipped): a
+ *  label half-hidden behind UI chrome reads as a bug, an absent one is
+ *  honest. The agent chrome is measured live — it's a 360px right rail
+ *  on wide screens, a bottom sheet <1100px, and a small edge tab when
+ *  collapsed — so the keep-out tracks its real box at any size. */
 function blockedBoxes(panelOpen: boolean, w: number, h: number): ScreenBox[] {
   _blocked.length = 0
   if (panelOpen) _blocked.push({ x: 195, y: h / 2, w: 390, h }) // left rail
-  _blocked.push({ x: w / 2, y: 27, w, h: 54 }) // header strip
-  _blocked.push({ x: w / 2, y: h - 60, w: 640, h: 120 }) // idle agent bar
+  _blocked.push({ x: w / 2, y: 22, w, h: 44 }) // 44px header strip
+  // live-measured agent chrome (rail, sheet, or collapsed toggle tab) —
+  // absent while the rail is closed AND unmounted nowhere else
+  const chrome = document.querySelector('.agent-rail, .agent-bar-toggle')
+  if (chrome) {
+    const r = chrome.getBoundingClientRect()
+    _blocked.push({
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2,
+      w: r.width,
+      h: r.height,
+    })
+  }
   return _blocked
 }
 

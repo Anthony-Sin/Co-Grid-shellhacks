@@ -170,31 +170,13 @@
   font-weight: 800;
 }
 
-/* ---- bottom-right rail (Legend + docked OverlapDetail) -------------------- */
-
-.right-rail {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  /* bottom-anchored column: cap total height so detail+legend can never
-     grow off the top of short viewports (children shrink/scroll) */
-  max-height: calc(100vh - 80px);
-  z-index: 90;
-  /* the rail's gaps are dead space — only the cards themselves take clicks,
-     so the map stays draggable between/around them */
-  pointer-events: none;
-}
-
-.right-rail > * {
-  pointer-events: auto;
-}
+/* ---- detail cards (OverlapDetail / ProjectDetail) -------------------------
+   Mounted inside .agent-rail's .agent-detail region (AgentBar.tsx) — the
+   region is the scroller; the card keeps its paper/ink chrome here and
+   re-skins to rail width via agentbar.css. */
 
 .overlap-detail {
-  /* shrinkable flex item — absorbs the rail cap and scrolls internally */
+  /* shrinkable flex item — absorbs its region's cap and scrolls internally */
   flex: 0 1 auto;
   min-height: 0;
   width: 322px;
@@ -364,35 +346,13 @@
 }
 
 /* ==========================================================================
-   Right-rail responsive repairs + reduced motion.
+   Detail-card responsive repairs + reduced motion.
    ========================================================================== */
 
 /* rail items cap at viewport-minus-margins on narrow screens */
 @media (max-width: 700px) {
   .overlap-detail {
     max-width: calc(100vw - 28px);
-  }
-  .legend {
-    max-width: calc(100vw - 28px);
-  }
-}
-
-/* <860px the agent bar takes the full-width bottom strip (see the scoped
-   .agent-bar overrides at the bottom of global.css) — lift the rail clear
-   of that ~120px zone so the two never overlap. max-height keeps the rail
-   top below the 54px header: top clearance = 202 − 132 = 70px. The lift is
-   unconditional so the rail doesn't jump when the bar toggles open/shut. */
-@media (max-width: 859.98px) {
-  .right-rail {
-    bottom: 142px;
-    max-height: calc(100vh - 212px);
-  }
-
-  /* once a conversation exists the bar grows min(40vh,340px) taller —
-     lift the rail above that too, and shrink its cap to match. */
-  .app-shell:has(.agent-log) .right-rail {
-    bottom: calc(140px + min(40vh, 340px));
-    max-height: calc(100vh - 210px - min(40vh, 340px));
   }
 }
 
