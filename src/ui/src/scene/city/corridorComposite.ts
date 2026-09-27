@@ -150,8 +150,16 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
   const enabledRef = useRef(enabled)
   enabledRef.current = enabled
 
+  const checkProximityRef = useRef<() => void>(() => {})
+
   const fetchOne = useCallback((c: { scene: SceneId; idBias: number }) => {
     if (doneRef.current.has(c.scene) || inflightRef.current.has(c.scene)) return
+    // Serialize corridor downloads — several metros can sit inside the
+    // radius at once (Atlanta+Athens ≈50MB) and parallel JSON.parse +
+    // compositing spikes memory hard enough to kill weak browsers (QA
+    // crash report). One at a time; the finally re-checks proximity so
+    // a queued corridor starts when the current one lands.
+    if (inflightRef.current.size > 0) return
     // cap retries — a failing endpoint must not refire every rendered
     // frame while the camera sits inside the radius (demand loop still
     // ticks on every pan/zoom). 3 attempts then honest absence; a page
@@ -174,7 +182,10 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
           )
         }
       })
-      .finally(() => inflightRef.current.delete(c.scene))
+      .finally(() => {
+        inflightRef.current.delete(c.scene)
+        checkProximityRef.current()
+      })
   }, [])
 
   // Fetch every corridor whose center is within the radius of the camera
@@ -191,6 +202,7 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
       if (dx * dx + dy * dy < FETCH_RADIUS_M * FETCH_RADIUS_M) fetchOne(c)
     }
   }, [controls, fetchOne])
+  checkProximityRef.current = checkProximity
 
   // Camera moves invalidate the demand frameloop — proximity rides along.
   useFrame(() => {
