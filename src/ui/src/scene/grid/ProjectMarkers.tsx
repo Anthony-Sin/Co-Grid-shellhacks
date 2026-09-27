@@ -41,9 +41,12 @@ interface ProjectLabel extends OverlayLabel {
 }
 
 /** Zoom-scaled chip cap for the overlay — the measured-box declutter does
- * the real culling; this is just the safety rail (overview ~20 pills,
- * street zoom up to 48). */
-const chipCap = (zoom: number) => Math.min(48, Math.max(20, Math.round(zoom * 96)))
+ * the real culling; this is just the safety rail. ZERO project pills at
+ * statewide overview (zoom < ~0.006): at that scale names are noise —
+ * the city chips carry orientation and the lines tell the story. Pills
+ * ramp in with zoom (region view ~8, city ~17, street up to 48). */
+const chipCap = (zoom: number) =>
+  zoom < 0.006 ? 0 : Math.min(48, 4 + Math.round((zoom - 0.006) * 300))
 
 function truncate(name: string, max = 30): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name

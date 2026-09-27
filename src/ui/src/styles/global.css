@@ -369,6 +369,14 @@ button {
 
 /* ---- floating label chips (inside drei Html) ------------------------------ */
 
+/* DOM overlay over the canvas — must sit UNDER the app chrome (.panel/
+ * .right-rail/.header-bar are z≈90-100). Without an explicit z-index the
+ * overlay creates no stacking context in .canvas-wrap, so each chip's own
+ * zIndex would compete in the ROOT context and paint over the rails. */
+.label-overlay {
+  z-index: 10;
+}
+
 .label-chip {
   display: inline-flex;
   align-items: baseline;
