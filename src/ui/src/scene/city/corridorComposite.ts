@@ -264,6 +264,14 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
 const ZOOM_SHOW = 0.004
 const ZOOM_HIDE = 0.003
 
+/** Per-frame __cogridZoom/__cogridCam telemetry is opt-in — dev builds
+ *  or a `?debugcam` query flag (the pose handles __cogridCamera et al.
+ *  in the effect below stay always-on; only the per-frame writes gate). */
+const CAM_TELEMETRY =
+  import.meta.env.DEV ||
+  (typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debugcam'))
+
 /**
  * Zoom gate for the merged corridor building fills. Reads camera.zoom
  * inside useFrame only, flipping a boolean when a threshold is crossed —
@@ -295,10 +303,13 @@ export function useCorridorZoomGate(): boolean {
   }, [camera, controls, invalidate])
   useFrame(() => {
     const z = 'zoom' in camera ? (camera as { zoom: number }).zoom : 1
-    // debug telemetry for headless captures (no zoom URL param exists)
-    const dbg = window as unknown as { __cogridZoom?: number; __cogridCam?: [number, number, number] }
-    dbg.__cogridZoom = z
-    dbg.__cogridCam = [camera.position.x, camera.position.y, camera.position.z]
+    // debug telemetry for headless captures (no zoom URL param exists) —
+    // dev mode or ?debugcam=1 only; production frames skip the [x,y,z] alloc
+    if (CAM_TELEMETRY) {
+      const dbg = window as unknown as { __cogridZoom?: number; __cogridCam?: [number, number, number] }
+      dbg.__cogridZoom = z
+      dbg.__cogridCam = [camera.position.x, camera.position.y, camera.position.z]
+    }
     setVisible((v) => (v ? z >= ZOOM_HIDE : z >= ZOOM_SHOW))
   })
   return visible

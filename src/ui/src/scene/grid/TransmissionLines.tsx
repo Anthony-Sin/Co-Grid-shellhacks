@@ -96,7 +96,9 @@ interface PreparedLine {
   dashed: boolean
 }
 
-/** A single planned corridor: sagging wire + pylons. */
+/** A single planned corridor: sagging wire (pylons are instanced once
+ *  at the PlannedLines level — one draw call for every corridor's
+ *  towers instead of one InstancedMesh per project). */
 function PlannedCorridor({ prep }: { prep: PreparedLine }) {
   const color = utilityColor(prep.project.utility)
   return (
@@ -114,7 +116,6 @@ function PlannedCorridor({ prep }: { prep: PreparedLine }) {
           opacity={0.95}
         />
       ))}
-      <PylonInstances anchors={prep.pylons} />
     </group>
   )
 }
@@ -158,8 +159,15 @@ export function PlannedLines({ projects }: { projects: readonly SceneProject[] }
     [projects],
   )
 
+  /** Every corridor's pylon anchors in ONE statewide InstancedMesh —
+   *  towers have no per-project interaction or color (the hover/click
+   *  contract lives on ProjectMarkers' hit spheres), so flattening is
+   *  visually identical and drops ~1 draw call per line project. */
+  const allPylons = useMemo(() => prepared.flatMap((prep) => prep.pylons), [prepared])
+
   return (
     <group>
+      <PylonInstances anchors={allPylons} />
       {prepared.map((prep) =>
         prep.project.lines.length > 0 ? (
           <PlannedCorridor key={prep.project.id} prep={prep} />

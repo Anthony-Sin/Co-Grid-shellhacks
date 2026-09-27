@@ -104,7 +104,48 @@ interface AppState {
   setSearchText: (q: string) => void
 }
 
-export const useAppStore = create<AppState>()((set) => ({
+/** Hover write-through + once-per-frame notify.
+ *
+ *  Pointer over/out bursts across dense hit spheres / zone catch-planes
+ *  (plus list-row brushing) used to commit a store update per event —
+ *  each commit re-rendered OverlapPanel's ~150 rows, re-sorted ~334 chip
+ *  labels, and fired DemandInvalidator for a full WebGL frame. Now the
+ *  field is mutated on the live state object immediately — so same-task
+ *  `getState().hovered*Id` ownership guards (ProjectMarkers/ZonePolygon
+ *  out-handlers) still read the LATEST owner and out-of-order out events
+ *  can't clobber a pending hover — while subscribers are notified once
+ *  per animation frame via an empty setState re-emit (zustand selectors
+ *  diff their slice, so each consumer re-renders at most once per frame).
+ *  Latest value wins; null flows identically. Primitive fields only —
+ *  never do this for object/array slices (identity equality would miss
+ *  an in-place change). */
+const _hoverRaf = { id: 0 }
+const _schedule: (cb: () => void) => number =
+  typeof requestAnimationFrame === 'function'
+    ? (cb) => requestAnimationFrame(cb)
+    : (cb) => setTimeout(cb, 16) as unknown as number
+
+function makeCoalescedHover(
+  key: 'hoveredProjectId' | 'hoveredOverlapId',
+  get: () => AppState,
+  set: (partial: Partial<AppState>) => void,
+): (id: string | null) => void {
+  return (id) => {
+    const st = get()
+    if (st[key] === id) return
+    Object.assign(st, { [key]: id })
+    if (_hoverRaf.id) return // a flush is already coming — latest wins
+    _hoverRaf.id = _schedule(() => {
+      _hoverRaf.id = 0
+      set({}) // re-emit: listeners diff slices against last-notified values
+    })
+  }
+}
+
+export const useAppStore = create<AppState>()((set, get) => {
+  const setHoveredProject = makeCoalescedHover('hoveredProjectId', get, set)
+  const setHoveredOverlap = makeCoalescedHover('hoveredOverlapId', get, set)
+  return {
   // one-scene build: the statewide GA+SC view is the whole map — corridor
   // deep links (scene=savannah|augusta) resolve here via urlParams
   activeScene: 'state',
@@ -144,7 +185,8 @@ export const useAppStore = create<AppState>()((set) => ({
       visibleTiers: { ...s.visibleTiers, [tier]: !s.visibleTiers[tier] },
     })),
   setTimelineOnly: (value) => set({ timelineOnly: value }),
-  setHoveredProject: (id) => set({ hoveredProjectId: id }),
+  // write-through coalesced — see makeCoalescedHover above
+  setHoveredProject,
   setFocusTarget: (target) => set({ focusTarget: target }),
   setPanelOpen: (open) => set({ panelOpen: open }),
   setMapStyle: (style) => set({ mapStyle: style }),
@@ -157,7 +199,7 @@ export const useAppStore = create<AppState>()((set) => ({
     set({ agentPromptDraft: text, agentContext: context }),
   setAgentContext: (ctx) => set({ agentContext: ctx }),
   clearAgentContext: () => set({ agentContext: null }),
-  setHoveredOverlap: (id) => set({ hoveredOverlapId: id }),
+  setHoveredOverlap,
   toggleUtilityFilter: (utility) =>
     set((s) => ({
       utilityFilter: s.utilityFilter.includes(utility)
@@ -169,4 +211,5 @@ export const useAppStore = create<AppState>()((set) => ({
   setVisibleTiers: (tiers) => set({ visibleTiers: tiers }),
   setZoneFilter: (zone) => set({ zoneFilter: zone }),
   setSearchText: (q) => set({ searchText: q }),
-}))
+  }
+})

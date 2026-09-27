@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TIERS } from '../../lib/palette'
 import { passesListFilters } from '../../lib/overlapFilters'
@@ -275,6 +275,16 @@ export function OverlapPanel() {
     setAgentPromptDraft(prompt)
   }
 
+  // stable ref so memoized OverlapRows skip hover-only re-renders
+  const toggleRow = useCallback(
+    (o: OverlapRecord) =>
+      selectOverlapInScene(
+        selectedOverlapId === o.overlap_id ? null : o.overlap_id,
+        o.zone,
+      ),
+    [selectedOverlapId],
+  )
+
   const presets: SegItem[] = [
     { key: 'all', label: 'all', active: allActive, onClick: applyAll, hint: 'Clear every filter — show all records' },
     { key: 'must', label: 'must coord.', active: mustActive, onClick: applyMustCoordinate, hint: 'Tier 1 touching + concurrent build windows' },
@@ -370,12 +380,7 @@ export function OverlapPanel() {
           selectedOverlapId={selectedOverlapId}
           hoveredOverlapId={hoveredOverlapId}
           onHover={setHoveredOverlap}
-          onToggle={(o) =>
-            selectOverlapInScene(
-              selectedOverlapId === o.overlap_id ? null : o.overlap_id,
-              o.zone,
-            )
-          }
+          onToggle={toggleRow}
           listRef={listRef} />
       </>
     )

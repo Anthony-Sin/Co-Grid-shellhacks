@@ -65,7 +65,7 @@ export function OverlapTable({
             selected={selectedOverlapId === o.overlap_id}
             hovered={hoveredOverlapId === o.overlap_id}
             onHover={onHover}
-            onSelect={() => onToggle(o)} />
+            onToggle={onToggle} />
         ))}
       </ul>
 

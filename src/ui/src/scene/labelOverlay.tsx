@@ -93,32 +93,88 @@ interface ElRec {
 
 const DEFAULT_ESTIMATE = { w: 150, h: 24 }
 const _v = new THREE.Vector3()
+/** Grow-only pool of placed boxes + active count — the placement loop
+ *  runs per label per rendered frame, so boxes are recycled instead of
+ *  allocating ~380 objects/frame during zoom glides. `_cand` is the
+ *  per-candidate scratch (only pooled entries may be pushed — a pushed
+ *  box must stay distinct while it lives in the placed set). */
 const _placed: ScreenBox[] = []
+let _placedLen = 0
+const _cand: ScreenBox = { x: 0, y: 0, w: 0, h: 0 }
 const _blocked: ScreenBox[] = []
+
+/** Agent-chrome keep-out cache. `getBoundingClientRect` forces a sync
+ *  layout flush after our chip style writes dirty the tree — reading it
+ *  per frame ×3 overlay instances was a real layout thrash. The chrome
+ *  element swaps between `.agent-rail` (open) and `.agent-bar-toggle`
+ *  (collapsed), so identity is re-polled once per rendered frame
+ *  (deduped across instances by the frame stamp — a bare querySelector
+ *  touches no layout) while the RECT is re-measured only when the
+ *  element changes, resizes (ResizeObserver covers open/close CSS
+ *  transitions too), or the window resizes. */
+let chromeStamp = -1
+let chromeEl: Element | null = null
+let chromeBox: ScreenBox | null = null
+let chromeDirty = true
+let chromeRO: ResizeObserver | null = null
+let chromeWatching = false
+
+function chromeKeepOut(stamp: number): ScreenBox | null {
+  if (!chromeWatching) {
+    chromeWatching = true
+    window.addEventListener('resize', () => {
+      chromeDirty = true
+    })
+  }
+  if (stamp !== chromeStamp) {
+    chromeStamp = stamp
+    const el = document.querySelector('.agent-rail, .agent-bar-toggle')
+    if (el !== chromeEl) {
+      chromeEl = el
+      chromeDirty = true
+      chromeRO?.disconnect()
+      if (el && typeof ResizeObserver !== 'undefined') {
+        chromeRO ??= new ResizeObserver(() => {
+          chromeDirty = true
+        })
+        chromeRO.observe(el)
+      }
+    }
+    if (chromeDirty) {
+      chromeDirty = false
+      if (el) {
+        const r = el.getBoundingClientRect()
+        chromeBox = {
+          x: r.left + r.width / 2,
+          y: r.top + r.height / 2,
+          w: r.width,
+          h: r.height,
+        }
+      } else {
+        chromeBox = null
+      }
+    }
+  }
+  return chromeBox
+}
 
 /** Chrome keep-out zones (CSS px, centered-box form) — chips whose box
  *  overlaps the left rail, the header strip, or the agent rail are
  *  DROPPED from placement entirely (declutter-style, not clipped): a
  *  label half-hidden behind UI chrome reads as a bug, an absent one is
- *  honest. The agent chrome is measured live — it's a 360px right rail
- *  on wide screens, a bottom sheet <1100px, and a small edge tab when
- *  collapsed — so the keep-out tracks its real box at any size. */
-function blockedBoxes(panelOpen: boolean, w: number, h: number): ScreenBox[] {
+ *  honest. Left rail + header are pure arithmetic from the size props;
+ *  the agent chrome comes from chromeKeepOut's cached measurement. */
+function blockedBoxes(
+  panelOpen: boolean,
+  w: number,
+  h: number,
+  stamp: number,
+): ScreenBox[] {
   _blocked.length = 0
   if (panelOpen) _blocked.push({ x: 195, y: h / 2, w: 390, h }) // left rail
   _blocked.push({ x: w / 2, y: 22, w, h: 44 }) // 44px header strip
-  // live-measured agent chrome (rail, sheet, or collapsed toggle tab) —
-  // absent while the rail is closed AND unmounted nowhere else
-  const chrome = document.querySelector('.agent-rail, .agent-bar-toggle')
-  if (chrome) {
-    const r = chrome.getBoundingClientRect()
-    _blocked.push({
-      x: r.left + r.width / 2,
-      y: r.top + r.height / 2,
-      w: r.width,
-      h: r.height,
-    })
-  }
+  const chrome = chromeKeepOut(stamp)
+  if (chrome) _blocked.push(chrome)
   return _blocked
 }
 
@@ -259,8 +315,13 @@ export function LabelOverlay<L extends OverlayLabel>({
       0,
       typeof maxVisible === 'function' ? maxVisible(zoom) : maxVisible,
     )
-    _placed.length = 0
-    const blocked = blockedBoxes(panelOpen, state.size.width, state.size.height)
+    _placedLen = 0
+    const blocked = blockedBoxes(
+      panelOpen,
+      state.size.width,
+      state.size.height,
+      state.clock.elapsedTime,
+    )
 
     for (const label of labels) {
       const rec = els.current.get(label.key)
@@ -274,25 +335,35 @@ export function LabelOverlay<L extends OverlayLabel>({
         sz = { w: rec.body.offsetWidth, h: rec.body.offsetHeight }
         sizes.current.set(label.key, sz)
       }
-      const box: ScreenBox = {
-        x: sx,
-        y: sy,
-        w: sz?.w ?? estimate.w,
-        h: sz?.h ?? estimate.h,
+      _cand.x = sx
+      _cand.y = sy
+      _cand.w = sz?.w ?? estimate.w
+      _cand.h = sz?.h ?? estimate.h
+      let overlapsPlaced = false
+      for (let i = 0; i < _placedLen; i++) {
+        if (boxesOverlap(_placed[i], _cand, gap)) {
+          overlapsPlaced = true
+          break
+        }
       }
       const visible =
         Math.abs(_v.x) <= margin &&
         Math.abs(_v.y) <= margin &&
-        _placed.length < cap &&
-        !_placed.some((p) => boxesOverlap(p, box, gap)) &&
-        !blocked.some((b) => boxesOverlap(b, box, 0))
+        _placedLen < cap &&
+        !overlapsPlaced &&
+        !blocked.some((b) => boxesOverlap(b, _cand, 0))
 
       if (!visible) {
         wrap.style.visibility = 'hidden'
         if (rec?.leader) rec.leader.style.visibility = 'hidden'
         continue
       }
-      _placed.push(box)
+      const placed = _placed[_placedLen] ?? (_placed[_placedLen] = { x: 0, y: 0, w: 0, h: 0 })
+      placed.x = _cand.x
+      placed.y = _cand.y
+      placed.w = _cand.w
+      placed.h = _cand.h
+      _placedLen++
       wrap.style.visibility = 'visible'
       wrap.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`
 

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { TIERS, TIER_COLORS } from '../../lib/palette'
 import { utilityColor } from './utilityColors'
 import type { OverlapRecord, ProjectProps } from '../../lib/api'
@@ -28,7 +29,7 @@ const fmtUsd = (n: number): string => {
 
 export interface RowProps {
   overlap: OverlapRecord; rank: number; selected: boolean; hovered: boolean
-  projectById: ProjectMap; onSelect: () => void; onHover: (id: string | null) => void
+  projectById: ProjectMap; onToggle: (o: OverlapRecord) => void; onHover: (id: string | null) => void
 }
 
 /**
@@ -37,8 +38,14 @@ export interface RowProps {
  * km, build window chip (adjacent windows get the `→` handoff glyph), and
  * a tier-colored score badge. Hover/focus brushes the map
  * (setHoveredOverlap); click toggles selection via selectOverlapInScene.
+ *
+ * memo()ized: props are all primitives or stable refs (record objects
+ * keep identity through the panel's memoized filters; onToggle/onHover
+ * are a useCallback and the store action), so a hover state change only
+ * re-renders the two rows whose `hovered` flag actually flipped instead
+ * of the whole ~150-row list.
  */
-export function OverlapRow({ overlap: o, rank, selected, hovered, projectById, onSelect, onHover }: RowProps) {
+export const OverlapRow = memo(function OverlapRow({ overlap: o, rank, selected, hovered, projectById, onToggle, onHover }: RowProps) {
   const a = projectById.get(o.project_a)
   const b = projectById.get(o.project_b)
   const tierColor = TIER_COLORS[o.tier] ?? '#888888'
@@ -63,7 +70,7 @@ export function OverlapRow({ overlap: o, rank, selected, hovered, projectById, o
     <li>
       <button type="button" title={title} aria-pressed={selected} data-ovid={o.overlap_id}
         className={cx('overlap-row', 'ovr', selected && 'is-selected', hovered && 'is-hovered')}
-        onClick={onSelect}
+        onClick={() => onToggle(o)}
         onMouseEnter={() => onHover(o.overlap_id)}
         onMouseLeave={() => onHover(null)}
         onFocus={() => onHover(o.overlap_id)}
@@ -101,4 +108,4 @@ export function OverlapRow({ overlap: o, rank, selected, hovered, projectById, o
       </button>
     </li>
   )
-}
+})

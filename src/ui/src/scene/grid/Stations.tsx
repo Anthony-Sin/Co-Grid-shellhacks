@@ -38,6 +38,13 @@ const SLOTS: readonly [number, number][] = [
 
 type V3 = [number, number, number]
 
+/** Module scratch for the ring-pulse matrix rebuild — the useFrame
+ *  closure runs every rendered frame, so nothing allocates per tick. */
+const _QI = new THREE.Quaternion()
+const _mat = new THREE.Matrix4()
+const _pos = new THREE.Vector3()
+const _scl = new THREE.Vector3()
+
 /* ------------------------------------------------------------------ */
 /* existing substations (instanced)                                    */
 /* ------------------------------------------------------------------ */
@@ -158,88 +165,186 @@ export function ExistingSubstations({ subs }: { subs: readonly SceneSub[] }) {
 /* planned substation / upgrade compounds                              */
 /* ------------------------------------------------------------------ */
 
-/** Soft pulsing ring at ground level (scale + fade loop). */
-function PulseRing({ color, radius = 30 }: { color: string; radius?: number }) {
-  const ref = useRef<THREE.Mesh>(null)
+/**
+ * All planned yards render as FIVE instanced meshes total — pad,
+ * transformer row, accent roof, fence rails, pulse rings — instead of
+ * ~11 meshes per site (~330 draw calls at ~30 sites). The silhouette is
+ * identical: every part keeps its size/offset/material, per-yard utility
+ * color travels via instanceColor on the accent parts, and the pulse
+ * rings all shared the same clock phase anyway so one useFrame scales
+ * every ring in sync.
+ */
+export function PlannedStations({ projects }: { projects: readonly SceneProject[] }) {
+  /** Flat site list: one entry per (project, point) — world transform is
+   *  (x, z=-y) like the rest of the grid layer. */
+  const sites = useMemo(
+    () =>
+      projects.flatMap((p) =>
+        p.points.map(([x, y]) => ({ x, y, color: utilityColor(p.utility) })),
+      ),
+    [projects],
+  )
+
+  const padGeo = useMemo(() => new THREE.BoxGeometry(28, 1.2, 28), [])
+  const boxGeo = useMemo(() => new THREE.BoxGeometry(2.2, 3.2, 4.2), [])
+  const roofGeo = useMemo(() => new THREE.BoxGeometry(16, 0.9, 5.4), [])
+  /** One rail shape serves all four sides — the E/W rails are the N/S
+   *  rail rotated 90° in the instance matrix. */
+  const railGeo = useMemo(() => new THREE.BoxGeometry(32, 1.8, 0.4), [])
+  /** Ring baked flat so instance matrices stay translation*scale only. */
+  const ringGeo = useMemo(() => {
+    const g = new THREE.RingGeometry(34, 34 * 1.16, 48)
+    g.rotateX(-Math.PI / 2)
+    return g
+  }, [])
+  const padMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: PAD_COLOR, roughness: 1, flatShading: true }),
+    [],
+  )
+  const boxMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: TRANSFORMER_COLOR, roughness: 0.9, flatShading: true }),
+    [],
+  )
+  /** Accent parts (roof + rails) are utility-colored per site, so their
+   *  materials stay white and carry the hue in instanceColor. */
+  const accentMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8, flatShading: true }),
+    [],
+  )
+  const railMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9, flatShading: true }),
+    [],
+  )
+  const ringMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    [],
+  )
+  // args-passed objects aren't auto-disposed by r3f
+  useDispose([padGeo, boxGeo, roofGeo, railGeo, ringGeo, padMat, boxMat, accentMat, railMat, ringMat])
+
+  const padRef = useRef<THREE.InstancedMesh>(null)
+  const boxRef = useRef<THREE.InstancedMesh>(null)
+  const roofRef = useRef<THREE.InstancedMesh>(null)
+  const railRef = useRef<THREE.InstancedMesh>(null)
+  const ringRef = useRef<THREE.InstancedMesh>(null)
+
+  useLayoutEffect(() => {
+    const m = new THREE.Matrix4()
+    const q = new THREE.Quaternion()
+    const qSide = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+    const one = new THREE.Vector3(1, 1, 1)
+    const pos = new THREE.Vector3()
+    const c = new THREE.Color()
+    const pads = padRef.current
+    const roofs = roofRef.current
+    const rings = ringRef.current
+    const boxes = boxRef.current
+    const rails = railRef.current
+    sites.forEach((s, i) => {
+      const cz = -s.y
+      if (pads) {
+        pos.set(s.x, 0.6, cz)
+        pads.setMatrixAt(i, m.compose(pos, q.identity(), one))
+      }
+      if (roofs) {
+        pos.set(s.x, 5, cz - 5.5)
+        roofs.setMatrixAt(i, m.compose(pos, q.identity(), one))
+        roofs.setColorAt(i, c.set(s.color))
+      }
+      if (rings) {
+        pos.set(s.x, 1.1, cz)
+        rings.setMatrixAt(i, m.compose(pos, q.identity(), one))
+        rings.setColorAt(i, c.set(s.color))
+      }
+      if (boxes) {
+        for (let k = 0; k < 4; k++) {
+          const [sx, sz] = SLOTS[k]
+          pos.set(s.x + sx, 2.8, cz + sz)
+          boxes.setMatrixAt(i * 4 + k, m.compose(pos, q.identity(), one))
+        }
+      }
+      if (rails) {
+        const base = i * 4
+        // N/S rails span X; E/W reuse the same geometry rotated 90°
+        pos.set(s.x, 0.9, cz - 16)
+        rails.setMatrixAt(base, m.compose(pos, q.identity(), one))
+        pos.set(s.x, 0.9, cz + 16)
+        rails.setMatrixAt(base + 1, m.compose(pos, q.identity(), one))
+        pos.set(s.x - 16, 0.9, cz)
+        rails.setMatrixAt(base + 2, m.compose(pos, qSide, one))
+        pos.set(s.x + 16, 0.9, cz)
+        rails.setMatrixAt(base + 3, m.compose(pos, qSide, one))
+        rails.setColorAt(i, c.set(s.color))
+      }
+    })
+    if (pads) pads.count = sites.length
+    if (boxes) boxes.count = sites.length * 4
+    if (roofs) roofs.count = sites.length
+    if (rails) rails.count = sites.length * 4
+    if (rings) rings.count = sites.length
+    for (const mesh of [pads, boxes, roofs, rails, rings]) {
+      if (!mesh) continue
+      mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      mesh.computeBoundingSphere()
+    }
+  }, [sites])
+
+  /** One pulse driver for every ring — all compounds shared a single
+   *  clock phase already, so sync scaling is visually identical to the
+   *  old per-site PulseRing meshes. */
   useFrame(({ clock }) => {
-    const mesh = ref.current
-    if (!mesh) return
+    const rings = ringRef.current
+    if (!rings || rings.count === 0) return
     const t = (clock.elapsedTime % 2.4) / 2.4
     const s = 1 + t * 0.7
-    mesh.scale.set(s, s, s)
-    const mat = mesh.material as THREE.MeshBasicMaterial
-    mat.opacity = 0.55 * (1 - t)
+    ringMat.opacity = 0.55 * (1 - t)
+    _scl.set(s, s, s)
+    sites.forEach((site, i) => {
+      _pos.set(site.x, 1.1, -site.y)
+      rings.setMatrixAt(i, _mat.compose(_pos, _QI, _scl))
+    })
+    rings.instanceMatrix.needsUpdate = true
   })
-  return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 1.1, 0]}>
-      <ringGeometry args={[radius, radius * 1.16, 48]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0.55}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  )
-}
 
-/** One planned yard: pad + transformers + accent roof + pulse ring. */
-function PlannedStationCompound({ project, at }: { project: SceneProject; at: [number, number] }) {
-  const color = utilityColor(project.utility)
-  return (
-    <group position={[at[0], 0, -at[1]]}>
-      {/* gravel pad */}
-      <mesh position={[0, 0.6, 0]} receiveShadow>
-        <boxGeometry args={[28, 1.2, 28]} />
-        <meshStandardMaterial color={PAD_COLOR} roughness={1} flatShading />
-      </mesh>
-      {/* transformer boxes */}
-      {SLOTS.slice(0, 4).map(([sx, sz], i) => (
-        <mesh key={i} position={[sx, 2.8, sz]} castShadow>
-          <boxGeometry args={[2.2, 3.2, 4.2]} />
-          <meshStandardMaterial color={TRANSFORMER_COLOR} roughness={0.9} flatShading />
-        </mesh>
-      ))}
-      {/* utility-colored accent roof slab over the transformer row */}
-      <mesh position={[0, 5, -5.5]} castShadow>
-        <boxGeometry args={[16, 0.9, 5.4]} />
-        <meshStandardMaterial color={color} roughness={0.8} flatShading />
-      </mesh>
-      {/* low fence */}
-      <FenceOutline half={16} height={1.8} color={color} />
-      <PulseRing color={color} radius={34} />
-    </group>
-  )
-}
-
-/** thin rectangular outline (4 box rails) — cheap fence for planned yards */
-function FenceOutline({ half, height, color }: { half: number; height: number; color: string }) {
-  return (
-    <group position={[0, height / 2, 0]}>
-      {[
-        { w: half * 2, d: 0.4, x: 0, z: -half },
-        { w: half * 2, d: 0.4, x: 0, z: half },
-        { w: 0.4, d: half * 2, x: -half, z: 0 },
-        { w: 0.4, d: half * 2, x: half, z: 0 },
-      ].map((r, i) => (
-        <mesh key={i} position={[r.x, 0, r.z]}>
-          <boxGeometry args={[r.w, height, r.d]} />
-          <meshStandardMaterial color={color} roughness={0.9} flatShading />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-export function PlannedStations({ projects }: { projects: readonly SceneProject[] }) {
+  if (sites.length === 0) return null
   return (
     <group>
-      {projects.flatMap((p) =>
-        p.points.map((pt, i) => (
-          <PlannedStationCompound key={`${p.id}-${i}`} project={p} at={pt} />
-        )),
-      )}
+      <instancedMesh
+        ref={padRef}
+        args={[padGeo, padMat, Math.max(1, sites.length)]}
+        receiveShadow
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={boxRef}
+        args={[boxGeo, boxMat, Math.max(1, sites.length * 4)]}
+        castShadow
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={roofRef}
+        args={[roofGeo, accentMat, Math.max(1, sites.length)]}
+        castShadow
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={railRef}
+        args={[railGeo, railMat, Math.max(1, sites.length * 4)]}
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={ringRef}
+        args={[ringGeo, ringMat, Math.max(1, sites.length)]}
+        frustumCulled={false}
+      />
     </group>
   )
 }

@@ -198,9 +198,14 @@ export function ProjectMarkers({ projects }: { projects: readonly SceneProject[]
   return (
     <group>
       {projects.map((p) => (
-        /* invisible hover/click target */
+        /* invisible hover/click target — `visible={false}` keeps the
+           mesh in the raycast set (three's Raycaster.intersect only
+           checks layers, never object.visible) while the renderer skips
+           the draw entirely: ~334 transparent spheres were a real draw
+           call each despite opacity 0 */
         <mesh
           key={p.id}
+          visible={false}
           position={[p.centroid[0], 24, -p.centroid[1]]}
           onPointerOver={(e) => {
             e.stopPropagation()
