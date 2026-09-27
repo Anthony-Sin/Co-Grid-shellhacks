@@ -59,6 +59,8 @@ export function GridOverlay() {
   const activeScene = useAppStore((s) => s.activeScene)
   const utilityFilter = useAppStore((s) => s.utilityFilter)
   const yearFilter = useAppStore((s) => s.yearFilter)
+  const zoneFilter = useAppStore((s) => s.zoneFilter)
+  const searchText = useAppStore((s) => s.searchText)
   const [data, setData] = useState<GridData | null>(null)
 
   useEffect(() => {
@@ -87,7 +89,12 @@ export function GridOverlay() {
    *  set actually changes. */
   const visible = useMemo(() => {
     if (!grid) return null
-    const filters = { utilityFilter, yearRange: yearFilter }
+    const filters = {
+      utilityFilter,
+      yearRange: yearFilter,
+      zone: zoneFilter,
+      search: searchText,
+    }
     const keep = (p: SceneProject) => passesProjectFilters(p, filters)
     return {
       lineProjects: grid.lineProjects.filter(keep),
@@ -95,7 +102,7 @@ export function GridOverlay() {
       plantProjects: grid.plantProjects.filter(keep),
       projects: grid.projects.filter(keep),
     }
-  }, [grid, utilityFilter, yearFilter])
+  }, [grid, utilityFilter, yearFilter, zoneFilter, searchText])
 
   // Pylons/plants/substations cast shadows — re-bake once when they change
   // (filtering removes casters, so this keys off the FILTERED set).

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { TIERS } from '../../lib/palette'
 import { useAppStore } from '../../state/store'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import type { OverlapRecord, Tier } from '../../lib/api'
 import '../../styles/panel-kpi.css'
 
@@ -146,6 +147,43 @@ export function PanelStats({ records, total, tierCounts, onAskAgent }: PanelStat
           </b>
         </span>
       </div>
+
+      {/* Top-4 quick-jump buttons — the four best-ranked records in the
+          CURRENT filtered view (records arrive in canonical API rank:
+          tier asc, then closest-point km). Click = select + camera fly
+          via the store's focus rig. */}
+      <div className="pnl-top4" role="group" aria-label="Top coordination opportunities">
+        <span className="pnl-sec-title">top picks</span>
+        <div className="pnl-top4-row">
+          {records.slice(0, 4).map((o, i) => {
+            const t = TIERS.find((x) => x.tier === o.tier)
+            return (
+              <button
+                key={o.overlap_id}
+                type="button"
+                className="pnl-top4-btn"
+                title={`${o.overlap_id} — ${humanize(o)} · fly to zone`}
+                onClick={() => selectOverlapInScene(o.overlap_id, o.zone)}
+              >
+                <span className="pnl-top4-rank mono">#{i + 1}</span>
+                <span className="dot" style={{ background: t?.color ?? '#888' }} />
+                <span className="pnl-top4-km mono">
+                  {o.min_distance_km <= 0 ? '0' : o.min_distance_km < 10
+                    ? o.min_distance_km.toFixed(1)
+                    : Math.round(o.min_distance_km)}
+                  km
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </section>
   )
+}
+
+/** Short "A⇄B" label from the record's own ids — the API doesn't ship
+ *  project names on overlap rows, so the tooltip shows what it filed. */
+function humanize(o: OverlapRecord): string {
+  return `${o.project_a} ⇄ ${o.project_b}`
 }

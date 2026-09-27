@@ -9,13 +9,30 @@
 /** Local 2D point in meters [x, y] */
 export type Vec2 = [number, number]
 
-export type SceneId = 'savannah' | 'augusta' | 'state'
+export type SceneId =
+  | 'savannah'
+  | 'augusta'
+  | 'state'
+  | 'atlanta'
+  | 'columbia'
+  | 'charleston'
+  | 'greenville_sc'
+  | 'columbus_ga'
+  | 'athens'
+  | 'macon'
 
 /** Scene centers [lon, lat] from docs/DATA_SCHEMA.md + projection.py SCENES */
 export const SCENE_CENTERS: Record<SceneId, Vec2> = {
   savannah: [-81.1, 32.13],
   augusta: [-81.97, 33.45],
   state: [-81.85, 32.78],
+  atlanta: [-84.39, 33.755],
+  columbia: [-81.035, 34.0],
+  charleston: [-79.94, 32.8],
+  greenville_sc: [-82.395, 34.845],
+  columbus_ga: [-84.99, 32.46],
+  athens: [-83.38, 33.955],
+  macon: [-83.635, 32.84],
 }
 
 const METERS_PER_DEG_LAT = 110540

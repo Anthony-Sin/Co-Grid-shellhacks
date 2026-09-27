@@ -73,6 +73,11 @@ interface AppState {
   hoveredOverlapId: string | null
   /** Utility filter — records involving ANY selected utility pass */
   utilityFilter: string[]
+  /** Region-zone dropdown filter ('' = all) — shared by list + map */
+  zoneFilter: string
+  /** Free-text search (overlap/project id, name, utility) — shared by
+   *  list + map so typing in the panel hides non-matching geometry too */
+  searchText: string
 
   setActiveScene: (scene: SceneId) => void
   selectOverlap: (id: string | null) => void
@@ -95,6 +100,8 @@ interface AppState {
   setUtilityFilter: (utilities: string[]) => void
   /** Bulk-set tier visibility — replaces the whole record */
   setVisibleTiers: (tiers: Record<Tier, boolean>) => void
+  setZoneFilter: (zone: string) => void
+  setSearchText: (q: string) => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -120,6 +127,8 @@ export const useAppStore = create<AppState>()((set) => ({
   agentContext: null,
   hoveredOverlapId: null,
   utilityFilter: [],
+  zoneFilter: '',
+  searchText: '',
 
   setActiveScene: (scene) => set({ activeScene: scene }),
   // clearing focusTarget here: a deep-link ?focus= target is a one-shot —
@@ -158,4 +167,6 @@ export const useAppStore = create<AppState>()((set) => ({
   clearUtilityFilter: () => set({ utilityFilter: [] }),
   setUtilityFilter: (utilities) => set({ utilityFilter: utilities }),
   setVisibleTiers: (tiers) => set({ visibleTiers: tiers }),
+  setZoneFilter: (zone) => set({ zoneFilter: zone }),
+  setSearchText: (q) => set({ searchText: q }),
 }))

@@ -74,8 +74,12 @@ export function OverlapPanel() {
   const overlaps = useOverlaps()
   const projects = useProjects()
   const regions = useRegions()
-  const [zoneFilter, setZoneFilter] = useState('')
-  const [search, setSearch] = useState('')
+  // search + region live in the store — the same predicates gate the map
+  // (zones/project lines) so "what's filtered" can never fork surfaces
+  const zoneFilter = useAppStore((s) => s.zoneFilter)
+  const setZoneFilter = useAppStore((s) => s.setZoneFilter)
+  const search = useAppStore((s) => s.searchText)
+  const setSearch = useAppStore((s) => s.setSearchText)
   const [sort, setSort] = useState<SortKey>('rank')
   // adjacent is the OPPOSITE of timeline_only (they never intersect) —
   // the two flags are mutually exclusive

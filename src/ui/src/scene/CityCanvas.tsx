@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { MapControls } from '@react-three/drei'
 import { PALETTE } from '../lib/palette'
+import type { SceneId } from '../lib/api'
 import { useAppStore } from '../state/store'
 import { DevPreviewScene } from './DevPreviewScene'
 import { CityScene } from './city/CityScene'
@@ -59,12 +60,25 @@ function StaticShadows() {
 }
 
 /** Per-scene default views — ortho zoom scales the visible world volume.
- * State spans ~830 km, corridors ~90 km, so zoom differs ~10x. */
-const SCENE_VIEWS = {
-  state: { position: [0, 3200, 1600] as const, zoom: 0.0022, target: [0, 0, 0] as const },
-  savannah: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
-  augusta: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
-} as const
+ * State spans ~830 km, corridors ~90 km, so zoom differs ~10x. The map
+ * is single-scene ('state'); corridor SceneIds exist only as composite
+ * detail sources, so they fall back to the state view here. */
+interface SceneView {
+  position: readonly [number, number, number]
+  zoom: number
+  target: readonly [number, number, number]
+}
+
+const STATE_VIEW: SceneView = { position: [0, 3200, 1600], zoom: 0.0022, target: [0, 0, 0] }
+
+const SCENE_VIEWS: Partial<Record<SceneId, SceneView>> = {
+  state: STATE_VIEW,
+  savannah: { position: [1400, 3200, 2500], zoom: 0.06, target: [1400, 0, 2500] },
+  augusta: { position: [1400, 3200, 2500], zoom: 0.06, target: [1400, 0, 2500] },
+}
+// Corridor/metro SceneIds are composite detail sources, not user-facing
+// scenes — any lookup beyond the table falls back to the state view.
+const sceneView = (id: SceneId): SceneView => SCENE_VIEWS[id] ?? STATE_VIEW
 
 /** Snaps camera+controls to the active scene's default view on switch. */
 function SceneCamera() {
@@ -77,7 +91,7 @@ function SceneCamera() {
   const invalidate = useThree((s) => s.invalidate)
 
   useEffect(() => {
-    const v = SCENE_VIEWS[activeScene] ?? SCENE_VIEWS.state
+    const v = sceneView(activeScene)
     camera.position.set(v.position[0], v.position[1], v.position[2])
     if ('zoom' in camera) {
       ;(camera as { zoom: number }).zoom = v.zoom
@@ -112,8 +126,8 @@ export function CityCanvas() {
         dpr={[1, 1.5]}
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         camera={{
-          position: SCENE_VIEWS.state.position as unknown as [number, number, number],
-          zoom: SCENE_VIEWS.state.zoom,
+          position: STATE_VIEW.position as unknown as [number, number, number],
+          zoom: STATE_VIEW.zoom,
           // The tilted map's far corners sit ~150 km from the camera ALONG
           // the view axis — a 60 km near/far slab sliced the state into a
           // horizontal band (the "cut off" strip). ±250 km covers the

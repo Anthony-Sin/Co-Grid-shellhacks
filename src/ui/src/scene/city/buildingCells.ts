@@ -253,8 +253,11 @@ export function buildFlatCell(buildings: CityBuilding[], indices: number[]): Fla
  *   back out unmounts meshes but keeps geometry, like a tile cache).
  * - PROGRESSIVE: cells build one per macrotask so the map stays
  *   interactive while tiles pop in, in stable (deterministic) order.
- * - INVALIDATING: a new `buildings` array (corridor detail landing after
- *   a first build) rebuilds once — same cell keys, geometry swapped.
+ * - INCREMENTAL: corridors land one at a time (proximity-gated fetch)
+ *   and append to `buildings`, so a fresh array must NOT wipe the tile
+ *   cache — cells whose member count is unchanged keep their geometry;
+ *   only new/grown cells (re)build. Corridor arrivals are append-only,
+ *   so unchanged-count cells are provably identical tiles.
  *
  * `buildOne` must be a stable module-level function (identity is an
  * effect dep). Returns the cell map ref + a tick that bumps per landed
@@ -272,6 +275,7 @@ export function useProgressiveCells<TCell extends BuiltCellBase>(
   }, [enabled])
 
   const cellsRef = useRef(new Map<string, TCell>())
+  const builtCountRef = useRef(new Map<string, number>())
   const builtForRef = useRef<CityBuilding[] | null>(null)
   const [tick, setTick] = useState(0)
   const [done, setDone] = useState(false)
@@ -279,22 +283,30 @@ export function useProgressiveCells<TCell extends BuiltCellBase>(
   useEffect(() => {
     if (!wanted || builtForRef.current === buildings) return
     let cancelled = false
-    // Drop geometry baked from a previous buildings array (corridor data
-    // landing after a first build rebuilds once — same cell keys).
-    for (const cell of cellsRef.current.values()) {
-      for (const d of cell.disposables) d.dispose()
-    }
-    cellsRef.current.clear()
     setDone(false)
 
     const queue = [...partitionCells(buildings, spatial).entries()]
+    const counts = builtCountRef.current
+    const keys = new Set(queue.map(([k]) => k))
+    // Cells that vanished entirely (defensive — arrivals are append-only)
+    for (const [k, cell] of cellsRef.current) {
+      if (!keys.has(k)) {
+        for (const d of cell.disposables) d.dispose()
+        cellsRef.current.delete(k)
+        counts.delete(k)
+      }
+    }
     const step = async () => {
       // Prioritize nothing — stable order keeps the pop-in deterministic.
       for (const [key, indices] of queue) {
         if (cancelled) return
+        if (counts.get(key) === indices.length) continue // cached tile
         await new Promise((r) => setTimeout(r, 0)) // yield between tiles
         if (cancelled) return
+        const old = cellsRef.current.get(key)
+        if (old) for (const d of old.disposables) d.dispose()
         cellsRef.current.set(key, buildOne(buildings, indices))
+        counts.set(key, indices.length)
         setTick((t) => t + 1)
       }
       if (!cancelled) {

@@ -22,7 +22,7 @@
  * visibly detach footprints from zone-tint masks (computed exactly in
  * state-local meters via lonLatToLocal).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { api } from '../../lib/api'
 import type { CityBuilding, CityPolygon, CityPoi, CityScene, SceneId } from '../../lib/api'
@@ -32,17 +32,31 @@ import { deduped } from '../../ui/hooks/useApiData'
 const METERS_PER_DEG_LAT = 110540
 const METERS_PER_DEG_LON_EQUATOR = 111320
 
-/** Corridor extracts to fold into the state scene. `idBias` guarantees
- * building-id uniqueness across artifacts for the seeded prng buckets +
- * ink jitter in BuildingsLayer. It MUST stay a multiple of 7 — the
- * backend's fallback height is `8 + id % 7` and renderHeightM() detects
- * that signature via `b.id % 7`, so shifting the residue would wrongly
- * treat assumed heights as filed. 2.1e9 = 7·300M keeps ids < 2^32
- * (max observed ~1.56e9) and above every real OSM id here. */
+/** Corridor/metro extracts to fold into the state scene. `idBias`
+ * guarantees building-id uniqueness across artifacts for the seeded
+ * prng buckets + ink jitter in BuildingsLayer. It MUST stay a multiple
+ * of 7 — the backend's fallback height is `8 + id % 7` and
+ * renderHeightM() detects that signature via `b.id % 7`, so shifting
+ * the residue would wrongly treat assumed heights as filed.
+ * 2.1e9 = 7·300M — multiples stay ≡0 mod 7; `>>>0` consumers wrap mod
+ * 2^32 harmlessly (seeds only). */
 const CORRIDORS: readonly { scene: SceneId; idBias: number }[] = [
   { scene: 'savannah', idBias: 0 },
   { scene: 'augusta', idBias: 2_100_000_000 },
+  { scene: 'atlanta', idBias: 4_200_000_000 },
+  { scene: 'columbia', idBias: 6_300_000_000 },
+  { scene: 'charleston', idBias: 8_400_000_000 },
+  { scene: 'greenville_sc', idBias: 10_500_000_000 },
+  { scene: 'columbus_ga', idBias: 12_600_000_000 },
+  { scene: 'athens', idBias: 14_700_000_000 },
+  { scene: 'macon', idBias: 16_800_000_000 },
 ]
+
+/** A corridor's artifact fetches only when the camera target comes
+ * within this radius of its center — ~460k buildings is ~160 MB of
+ * JSON; pulling every metro on first zoom-in would stall the map.
+ * 110 km covers a corridor's own ~±15 km extent plus the adjacent view. */
+const FETCH_RADIUS_M = 110_000
 
 /** Corridor features re-projected into state-local meters. */
 export interface CorridorDetail {
@@ -100,43 +114,93 @@ function corridorToState(payload: CorridorPayload, out: CorridorDetail): void {
   }
 }
 
+/** Each corridor's own local origin (0,0) mapped to state-local meters —
+ *  the point its artifact is centered on. bx/by are exactly the affine
+ *  translation corridorToState computes at (x,y)=(0,0). */
+const CORRIDOR_LOCAL: ReadonlyMap<SceneId, Vec2> = new Map(
+  CORRIDORS.map((c) => {
+    const [c0, c1] = SCENE_CENTERS[c.scene]
+    const [s0, s1] = SCENE_CENTERS.state
+    return [
+      c.scene,
+      [
+        (c0 - s0) * METERS_PER_DEG_LON_EQUATOR * Math.cos((s1 * Math.PI) / 180),
+        (c1 - s1) * METERS_PER_DEG_LAT,
+      ] as Vec2,
+    ]
+  }),
+)
+
 /**
- * Fetch + re-project both corridor city artifacts for the state scene.
- * Returns null until at least one corridor lands (or while disabled);
- * a failed corridor fetch warns once and leaves the state sheet clean —
+ * Fetch + re-project corridor artifacts for the state scene — each metro
+ * downloads only when the camera target comes within FETCH_RADIUS_M of
+ * its center (the ~160 MB total must never pull all at once). Payloads
+ * accumulate in ARRIVAL order, so a new corridor appends to the merged
+ * arrays without shifting earlier indices — BuildingsLayer's incremental
+ * tile cache then rebuilds only the cells the newcomer touched.
+ * A failed corridor fetch warns once and retries on the next approach —
  * honest absence, never fabricated geometry.
  */
 export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
+  const controls = useThree((s) => s.controls) as { target?: { x: number; z: number } } | null
   const [payloads, setPayloads] = useState<CorridorPayload[] | null>(null)
+  const doneRef = useRef(new Set<SceneId>())
+  const inflightRef = useRef(new Set<SceneId>())
+  const attemptsRef = useRef(new Map<SceneId, number>())
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
 
-  useEffect(() => {
-    if (!enabled) return
-    let stale = false
-    Promise.all(
-      CORRIDORS.map((c) =>
-        deduped(`city:${c.scene}`, () => api.city(c.scene))
-          .then((data): CorridorPayload => ({ scene: c.scene, idBias: c.idBias, data }))
-          .catch((e: unknown) => {
-            if (!warnedScenes.has(c.scene)) {
-              warnedScenes.add(c.scene)
-              console.warn(
-                `[corridorComposite] /api/city/${c.scene} failed — ` +
-                  `compositing without it (honest absence):`,
-                e instanceof Error ? e.message : e,
-              )
-            }
-            return null
-          }),
-      ),
-    ).then((list) => {
-      if (!stale) {
-        setPayloads(list.filter((p): p is CorridorPayload => p !== null))
-      }
-    })
-    return () => {
-      stale = true
+  const fetchOne = useCallback((c: { scene: SceneId; idBias: number }) => {
+    if (doneRef.current.has(c.scene) || inflightRef.current.has(c.scene)) return
+    // cap retries — a failing endpoint must not refire every rendered
+    // frame while the camera sits inside the radius (demand loop still
+    // ticks on every pan/zoom). 3 attempts then honest absence; a page
+    // reload resets the counter.
+    if ((attemptsRef.current.get(c.scene) ?? 0) >= 3) return
+    attemptsRef.current.set(c.scene, (attemptsRef.current.get(c.scene) ?? 0) + 1)
+    inflightRef.current.add(c.scene)
+    deduped(`city:${c.scene}`, () => api.city(c.scene))
+      .then((data) => {
+        doneRef.current.add(c.scene)
+        setPayloads((prev) => [...(prev ?? []), { scene: c.scene, idBias: c.idBias, data }])
+      })
+      .catch((e: unknown) => {
+        if (!warnedScenes.has(c.scene)) {
+          warnedScenes.add(c.scene)
+          console.warn(
+            `[corridorComposite] /api/city/${c.scene} failed — ` +
+              `compositing without it (honest absence):`,
+            e instanceof Error ? e.message : e,
+          )
+        }
+      })
+      .finally(() => inflightRef.current.delete(c.scene))
+  }, [])
+
+  // Fetch every corridor whose center is within the radius of the camera
+  // target. World x = local x; world -z = local north.
+  const checkProximity = useCallback(() => {
+    const t = controls?.target
+    if (!t) return
+    const tx = t.x
+    const ty = -t.z
+    for (const c of CORRIDORS) {
+      const [cx, cy] = CORRIDOR_LOCAL.get(c.scene)!
+      const dx = tx - cx
+      const dy = ty - cy
+      if (dx * dx + dy * dy < FETCH_RADIUS_M * FETCH_RADIUS_M) fetchOne(c)
     }
-  }, [enabled])
+  }, [controls, fetchOne])
+
+  // Camera moves invalidate the demand frameloop — proximity rides along.
+  useFrame(() => {
+    if (enabledRef.current) checkProximity()
+  })
+  // Gate flip (zoom prefetch / selection) — check immediately; the demand
+  // loop may not have a frame queued at that moment.
+  useEffect(() => {
+    if (enabled) checkProximity()
+  }, [enabled, checkProximity])
 
   return useMemo(() => {
     if (!payloads || payloads.length === 0) return null

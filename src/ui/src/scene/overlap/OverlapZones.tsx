@@ -78,6 +78,8 @@ export function OverlapZones() {
   const hoveredOverlapId = useAppStore((s) => s.hoveredOverlapId)
   const utilityFilter = useAppStore((s) => s.utilityFilter)
   const yearFilter = useAppStore((s) => s.yearFilter)
+  const zoneFilter = useAppStore((s) => s.zoneFilter)
+  const searchText = useAppStore((s) => s.searchText)
   const showLabels = useAppStore((s) => s.layers.labels)
   // layers.projects gates connectors too (store contract) — arcs reference
   // project endpoints that aren't drawn when the project layer is off
@@ -134,9 +136,27 @@ export function OverlapZones() {
    *  reveal, so the map can stay strict).
    *  With the zones layer off only the selected record renders at all. */
   const rendered = useMemo(() => {
-    const eligible = datums.filter((d) =>
-      passesMapFilters(d.rec, { visibleTiers, utilityFilter, yearRange: yearFilter }),
-    )
+    const q = searchText.trim().toLowerCase()
+    const eligible = datums.filter((d) => {
+      if (
+        !passesMapFilters(d.rec, {
+          visibleTiers, zone: zoneFilter, utilityFilter, yearRange: yearFilter,
+        })
+      )
+        return false
+      // same haystack as the panel's search index — overlap id, both
+      // project ids + names, utilities — so list row ↔ zone stay in step
+      if (q && data) {
+        const a = data.projectsById.get(d.rec.project_a)?.properties?.name ?? ''
+        const b = data.projectsById.get(d.rec.project_b)?.properties?.name ?? ''
+        const hay = [
+          d.rec.overlap_id, d.rec.project_a, d.rec.project_b,
+          a, b, ...(d.rec.utilities ?? []),
+        ].join(' ').toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
     if (!zonesOn) {
       return eligible.filter((d) => d.rec.overlap_id === selectedOverlapId)
     }
@@ -157,7 +177,7 @@ export function OverlapZones() {
     }
     console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
     return top
-  }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, selectedOverlapId])
+  }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, zoneFilter, searchText, selectedOverlapId, data])
 
   /** Top-3 scored records eligible for floating labels (timeline-honest). */
   const labelIds = useMemo(() => {

@@ -4,7 +4,17 @@
  * All data returned is REAL — HIFLD / OSM / public PSC filings. Never mock.
  */
 
-export type SceneId = 'savannah' | 'augusta' | 'state'
+export type SceneId =
+  | 'savannah'
+  | 'augusta'
+  | 'state'
+  | 'atlanta'
+  | 'columbia'
+  | 'charleston'
+  | 'greenville_sc'
+  | 'columbus_ga'
+  | 'athens'
+  | 'macon'
 export type Tier = 1 | 2 | 3 | 4
 
 // ---------- /api/city/{scene} ----------
