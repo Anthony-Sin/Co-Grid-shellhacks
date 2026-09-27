@@ -8,7 +8,7 @@
  * artifact's own `center`. This hook fetches both through the shared
  * `deduped` request cache (same `city:<scene>` keys as useCity) and
  * re-projects their feature arrays into state-local meters, so one
- * merged render shows real 3D corridors inside the clean state sheet.
+ * merged render shows real corridor detail inside the clean state sheet.
  *
  * Corridor roads/water are deliberately NOT composited — the state
  * artifact already carries statewide copies; duplicating them would
@@ -34,13 +34,9 @@ const METERS_PER_DEG_LAT = 110540
 const METERS_PER_DEG_LON_EQUATOR = 111320
 
 /** Corridor/metro extracts to fold into the state scene. `idBias`
- * guarantees building-id uniqueness across artifacts for the seeded
- * prng buckets + ink jitter in BuildingsLayer. It MUST stay a multiple
- * of 7 — the backend's fallback height is `8 + id % 7` and
- * renderHeightM() detects that signature via `b.id % 7`, so shifting
- * the residue would wrongly treat assumed heights as filed.
- * 2.1e9 = 7·300M — multiples stay ≡0 mod 7; `>>>0` consumers wrap mod
- * 2^32 harmlessly (seeds only). */
+ * guarantees building-id uniqueness across artifacts — composited
+ * footprints share the OSM id space (label-chip keys use `b-${id}`).
+ * 2.1e9 steps; `>>>0` consumers wrap mod 2^32 harmlessly. */
 const CORRIDORS: readonly { scene: SceneId; idBias: number }[] = [
   { scene: 'savannah', idBias: 0 },
   { scene: 'augusta', idBias: 2_100_000_000 },
@@ -233,16 +229,18 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
   }, [payloads])
 }
 
-/** Ortho zoom where corridor detail fades in/out — a hysteresis band so a
- * camera parked between the two thresholds keeps its last state instead
- * of flickering. State overview sits at zoom≈0.0022; city-scale reading
- * starts around ~0.01. Below the band ~148k extruded footprints are
- * vertex noise that still cost GPU every drawn frame. */
-const ZOOM_SHOW = 0.008
-const ZOOM_HIDE = 0.006
+/** Ortho zoom where corridor building fills fade in/out — a hysteresis
+ * band so a camera parked between the two thresholds keeps its last
+ * state instead of flickering. State overview sits at zoom≈0.0022;
+ * city-scale reading starts around ~0.01. The fills are cheap merged
+ * 2D ShapeGeometry tiles (no extrusions), so the gate can open early —
+ * footprints appear just past overview instead of popping late; below
+ * the band ~460k sub-pixel footprints are still skipped vertex noise. */
+const ZOOM_SHOW = 0.004
+const ZOOM_HIDE = 0.003
 
 /**
- * Zoom gate for the merged corridor building meshes. Reads camera.zoom
+ * Zoom gate for the merged corridor building fills. Reads camera.zoom
  * inside useFrame only, flipping a boolean when a threshold is crossed —
  * setState with an unchanged value bails out, so idle frames cost ~0.
  * Hidden = meshes fully unmounted; geometries stay memoized upstream,

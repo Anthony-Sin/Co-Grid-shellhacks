@@ -27,14 +27,14 @@ import { useShadowRefresh } from './cityUtils'
  * Layer stack (bottom → top): state land fill/borders → parks → water →
  * roads → buildings/trees. y-ordering is baked into the layer heights
  * (~0.05 land < 0.10 parks < 0.12 water < 0.15–0.35 roads by rank <
- * extruded buildings).
+ * 0.42 footprint fills).
  *
  * mapStyle split (store): 'flat' renders the clean web-map read — land
- * fill, blue water, green parks, single-stroke neutral roads, and flat
- * 2D building footprint fills (ShapeGeometry tiles — the "Google-Maps
- * density" layer, gated LOWER than sketch extrusions since 2D is cheap;
- * trees stay sketch-only). 'sketch' keeps the hand-drawn 3D paper city
- * exactly as before. The state border stroke draws in BOTH.
+ * fill, blue water, green parks, single-stroke neutral roads; 'sketch'
+ * keeps the hand-drawn inked paper basemap + trees. Buildings are the
+ * same flat 2D footprint fills (ShapeGeometry tiles — the "Google-Maps
+ * density" layer) in BOTH styles — the 3D extrusion mode was dropped.
+ * The state border stroke draws in BOTH.
  *
  * `showLabels` (the layers.labels toggle) gates only the floating name
  * chips — the basemap geometry itself is controlled by layers.basemap.
@@ -45,11 +45,11 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   const flat = mapStyle === 'flat'
   const { data } = useCity(activeScene)
 
-  // Deferred detail fetch (tiled-map style): the two corridor artifacts
-  // are ~50 MB of JSON — the biggest single startup cost — and nothing
+  // Deferred detail fetch (tiled-map style): the corridor artifacts are
+  // ~160 MB of JSON total — the biggest single startup cost — and nothing
   // visible needs them at statewide overview. Prefetch early (zoom just
   // past overview, ~0.0035) so the data has already landed by the time
-  // the render gate (0.008) opens — web maps prefetch the next zoom
+  // the render gate (0.004) opens — web maps prefetch the next zoom
   // level the same way. A selection also triggers it (zone tint needs
   // footprints) even at overview.
   const detailVisible = useCorridorZoomGate()
@@ -108,9 +108,9 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
     }
   }, [data])
 
-  // All city casters mount together when `data` lands — one shadow bake.
-  // `merged` also flips once when corridor detail lands, re-baking for
-  // the late-mounting ~148k corridor casters.
+  // City shadow casters (sketch-mode trees) mount when `data` lands —
+  // one shadow bake. `merged` also flips when corridor detail lands,
+  // re-baking for the late-mounting trees.
   useShadowRefresh(merged)
 
   if (!data || !merged || !labelData) return null
@@ -121,10 +121,10 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
       <ParksLayer parks={merged.parks} flat={flat} />
       <WaterLayer water={data.water} flat={flat} />
       <RoadsLayer roads={data.roads} flat={flat} />
-      {/* ONE buildings layer serves both modes: flat = merged 2D footprint
-          fills per ~12km cell (own lower zoom gate), sketch = extruded +
-          inked 3D cells. Trees remain sketch-only — no 2D canopy layer. */}
-      <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} flat={flat} />
+      {/* ONE buildings layer serves both styles: merged 2D footprint
+          fills per ~12km cell, gated by the shared corridor zoom ramp.
+          Trees remain sketch-only — no 2D canopy layer. */}
+      <BuildingsLayer buildings={merged.buildings} detailVisible={detailVisible} />
       {!flat && <TreesLayer parks={merged.parks} />}
       {showLabels && <LabelChips data={labelData} />}
     </group>

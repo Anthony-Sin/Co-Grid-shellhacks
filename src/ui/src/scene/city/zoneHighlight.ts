@@ -1,16 +1,15 @@
 /**
- * zoneHighlight.ts — in-zone building picking + tint-shell geometry.
+ * zoneHighlight.ts — in-zone building picking + flat tint-wash geometry.
  *
  * Contextual color-coding (ref: ref_img/color_coded_3d_buildign.png):
- * while the city stays monochrome paper/ink, buildings whose footprint
- * falls inside the SELECTED overlap's filed coordination zone get
- * re-extruded into a single merged shell drawn in that record's tier
- * color (the hovered overlap earns a fainter second shell).
+ * while the city stays neutral gray, buildings whose footprint falls
+ * inside the SELECTED overlap's filed coordination zone get a merged 2D
+ * footprint-fill wash drawn in that record's tier color (the hovered
+ * overlap earns a fainter second wash).
  *
  * Coordinate space: everything here is scene-local meters [x, y] with
  * +y = north — the same plane building footprints live in before their
- * -90° X rotation stands them upright, so the mask test needs no
- * transform at all.
+ * -90° X rotation lays them flat, so the mask test needs no transform.
  *
  * Honesty (AGENTS §7): a record WITHOUT a filed zone_geometry yields NO
  * highlight — we deliberately do not fabricate a midpoint-radius circle.
@@ -18,53 +17,21 @@
  * a real zone polygon, so this is a guard, not a routine path.
  */
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { CityBuilding, OverlapRecord } from '../../lib/api'
 import { lonLatToLocal, type Vec2 } from '../../lib/projection'
-import { mulberry32 } from '../../lib/prng'
 import { polygonShape } from '../shapeUtils'
 import { cleanRing, pointInRing } from './cityUtils'
 
 /**
- * Vertical lift of the tint shell so its roof plane clears the base
- * mesh's (z-fighting). Side walls stay coplanar — the material's
- * polygonOffset bias resolves those.
- */
-export const OVERLAY_LIFT_M = 0.4
-
-/**
  * Perf guard (AGENTS §6): tier-4 zones are ~40 km envelopes that can
- * legitimately contain most of a city's ~65k buildings — re-extruding
- * them on a selection change would stall the frame for seconds AND a
- * wash covering the whole skyline carries no signal anyway. Real
- * coordination capsules (tier 1–3, ~2.4 km wide) top out in the low
- * hundreds here, so hits beyond this cap honestly skip the tint; the
- * zone's own polygon/hatch still shows the true footprint.
+ * legitimately contain most of a city's ~65k buildings — rebuilding a
+ * wash for them on a selection change would stall the frame AND a wash
+ * covering the whole city carries no signal anyway. Real coordination
+ * capsules (tier 1–3, ~2.4 km wide) top out in the low hundreds here,
+ * so hits beyond this cap honestly skip the tint; the zone's own
+ * polygon/hatch still shows the true footprint.
  */
 export const MAX_OVERLAY_BUILDINGS = 1200
-
-/**
- * Building render height — the SINGLE source of truth for both the base
- * mesh and the tint shell (they must agree or the shell floats/sinks).
- *
- * Filed vs assumed: build_city.py `_height` resolves the OSM `height`
- * tag, then `building:levels` × 3.2, then a deterministic fallback of
- * exactly `8 + (osm_id % 7)`. ~98% of footprints carry the fallback,
- * which lands on only 7 integer heights — the skyline looked terraced.
- * We detect the fallback signature precisely (`h === 8 + id % 7`) and
- * give ONLY assumed heights a seeded 0.7–1.3× reshaping for silhouette
- * variety; filed heights render exactly as reported. (A filed height
- * coincidentally equal to the fallback value — rare — is reshaped too;
- * that only alters the extrusion, never the underlying record.)
- */
-export function renderHeightM(b: CityBuilding): number {
-  const h = b.height
-  const filed = typeof h === 'number' && h > 0 && h !== 8 + (b.id % 7)
-  if (filed) return Math.max(1.5, h)
-  const assumed = typeof h === 'number' && h > 0 ? h : 8
-  const rng = mulberry32((b.id >>> 0) ^ 0x27d4eb2f)
-  return Math.max(1.5, assumed * (0.7 + rng() * 0.6))
-}
 
 /** A filed zone polygon projected to scene-local meters, plus its bbox. */
 export interface ZoneMask {
@@ -163,48 +130,15 @@ export function buildingsInMask(index: BuildingIndex, mask: ZoneMask): number[] 
 }
 
 /**
- * Merged extrusion for the in-zone buildings — the "red rooftops" shell.
- * Same footprint + render height as the base pass so the shell wraps the
- * base building exactly; the caller lifts the mesh by OVERLAY_LIFT_M.
- * Returns null when nothing falls inside — an honest empty result (e.g.
- * a zone over marsh or outside this scene's building coverage) — and
- * also null past MAX_OVERLAY_BUILDINGS (city-blanket tier-4 envelopes:
- * too slow to rebuild, and a whole-city wash says nothing).
+ * Merged 2D footprint fill for the in-zone buildings — the tier-color
+ * wash over the flat building fabric. Returns null when nothing falls
+ * inside — an honest empty result (e.g. a zone over marsh or outside
+ * this scene's building coverage) — and also null past
+ * MAX_OVERLAY_BUILDINGS (city-blanket tier-4 envelopes: a whole-city
+ * wash says nothing). Geometry bakes at y=0; the caller lifts the mesh
+ * to FLAT_WASH_Y so it clears the footprint fills.
  */
 export function buildOverlayGeometry(
-  buildings: CityBuilding[],
-  hits: number[],
-): { geometry: THREE.BufferGeometry; count: number } | null {
-  if (hits.length > MAX_OVERLAY_BUILDINGS) {
-    console.debug(
-      `[zoneHighlight] ${hits.length} buildings inside zone > cap ${MAX_OVERLAY_BUILDINGS} — skipping tint (city-wide envelope)`,
-    )
-    return null
-  }
-  const parts: THREE.BufferGeometry[] = []
-  for (const i of hits) {
-    const ring = cleanRing(buildings[i].footprint)
-    if (!ring) continue
-    const geo = new THREE.ExtrudeGeometry(polygonShape(ring), {
-      depth: renderHeightM(buildings[i]),
-      bevelEnabled: false,
-    })
-    geo.rotateX(-Math.PI / 2) // same up-stand as the base pass
-    geo.deleteAttribute('uv')
-    parts.push(geo)
-  }
-  if (!parts.length) return null
-  const geometry = mergeGeometries(parts, false)
-  return geometry ? { geometry, count: parts.length } : null
-}
-
-/**
- * Flat-mode twin of buildOverlayGeometry — same mask, same cap, but a
- * merged ShapeGeometry (2D footprint fills, no extrusion) for the tier
- * wash over the flat web-map buildings. Geometry bakes at y=0; the
- * caller lifts the mesh to FLAT_WASH_Y so it clears the footprint fills.
- */
-export function buildFlatOverlayGeometry(
   buildings: CityBuilding[],
   hits: number[],
 ): { geometry: THREE.BufferGeometry; count: number } | null {
