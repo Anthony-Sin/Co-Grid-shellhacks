@@ -218,3 +218,7 @@ the ranked panel caps the DOM at the top 200 rows).
 - API reads from `data/processed/` + `data/seeds/`; `/api/raw/*` is
   path-confined to `data/raw/`. Agent tools can't mutate anything —
   each call is a pure function over cached artifacts.
+
+### Map guide
+
+The frontend includes a collapsible “How to use the map” guide. It explains map navigation, selecting overlaps, and switching scenes. The component is in `src/ui/src/ui/components/MapGuide.tsx`, with styles in `src/ui/src/styles/components.css`.

@@ -1,3 +1,4 @@
+import { MapGuide } from './ui/components/MapGuide'
 import { CityCanvas } from './scene/CityCanvas'
 import { HeaderBar } from './ui/components/HeaderBar'
 import { OverlapPanel } from './ui/components/OverlapPanel'
@@ -9,6 +10,7 @@ export default function App() {
     <div className="app-shell">
       <CityCanvas />
       <HeaderBar />
+      <MapGuide />
       <OverlapPanel />
       <Legend />
       <AgentBar />
