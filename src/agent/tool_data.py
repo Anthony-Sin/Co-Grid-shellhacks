@@ -228,9 +228,12 @@ def tool_find_overlaps(utility: str | None = None,
                        utilities: str | list | None = None,
                        tier: int | None = None,
                        zone: str | None = None,
+                       state: str | None = None,
                        timeline_only: bool = False,
                        adjacent_only: bool = False,
+                       missing_dates: bool = False,
                        sort: str | None = None,
+                       offset: int = 0,
                        limit: int = 25) -> dict:
     """Filtered overlap search — the record-level query primitive.
 
@@ -246,8 +249,8 @@ def tool_find_overlaps(utility: str | None = None,
     try:
         rows = filter_records(
             overlaps(), utility=utility, utilities=utilities, tier=tier,
-            zone=zone, timeline_only=timeline_only,
-            adjacent_only=adjacent_only)
+            zone=zone, state=state, timeline_only=timeline_only,
+            adjacent_only=adjacent_only, missing_dates=missing_dates)
     except ValueError as e:
         return {"error": str(e)}
     if sort:
@@ -261,6 +264,8 @@ def tool_find_overlaps(utility: str | None = None,
         elif s != "rank":
             return {"error": f"unknown sort '{sort}' — rank|distance|distance_desc"}
     lim = max(1, min(int(limit or 25), 50))
+    off = max(0, int(offset or 0))
+    page = rows[off:off + lim]
     # download link mirrors this exact filter set — /api/overlaps.csv
     # shares filter_records so the export is faithful to this result.
     qs: dict[str, Any] = {}
@@ -273,16 +278,21 @@ def tool_find_overlaps(utility: str | None = None,
         qs["tier"] = int(tier)
     if zone:
         qs["zone"] = zone
+    if state:
+        qs["state"] = state
     if timeline_only:
         qs["timeline_only"] = "true"
     if adjacent_only:
         qs["adjacent_only"] = "true"
+    if missing_dates:
+        qs["missing_dates"] = "true"
     if sort and sort.strip().lower() != "rank":
         qs["sort"] = sort.strip().lower()
     return {
         "total_matching": len(rows),
-        "shown": min(len(rows), lim),
-        "overlaps": [_overlap_brief(r) for r in rows[:lim]],
+        "shown": len(page),
+        "offset": off,
+        "overlaps": [_overlap_brief(r) for r in page],
         "csv_export": (f"/api/overlaps.csv?{urlencode(qs)}" if qs
                        else "/api/overlaps.csv"),
     }

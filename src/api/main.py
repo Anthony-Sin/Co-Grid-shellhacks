@@ -266,6 +266,7 @@ def overlaps(
     timeline_only: bool = Query(False),
     q: Optional[str] = Query(None, description="substring match on ids, project names, utilities"),
     zone: Optional[str] = Query(None, description="region tag — matches zone labels incl. 'a / b' pairs"),
+    state: Optional[str] = Query(None, description="ga | sc — records whose zone touches that state"),
     sort: Optional[str] = Query(None, description="score | distance | distance_desc | year"),
     limit: Optional[int] = Query(None, ge=1, le=500),
     offset: int = Query(0, ge=0, description="skip N rows after filter/sort (paging)"),
@@ -280,6 +281,12 @@ def overlaps(
     if zone:
         z = zone.strip().lower()
         rows = [r for r in rows if z in (r.get("zone") or "").lower()]
+    if state:
+        from src.analysis.filters import filter_records as _fr
+        try:
+            rows = _fr(rows, state=state)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from e
     if timeline_only:
         rows = [r for r in rows if r["timeline_overlap"]]
     if q:
@@ -313,8 +320,10 @@ def overlaps_csv(
         None, description="exact pair, comma-separated — e.g. 'DESC,GPC'"),
     tier: Optional[int] = Query(None, ge=1, le=4),
     zone: Optional[str] = Query(None),
+    state: Optional[str] = Query(None, description="ga | sc"),
     timeline_only: bool = Query(False),
     adjacent_only: bool = Query(False),
+    missing_dates: bool = Query(False),
     sort: Optional[str] = Query(None, description="score | distance | distance_desc | year"),
 ) -> "Response":
     """Ranked overlaps as flat CSV — teammates/spreadsheets/BI friendly.
@@ -328,8 +337,8 @@ def overlaps_csv(
     try:
         rows = filter_records(
             rows, utility=utility, utilities=utilities, tier=tier,
-            zone=zone, timeline_only=timeline_only,
-            adjacent_only=adjacent_only)
+            zone=zone, state=state, timeline_only=timeline_only,
+            adjacent_only=adjacent_only, missing_dates=missing_dates)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
     if sort is not None:

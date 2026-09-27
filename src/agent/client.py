@@ -22,8 +22,11 @@ class AgentConfig:
     timeout_s: float = 90.0
     # thinking models burn thousands of tokens in the reasoning field
     # before content — a tight cap truncates them into empty answers.
-    # Keep it generous; AGENT_MAX_TOKENS overrides when needed.
-    max_tokens: int = 32768
+    # Must stay BELOW the model's context window (glm-4-7-flash = 32k) —
+    # the completion budget and the prompt share it. chat_completion
+    # also clamps against the actual prompt size. AGENT_MAX_TOKENS
+    # overrides.
+    max_tokens: int = 16384
     temperature: float = 0.2
 
 
@@ -35,7 +38,7 @@ def load_config() -> AgentConfig | None:
         api_key=key,
         base_url=os.getenv("AGENT_BASE_URL", "https://api.tensormux.com/v1").rstrip("/"),
         model=os.getenv("AGENT_MODEL", "glm-4-7-flash"),
-        max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "32768")),
+        max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "16384")),
     )
 
 
@@ -49,11 +52,23 @@ def chat_completion(
     tools: list[dict] | None = None,
 ) -> dict:
     """One /chat/completions round-trip -> normalized assistant message."""
+    # The completion budget shares the model's context with the prompt —
+    # glm-4-7-flash is 32768 total, and requesting max_tokens >= what the
+    # prompt leaves free is a hard 400 upstream ("requested N output
+    # tokens ... upper bound for 0 input tokens"). Estimate the prompt at
+    # ~4 chars/token (+ tool specs) and clamp, keeping a floor so a fat
+    # history can still answer.
+    est_prompt = (
+        sum(len(str(m.get("content") or "")) for m in messages) // 4
+        + (len(tools) * 120 if tools else 0)
+        + 512
+    )
+    max_out = max(1024, min(cfg.max_tokens, 32768 - est_prompt))
     payload: dict = {
         "model": cfg.model,
         "messages": messages,
         "temperature": cfg.temperature,
-        "max_tokens": cfg.max_tokens,
+        "max_tokens": max_out,
     }
     if tools:
         payload["tools"] = tools

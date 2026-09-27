@@ -126,17 +126,21 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Filtered overlap search returning the matching RECORDS "
         "(overlap_id, utilities, tier, min_distance_km, score per row). "
         "Filters: utility (either side), utilities (exact pair "
-        "'GPC,DESC'), tier, zone substring, timeline_only (intersecting) "
+        "'GPC,DESC'), tier, zone substring, state ('ga'|'sc'), missing_dates (no window filed), timeline_only (intersecting) "
         "OR adjacent_only (end-to-start handoffs). sort: 'rank' "
         "(default), 'distance', or 'distance_desc' — use distance_desc "
-        "for farthest/biggest-gap questions. Also returns a csv_export "
-        "link for the full filtered set.",
+        "for farthest/biggest-gap questions. offset+limit page through "
+        "long result sets. Also returns a csv_export link for the full "
+        "filtered set.",
         {"utility": "string (optional, either side)",
          "utilities": "string 'A,B' or list (optional, exact pair)",
          "tier": "int 1-4 (optional)", "zone": "string (optional)",
+         "state": "string ga|sc (optional)",
          "timeline_only": "bool (optional)",
          "adjacent_only": "bool (optional, exclusive w/ timeline_only)",
+         "missing_dates": "bool (optional)",
          "sort": "string rank|distance|distance_desc (optional)",
+         "offset": "int (optional)",
          "limit": "int <=50 (optional)"},
     ),
     "project_overlaps": (
@@ -284,12 +288,15 @@ def openai_tool_specs() -> list[dict]:
     """OpenAI `tools` payload — permissive schemas (small models)."""
     specs = []
     for name, (_, desc, props) in TOOLS.items():
-        spec_props = {
-            k: {"type": "number" if "float" in v else "integer" if "int" in v
-                else "boolean" if "bool" in v else "string",
-                "description": v}
-            for k, v in props.items()
-        }
+        spec_props = {}
+        for k, v in props.items():
+            if "list" in v.lower():
+                p = {"type": "array", "items": {"type": "string"}}
+            else:
+                p = {"type": "number" if "float" in v else "integer" if "int" in v
+                     else "boolean" if "bool" in v else "string"}
+            p["description"] = v
+            spec_props[k] = p
         required = [k for k, v in props.items() if "required" in v]
         specs.append({
             "type": "function",

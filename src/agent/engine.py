@@ -125,7 +125,21 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
     empty_nudges = 0
 
     for _round in range(MAX_ROUNDS):
-        resp = chat_completion(cfg, messages, tools=specs)
+        try:
+            resp = chat_completion(cfg, messages, tools=specs)
+        except ChatError as e:
+            # an upstream failure mid-loop must not 502 away the rounds
+            # that already completed — return what the trace gathered
+            return {
+                "reply": (f"The model endpoint dropped the request "
+                          f"({e}) — re-send to retry. Completed tool "
+                          f"calls are listed below."),
+                "reasoning": last_reasoning,
+                "tool_trace": trace,
+                "rounds": _round + 1,
+                "usage": total_usage,
+                "finish_reason": "error",
+            }
         msg = resp["raw_message"]
         last_reasoning = resp.get("reasoning") or last_reasoning
         for k, v in (resp.get("usage") or {}).items():
