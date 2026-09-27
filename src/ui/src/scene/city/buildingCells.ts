@@ -19,10 +19,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { CityBuilding } from '../../lib/api'
 import { polygonShape } from '../shapeUtils'
 import { cleanRing } from './cityUtils'
-import type { BuildingIndex } from './zoneHighlight'
+import { isAppendGrowth, type BuildingIndex } from './zoneHighlight'
 
 /** Tile edge for the lazy cullable cells — ~12 km squares; a city-zoom
  *  view typically covers 1–4 cells, so most geometry never draws. */
@@ -44,6 +45,17 @@ export interface FlatCell {
 }
 
 /**
+ * Append-only partition cache — same growth pattern as indexBuildings:
+ * corridor arrivals concatenate a fresh `buildings` array (stable prefix
+ * refs, new tail), so re-bucketing all ~460k centroids per arrival is
+ * wasted work. A grown array buckets only the tail; existing index lists
+ * grow IN PLACE, which is exactly what the tile cache below diffs on
+ * (grown member count → that cell rebuilds, untouched cells keep their
+ * geometry). A shrunk/mismatched prefix (scene switch) rebuilds once.
+ */
+let partCache: { arr: CityBuilding[]; len: number; cells: Map<string, number[]> } | null = null
+
+/**
  * Group building indices into CELL_M grid cells by footprint centroid
  * (reuses the shared BuildingIndex — no second centroid pass).
  * Buildings with NaN centroids are skipped; they'd fail cleanRing anyway.
@@ -52,8 +64,14 @@ export function partitionCells(
   buildings: CityBuilding[],
   index: BuildingIndex,
 ): Map<string, number[]> {
-  const cells = new Map<string, number[]>()
-  for (let i = 0; i < buildings.length; i++) {
+  const n = buildings.length
+  const cache = partCache
+  // index must cover the array — a stale/sparser index would key NaN
+  const extend =
+    cache !== null && index.cx.length >= n && isAppendGrowth(cache.arr, cache.len, buildings)
+  const cells = extend ? cache.cells : new Map<string, number[]>()
+  const from = extend ? cache.len : 0
+  for (let i = from; i < n; i++) {
     const x = index.cx[i]
     const y = index.cy[i]
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue
@@ -62,23 +80,64 @@ export function partitionCells(
     if (cell) cell.push(i)
     else cells.set(key, [i])
   }
+  partCache = { arr: buildings, len: n, cells }
   return cells
 }
 
-/** Merge one cell's footprints into a single flat ShapeGeometry — no
- *  walls, no ink, one draw call per visible cell. */
-export function buildFlatCell(buildings: CityBuilding[], indices: number[]): FlatCell {
-  const shapes: THREE.Shape[] = []
-  for (const i of indices) {
-    const ring = cleanRing(buildings[i].footprint)
-    if (!ring) continue
-    shapes.push(polygonShape(ring))
-  }
-  if (!shapes.length) return { geometry: null, disposables: [] }
+/** Footprints merged per earcut batch inside one cell — a dense metro
+ *  cell can hold 20–50k footprints; triangulating them in ONE
+ *  ShapeGeometry call was a 100–400 ms synchronous macrotask (the
+ *  audit's zoom stall). ~5k per chunk keeps each slice in the ~10–30 ms
+ *  range; the chunks then merge into the single geometry the tile cache
+ *  keys on, so draw-call count is unchanged. */
+const FLAT_CELL_CHUNK = 5_000
 
-  const geometry = new THREE.ShapeGeometry(shapes)
+/** Merge one cell's footprints into a single flat ShapeGeometry — no
+ *  walls, no ink, one draw call per visible cell. ASYNC: yields a
+ *  macrotask between chunks (same setTimeout pattern as the per-cell
+ *  pacing in useFlatCells) so a dense cell can't monopolize a frame.
+ *  Returns null when `cancelled` flips mid-build — partial chunk
+ *  geometries are disposed here so the caller simply skips caching and
+ *  the cell rebuilds cleanly on the next run. */
+export async function buildFlatCell(
+  buildings: CityBuilding[],
+  indices: number[],
+  cancelled: () => boolean,
+): Promise<FlatCell | null> {
+  const parts: THREE.BufferGeometry[] = []
+  const bail = (): null => {
+    for (const p of parts) p.dispose()
+    return null
+  }
+
+  for (let off = 0; off < indices.length; off += FLAT_CELL_CHUNK) {
+    if (cancelled()) return bail()
+    const end = Math.min(off + FLAT_CELL_CHUNK, indices.length)
+    const shapes: THREE.Shape[] = []
+    for (let k = off; k < end; k++) {
+      const ring = cleanRing(buildings[indices[k]].footprint)
+      if (!ring) continue
+      shapes.push(polygonShape(ring))
+    }
+    if (shapes.length) {
+      const part = new THREE.ShapeGeometry(shapes)
+      part.deleteAttribute('uv') // identical attribute sets → mergeable
+      parts.push(part)
+    }
+    await new Promise((r) => setTimeout(r, 0)) // yield between chunks
+  }
+  if (cancelled()) return bail()
+  if (!parts.length) return { geometry: null, disposables: [] }
+
+  // One chunk skips the merge entirely; several merge into the cell's
+  // single BufferGeometry (mergeGeometries copies — parts get disposed).
+  const geometry = parts.length === 1 ? parts[0] : mergeGeometries(parts, false)
+  if (!geometry) {
+    for (const p of parts) p.dispose()
+    return { geometry: null, disposables: [] }
+  }
+  if (geometry !== parts[0]) for (const p of parts) p.dispose()
   geometry.rotateX(-Math.PI / 2) // +y north -> -z world, faces up
-  geometry.deleteAttribute('uv')
   geometry.translate(0, FLAT_BUILDING_Y, 0)
   geometry.computeBoundingSphere() // per-cell bounds → frustum culling
   return { geometry, disposables: [geometry] }
@@ -138,9 +197,18 @@ export function useFlatCells(
         if (counts.get(key) === indices.length) continue // cached tile
         await new Promise((r) => setTimeout(r, 0)) // yield between tiles
         if (cancelled) return
+        // buildFlatCell yields mid-cell too (dense metros) — it returns
+        // null on cancellation with partials already disposed, and a
+        // completed cell that lands stale is disposed rather than cached.
+        const cell = await buildFlatCell(buildings, indices, () => cancelled)
+        if (!cell) return
+        if (cancelled) {
+          for (const d of cell.disposables) d.dispose()
+          return
+        }
         const old = cellsRef.current.get(key)
         if (old) for (const d of old.disposables) d.dispose()
-        cellsRef.current.set(key, buildFlatCell(buildings, indices))
+        cellsRef.current.set(key, cell)
         counts.set(key, indices.length)
         setTick((t) => t + 1)
       }

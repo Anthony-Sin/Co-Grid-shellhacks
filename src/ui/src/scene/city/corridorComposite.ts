@@ -73,6 +73,16 @@ const warnedScenes = new Set<SceneId>()
 let compositeLogged = false
 
 /**
+ * Per-payload projection cache. Each payload object is created once (in
+ * setPayloads) and payloads only accumulate, so keying on the payload
+ * reference projects each corridor EXACTLY ONCE — arrival N pays O(new)
+ * instead of re-projecting ~460k footprints an Nth time (the audit's
+ * zoom stall: ~150–400 ms of corridorToState per arrival). WeakMap so
+ * dropped payloads GC rather than pinning ~50 MB slices.
+ */
+const sliceCache = new WeakMap<CorridorPayload, CorridorDetail>()
+
+/**
  * Affine remap of one corridor payload into state-local meters:
  *   x' = x·cos(s₁)/cos(c₁) + (c₀-s₀)·111320·cos(s₁)
  *   y' = y + (c₁-s₁)·110540
@@ -213,8 +223,23 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
 
   return useMemo(() => {
     if (!payloads || payloads.length === 0) return null
+    // Concat the cached per-payload slices — element refs stay stable
+    // across arrivals, which is exactly what the append-only indexes
+    // downstream (indexBuildings / partitionCells) prove growth against.
     const out: CorridorDetail = { buildings: [], parks: [], pois: [] }
-    for (const p of payloads) corridorToState(p, out)
+    for (const p of payloads) {
+      let slice = sliceCache.get(p)
+      if (!slice) {
+        slice = { buildings: [], parks: [], pois: [] }
+        corridorToState(p, slice)
+        sliceCache.set(p, slice)
+      }
+      // push-per-element, never spread: ~460k args would blow the call
+      // stack; ref copies are ~ms next to the projection they replace.
+      for (const b of slice.buildings) out.buildings.push(b)
+      for (const pk of slice.parks) out.parks.push(pk)
+      for (const poi of slice.pois) out.pois.push(poi)
+    }
     if (!compositeLogged) {
       compositeLogged = true
       console.debug(

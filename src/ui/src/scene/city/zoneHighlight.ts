@@ -79,8 +79,7 @@ export function zoneMaskLocal(
 
 /**
  * Per-building footprint centroids — the only per-building data the mask
- * test needs. Computed ONCE per city payload (the building list never
- * changes); NaN marks unusable rings so they can never match.
+ * test needs. NaN marks unusable rings so they can never match.
  * Centroid = plain vertex mean — buildings are tiny next to zone scale.
  */
 export interface BuildingIndex {
@@ -88,11 +87,67 @@ export interface BuildingIndex {
   cy: Float64Array
 }
 
+/**
+ * Append-only proof shared by the incremental caches here and in
+ * buildingCells.ts: corridor arrivals rebuild the merged array by
+ * concatenation, so `next` only grew when its first `prevLen` slots hold
+ * the SAME building objects as `prev`. Verifying that is an O(n) pointer
+ * compare — ~ms at ~460k — versus O(n) real vertex work otherwise.
+ */
+export function isAppendGrowth(
+  prev: readonly CityBuilding[],
+  prevLen: number,
+  next: readonly CityBuilding[],
+): boolean {
+  if (next.length < prevLen) return false
+  for (let i = 0; i < prevLen; i++) {
+    if (next[i] !== prev[i]) return false
+  }
+  return true
+}
+
+/**
+ * Append-only centroid cache. Each corridor arrival produces a fresh
+ * `buildings` array (concat — new identity, stable element refs), so the
+ * useMemo upstream re-runs indexBuildings every time; re-averaging all
+ * ~460k footprints per arrival was the zoom-stall audit item. A grown
+ * array EXTENDS the cached index — Float64Arrays are fixed-length, so
+ * the prefix copy is one memcpy and only the tail pays the vertex loop:
+ * O(new) + the ref-compare proof. A mismatched/shrunk prefix (scene
+ * switch) rebuilds once.
+ */
+let indexCache: { arr: CityBuilding[]; len: number; index: BuildingIndex } | null = null
+
 export function indexBuildings(buildings: CityBuilding[]): BuildingIndex {
   const n = buildings.length
-  const cx = new Float64Array(n).fill(NaN)
-  const cy = new Float64Array(n).fill(NaN)
-  for (let i = 0; i < n; i++) {
+  const cache = indexCache
+  if (cache && cache.arr === buildings && cache.len === n) return cache.index
+
+  let cx: Float64Array
+  let cy: Float64Array
+  let from: number
+  if (cache && isAppendGrowth(cache.arr, cache.len, buildings)) {
+    if (cache.len === n) {
+      // identical content in a fresh array — reuse the index wholesale
+      // and track the new ref so later calls hit the identity fast path
+      indexCache = { arr: buildings, len: n, index: cache.index }
+      return cache.index
+    }
+    cx = new Float64Array(n)
+    cy = new Float64Array(n)
+    cx.set(cache.index.cx)
+    cy.set(cache.index.cy)
+    // the tail must start NaN like a fresh build — a skipped ring at 0
+    // would falsely mask-match at the scene origin
+    cx.fill(NaN, cache.len)
+    cy.fill(NaN, cache.len)
+    from = cache.len
+  } else {
+    cx = new Float64Array(n).fill(NaN)
+    cy = new Float64Array(n).fill(NaN)
+    from = 0
+  }
+  for (let i = from; i < n; i++) {
     const fp = buildings[i].footprint
     if (!fp || fp.length < 3) continue
     let count = fp.length
@@ -108,16 +163,32 @@ export function indexBuildings(buildings: CityBuilding[]): BuildingIndex {
     cx[i] = sx / count
     cy[i] = sy / count
   }
-  return { cx, cy }
+  const index = { cx, cy }
+  indexCache = { arr: buildings, len: n, index }
+  return index
 }
 
 /**
+ * Per-(index, mask) hit cache. Each memo upstream recomputes against a
+ * stable mask object, but re-renders, StrictMode double-memos, and
+ * selection↔hover revisits would otherwise re-scan all ~460k centroids
+ * per pointer event. The scan result is pure in (index, mask), so a
+ * nested WeakMap reuses it while both keys are alive — a fresh index
+ * (corridor arrival) honestly rescans, and stale entries GC with their
+ * owners instead of leaking per hover.
+ */
+const maskHitCache = new WeakMap<BuildingIndex, WeakMap<ZoneMask, number[]>>()
+
+/**
  * Indices of buildings whose centroid lies inside the mask.
- * Bbox reject first — typically ~1 zone is active, so most of the ~70k
+ * Bbox reject first — typically ~1 zone is active, so most of the ~460k
  * buildings are dropped by four comparisons and only survivors pay the
  * O(ring) point-in-polygon cost. Total: O(n), a few ms worst case.
  */
 export function buildingsInMask(index: BuildingIndex, mask: ZoneMask): number[] {
+  let byMask = maskHitCache.get(index)
+  const cached = byMask?.get(mask)
+  if (cached) return cached
   const hits: number[] = []
   const { cx, cy } = index
   for (let i = 0; i < cx.length; i++) {
@@ -126,6 +197,11 @@ export function buildingsInMask(index: BuildingIndex, mask: ZoneMask): number[] 
     if (x < mask.minX || x > mask.maxX || y < mask.minY || y > mask.maxY) continue
     if (pointInRing(x, y, mask.ring)) hits.push(i)
   }
+  if (!byMask) {
+    byMask = new WeakMap()
+    maskHitCache.set(index, byMask)
+  }
+  byMask.set(mask, hits)
   return hits
 }
 

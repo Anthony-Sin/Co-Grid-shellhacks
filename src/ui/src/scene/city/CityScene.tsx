@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../../state/store'
 import { useCity } from './useCity'
 import { useZoomAtLeast } from './cityUtils'
@@ -109,9 +109,18 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   }, [data])
 
   // City shadow casters (sketch-mode trees) mount when `data` lands —
-  // one shadow bake. `merged` also flips when corridor detail lands,
-  // re-baking for the late-mounting trees.
-  useShadowRefresh(merged)
+  // one shadow bake. `merged` flips on EVERY corridor arrival, and each
+  // flip used to re-render the whole shadow map mid-gesture — debounced
+  // to a single bake ~500 ms after the arrival burst goes quiet. In flat
+  // mode no city caster is mounted at all (trees are sketch-only and the
+  // fills never cast), so a null dep skips the poke honestly — and the
+  // flat→sketch toggle re-arms it for the mounting trees.
+  const [bakeDep, setBakeDep] = useState(merged)
+  useEffect(() => {
+    const t = setTimeout(() => setBakeDep(merged), 500)
+    return () => clearTimeout(t)
+  }, [merged])
+  useShadowRefresh(flat ? null : bakeDep)
 
   if (!data || !merged || !labelData) return null
 
