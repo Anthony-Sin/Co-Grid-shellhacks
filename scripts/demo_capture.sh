@@ -12,7 +12,7 @@
 set -u
 DISP=:99
 SIZE=1600x900x24
-OUT=${1:-}
+CMD=${1:-}
 URL=http://127.0.0.1:3210
 PIDDIR=/tmp/cogrid-demo-pids
 mkdir -p "$PIDDIR"
@@ -57,12 +57,18 @@ stop() {
 down() {
   stop
   for f in chromium xvfb; do
-    [ -f "$PIDDIR/$f.pid" ] && kill "$(cat "$PIDDIR/$f.pid")" 2>/dev/null
+    [ -f "$PIDDIR/$f.pid" ] || continue
+    pid=$(cat "$PIDDIR/$f.pid")
+    # stale pidfiles can outlive the process — verify the pid still
+    # belongs to the spawned binary before signaling it
+    if tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q "$f"; then
+      kill "$pid" 2>/dev/null
+    fi
   done
   rm -f "$PIDDIR"/*.pid
 }
 
-case "${OUT:-start}" in
+case "${CMD:-start}" in
   start) start ;;
   stop)  stop ;;
   down)  down ;;

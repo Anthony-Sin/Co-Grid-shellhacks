@@ -79,6 +79,28 @@ with `scripts/demo_capture.sh start` + `scripts/record_demo.mjs`
 (segment timings in `scripts/demo_script.json`); rendered mp4s are
 gitignored — the published cut lives on YouTube.
 
+The shipped cut is assembled in three passes after the screen capture:
+
+1. **Narration** — each segment's `vo` text from `demo_script.json` was
+   synthesized with a locally-cloned voice (one per segment, wav).
+2. **QC** — every wav was re-transcribed (whisper) and diffed against
+   the script text; mismatched takes were regenerated.
+3. **Mux** — per-segment narration is delayed to its segment start and
+   mixed over the capture:
+
+   ```bash
+   # voice track: one delayed input per segment (offsets from marks)
+   ffmpeg -i seg1.wav -i seg2.wav ... \
+     -filter_complex "[0]adelay=0|0[a0];[1]adelay=12000|12000[a1];...;\
+       [a0][a1]...amix=inputs=N,loudnorm[out]" -map "[out]" voice.wav
+   ffmpeg -i demo_capture.mp4 -i voice.wav -c:v copy -shortest out.mp4
+   ```
+
+   `/tmp/demo_marks.json` (written by `record_demo.mjs`) records the
+   wall-clock start of each segment — it is the ground truth for the
+   `adelay` offsets above. The TTS/QC steps were run interactively and
+   are not scripted in-repo.
+
 ### AI coordination analyst (optional, server-side key)
 
 The backend exposes an agentic analyst that answers questions **by calling

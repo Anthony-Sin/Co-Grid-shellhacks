@@ -304,6 +304,17 @@ export function AgentBar() {
     if (!open) voice.hush()
   }, [open, voice.hush])
 
+  const unconfigured = healthState === 'ok' && !!health && !health.configured
+  const offline = healthState === 'failed' || unconfigured
+  const inputDisabled = busy || healthState === 'loading' || unconfigured
+
+  // a busy/offline/unconfigured composer can't be sent from — keep the
+  // mic gated with the textarea instead of silently dictating into a
+  // dead field (and end any live capture the moment the gate closes)
+  useEffect(() => {
+    if (inputDisabled) voice.hush()
+  }, [inputDisabled, voice.hush])
+
   if (!open) {
     return (
       <button
@@ -317,9 +328,6 @@ export function AgentBar() {
     )
   }
 
-  const unconfigured = healthState === 'ok' && !!health && !health.configured
-  const offline = healthState === 'failed' || unconfigured
-  const inputDisabled = busy || healthState === 'loading' || unconfigured
   const freshChips = QUICK_ACTIONS.filter((a) => !usedChips.has(a.label))
   const showChips = !busy && (freshChips.length > 0 || usedChips.size > 0)
   const placeholder =
@@ -465,7 +473,7 @@ export function AgentBar() {
               }
             }}
           />
-          <VoiceButton voice={voice} />
+          {!inputDisabled && <VoiceButton voice={voice} />}
           {busy ? (
             <button
               type="button"

@@ -12,11 +12,14 @@
  * just-sent words; abort() discards it and a dead-session guard drops
  * any late event either way.
  *
- * Terminal handlers are identity-guarded: an errored session can hold
- * recRef while its queued end event is still in flight, so a fresh
- * session may already own the mic by the time the stale onend lands —
- * without the guard it would null out the live session's bookkeeping
- * and leave an invisible capture running.
+ * Every handler — including onresult — is identity-guarded against the
+ * rec that installed it: an errored or aborted session's queued events
+ * can land after a fresh session already owns the mic, and the
+ * component-level deadRef is reset for the new session, so the stale
+ * session's rec identity is the only reliable discriminator. Without
+ * it a superseded session could null out the live session's
+ * bookkeeping (invisible capture) or inject its transcript into the
+ * new draft.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -73,14 +76,31 @@ export function useVoiceInput(
   /** set before abort() — drops any event that outlives the session */
   const deadRef = useRef(false)
 
+  // start/stop/abort throw InvalidStateError when the engine's real
+  // state is past the call — the SpeechRecognitionLike interface can't
+  // introspect it, so every termination call gets a try/catch
   const stop = useCallback(() => {
-    recRef.current?.stop()
+    try {
+      recRef.current?.stop()
+    } catch {
+      /* engine already stopped */
+    }
   }, [])
 
   const hush = useCallback(() => {
-    if (!recRef.current) return
+    const rec = recRef.current
+    if (!rec) return
     deadRef.current = true
-    recRef.current.abort()
+    // eager teardown — don't trust the queued onend to arrive promptly
+    // (or at all): until it does, `listening` would keep the mic dot lit
+    // and a second hush() would re-abort the same dead session
+    recRef.current = null
+    setListening(false)
+    try {
+      rec.abort()
+    } catch {
+      /* engine already aborted */
+    }
   }, [])
 
   useEffect(() => {
@@ -102,7 +122,11 @@ export function useVoiceInput(
     writtenRef.current = draft
     deadRef.current = false
     rec.onresult = (e) => {
-      if (deadRef.current) return
+      // same stale-event guard as onend — deadRef alone isn't enough:
+      // it's component-scoped and resets when a new session starts, so
+      // a late result from a superseded rec could pass it and inject
+      // the old transcript into the fresh session's draft
+      if (deadRef.current || recRef.current !== rec) return
       let interim = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i]
@@ -143,7 +167,16 @@ export function useVoiceInput(
   }, [Ctor, draft, listening, setDraft, stop])
 
   // the mic dies with the component — never leak a live capture session
-  useEffect(() => () => recRef.current?.abort(), [])
+  useEffect(
+    () => () => {
+      try {
+        recRef.current?.abort()
+      } catch {
+        /* engine already aborted */
+      }
+    },
+    [],
+  )
 
   return { supported: !!Ctor, listening, denied, toggle, hush }
 }

@@ -35,11 +35,11 @@ done
 
 echo
 echo "== no secrets / raw data / env dirs tracked (AGENTS.md §4) =="
-bad_tracked=$(git ls-files | grep -vE '^\.env\.example$' | grep -cE '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true)
+bad_tracked=$(git ls-files | grep -vE '(^|/)\.env\.example$' | grep -cE '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true)
 bad_raw=$(git ls-files 'data/raw/*' | grep -vcE '^data/raw/(\.gitkeep|README\.md|SOURCES\.md)$' || true)
 if [ "$bad_tracked" -gt 0 ] || [ "$bad_raw" -gt 0 ]; then
   echo "  TRACKED FILES THAT SHOULD NOT BE COMMITTED:"
-  git ls-files | grep -vE '^\.env\.example$' | grep -E '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true
+  git ls-files | grep -vE '(^|/)\.env\.example$' | grep -E '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true
   git ls-files 'data/raw/*' | grep -vE '^data/raw/(\.gitkeep|README\.md|SOURCES\.md)$' || true
   fail=1
 else

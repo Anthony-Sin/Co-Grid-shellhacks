@@ -26,9 +26,12 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const CDP = 'http://127.0.0.1:9222'
-const REPO = path.resolve(new URL('..', import.meta.url).pathname)
+// fileURLToPath, not .pathname — URL-encoded chars/spaces in the repo
+// path would otherwise leak through as %-escapes
+const REPO = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const SCRIPT = JSON.parse(fs.readFileSync(new URL('./demo_script.json', import.meta.url)))
 const EXPORT_DIR = path.join(REPO, 'exports')
 const DOWNLOADS = path.join(os.homedir(), 'Downloads')
