@@ -31,7 +31,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Line } from '@react-three/drei'
-import { PALETTE, TIER_COLORS } from '../../lib/palette'
+import { PALETTE, SELECT_COLOR, TIER_COLORS } from '../../lib/palette'
 import { useDispose } from '../city/cityUtils'
 import type { ProjectGeom, V3, ZoneDatum } from './zoneData'
 
@@ -216,6 +216,9 @@ export function OverlapLines({
     const byKey = new Map<string, number[]>()
     if (geomById && projectOk && showLines) {
       for (const d of datums) {
+        // a selected record's sites repaint to SELECT_COLOR via boost —
+        // leaving them in the dimmed tier bucket would double-paint
+        if (d.rec.overlap_id === selectedId) continue
         const key = `${d.rec.tier}:${faint(d) ? 1 : 0}`
         let arr = byKey.get(key)
         if (!arr) {
@@ -241,7 +244,7 @@ export function OverlapLines({
       })
     }
     return out
-  }, [datums, geomById, projectOk, showLines, timelineOnly, dimmed])
+  }, [datums, geomById, projectOk, showLines, timelineOnly, dimmed, selectedId])
 
   /** Closest-point dots per `${tier}:${faint}` — record-level markup,
    *  always drawn (even with the projects layer off). Tier-1 touching
@@ -297,14 +300,18 @@ export function OverlapLines({
       if (!id) return null
       const d = datums.find((x) => x.rec.overlap_id === id)
       if (!d) return null
-      const color = TIER_COLORS[d.rec.tier] ?? '#888888'
+      // selection repaints in SELECT_COLOR (unused by any tier/utility
+      // hue) — the user reads "this record", not "a bigger line"
+      const color = strong ? SELECT_COLOR : (TIER_COLORS[d.rec.tier] ?? '#888888')
       const pts: V3[] = []
+      const sitePts: number[] = []
       if (geomById && projectOk && showLines) {
         for (const pid of [d.rec.project_a, d.rec.project_b]) {
           if (projectOk.get(pid) !== true) continue
           const g = geomById.get(pid)
           if (!g) continue
           for (const poly of g.wires) pushSegments(poly, pts)
+          for (const [x, y] of g.sites) sitePts.push(x, SITE_H + 4, -y)
         }
       }
       const pins: Float32Array = Float32Array.from(
@@ -316,7 +323,7 @@ export function OverlapLines({
       // a timeline-flagged record keeps its "flagged" fade even when
       // selected/hovered — honest, matching the dashed zone outline
       const f = faint(d) ? FAINT_FACTOR : 1
-      return { d, color, pts, pins, strong, f }
+      return { d, color, pts, pins, sites: Float32Array.from(sitePts), strong, f }
     }
     const sel = forId(selectedId, true)
     const hov =
@@ -363,6 +370,21 @@ export function OverlapLines({
           depthWrite={false}
           renderOrder={ORDER_BOOST}
         />
+      )}
+
+      {/* selected record's point-sited project dots — repainted, not dimmed */}
+      {[boost.sel, boost.hov].map(
+        (b, i) =>
+          b && b.sites.length > 0 && (
+            <DotCloud
+              key={`bs${i}`}
+              positions={b.sites}
+              color={b.color}
+              size={SITE_DOT + 3}
+              opacity={Math.min(1, (b.strong ? 1 : HIGHLIGHT_F) + 0.1) * b.f}
+              order={ORDER_SITE + 1}
+            />
+          ),
       )}
 
       {/* site markers for point-sited involved projects */}

@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Html, Line } from '@react-three/drei'
-import { PALETTE, TIER_COLORS } from '../../lib/palette'
+import { PALETTE, SELECT_COLOR, TIER_COLORS } from '../../lib/palette'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import type { ZoneDatum } from './zoneData'
 
@@ -39,7 +39,10 @@ export interface ConnectorLinkProps {
 }
 
 export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, showChip = true }: ConnectorLinkProps) {
-  const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
+  const tierColor = TIER_COLORS[datum.rec.tier] ?? '#888888'
+  // selected arcs repaint to SELECT_COLOR; the pill keeps its tier
+  // stripe (the record's identity) but gains a selection ring
+  const color = selected ? SELECT_COLOR : tierColor
 
   const a = useMemo(
     () => new THREE.Vector3(datum.aLocal[0], END_H, -datum.aLocal[1]),
@@ -97,7 +100,7 @@ export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, sho
       {/* midpoint pill chip — click toggles the selection
           (hidden when the labels layer is off) */}
       {showChip && (
-        <Html position={chipPos} center zIndexRange={[80, 0]}>
+        <Html position={chipPos} center zIndexRange={[80, 0]} wrapperClass="map-pill">
           <button
             type="button"
             onClick={() =>
@@ -112,9 +115,11 @@ export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, sho
               background: PALETTE.chipBg,
               color: PALETTE.chipText,
               border: 'none',
-              borderLeft: `4px solid ${color}`,
+              borderLeft: `4px solid ${tierColor}`,
               borderRadius: 999,
-              boxShadow: '2px 3px 0 rgba(43, 43, 43, 0.25)',
+              boxShadow: selected
+                ? `0 0 0 2px ${SELECT_COLOR}, 2px 3px 0 rgba(43, 43, 43, 0.25)`
+                : '2px 3px 0 rgba(43, 43, 43, 0.25)',
               whiteSpace: 'nowrap',
               fontSize: 11,
               fontWeight: 800,

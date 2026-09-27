@@ -4,13 +4,14 @@ import { streamAgentChat } from '../../lib/agentStream'
 import { contextPrefix, inferDraftContext } from '../../lib/agentContext'
 import { applyMapAction, mapActionFromTrace } from '../../lib/mapActions'
 import { MsgView, type Msg } from './md'
+import { AgentChips } from './AgentChips'
 import { AgentRailSelection } from './AgentRailSelection'
 import { selectOvFromLog, useSelectionMessages } from './SelectionMessage'
 import { useVoiceInput } from './useVoiceInput'
 import { VoiceButton } from './VoiceButton'
 import { useAppStore } from '../../state/store'
 import {
-  QUICK_ACTIONS, briefErrCopy, dropProgress, errText, freezeProgress,
+  briefErrCopy, dropProgress, errText, freezeProgress,
   isAbort, raceAbort, type HealthState,
 } from '../agentbarShared'
 
@@ -272,7 +273,9 @@ export function AgentBar() {
           rounds: final.rounds,
           tokens: final.usage?.total_tokens ?? null,
           stoppedEarly:
-            final.finish_reason === 'round_limit' || final.finish_reason === 'error',
+            final.finish_reason === 'round_limit' ||
+            final.finish_reason === 'error' ||
+            final.finish_reason === 'length',
         },
       ])
     } catch (e) {
@@ -328,8 +331,6 @@ export function AgentBar() {
     )
   }
 
-  const freshChips = QUICK_ACTIONS.filter((a) => !usedChips.has(a.label))
-  const showChips = !busy && (freshChips.length > 0 || usedChips.size > 0)
   const placeholder =
     healthState === 'loading'
       ? 'checking agent…'
@@ -338,7 +339,7 @@ export function AgentBar() {
         : unconfigured
           ? 'agent offline — set AGENT_API_KEY in .env'
           : health && health.tools.length > 0
-            ? `ask the analyst — ${health.tools.length} tools · ${health.model ?? 'agent'}`
+            ? `ask the analyst — ${health.tools.length} tools ready`
             : 'Ask about overlaps, projects, timelines…'
 
   return (
@@ -391,45 +392,25 @@ export function AgentBar() {
       )}
 
       <div className="agent-foot">
-        {/* one-shot chips: a press consumes the chip for the session, and
-            the whole row hides while a run streams — ⟲ restores them */}
-        {showChips && (
-          <div className="agent-chips">
-            {freshChips.map((a) => (
-              <button
-                key={a.label}
-                type="button"
-                disabled={
-                  healthState !== 'ok' ||
-                  (!!health &&
-                    !health.configured &&
-                    !(a.label === 'Explain selected' && selectedOverlapId))
-                }
-                onClick={() => {
-                  // only consume the chip when send() will actually run —
-                  // marking it used on a no-op (mid-health-check, busy race)
-                  // eats the suggestion without ever asking the model
-                  if (busy || healthState === 'loading' || !health) return
-                  setUsedChips((s) => new Set(s).add(a.label))
-                  send(a.prompt)
-                }}
-              >
-                {a.label}
-              </button>
-            ))}
-            {usedChips.size > 0 && (
-              <button
-                type="button"
-                className="agent-suggest"
-                aria-label="restore suggestion chips"
-                title="bring the suggestion chips back"
-                onClick={() => setUsedChips(new Set())}
-              >
-                ⟲ suggestions
-              </button>
-            )}
-          </div>
-        )}
+        {/* one-shot chips: a press consumes the chip for the session —
+            ⟲ restores them. Row stays mounted during runs (its collapse
+            read as "suggestions vanished"); buttons disable instead. */}
+        <AgentChips
+          busy={busy}
+          health={health}
+          healthState={healthState}
+          selectedOverlapId={selectedOverlapId}
+          usedChips={usedChips}
+          onUse={(label, prompt) => {
+            // only consume the chip when send() will actually run —
+            // marking it used on a no-op (mid-health-check, busy race)
+            // eats the suggestion without ever asking the model
+            if (busy || healthState === 'loading' || !health) return
+            setUsedChips((s) => new Set(s).add(label))
+            send(prompt)
+          }}
+          onRestore={() => setUsedChips(new Set())}
+        />
 
         {agentContext && (
           <div className="agent-context" aria-label="pinned context">

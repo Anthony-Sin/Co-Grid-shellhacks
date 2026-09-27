@@ -24,6 +24,7 @@ export function ZoneLabel({ datum }: { datum: ZoneDatum }) {
       center
       distanceFactor={8}
       zIndexRange={[80, 0]}
+      wrapperClass="map-pill"
     >
       <div
         style={{

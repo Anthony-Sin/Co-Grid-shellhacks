@@ -177,6 +177,11 @@
   color: #f5f2ea;
 }
 
+.pnl-top4-btn.is-selected {
+  /* SELECT_COLOR ring — same accent as the repainted map lines */
+  box-shadow: 0 0 0 2px #ff2e9a;
+}
+
 .pnl-top4-btn .dot {
   width: 7px;
   height: 7px;

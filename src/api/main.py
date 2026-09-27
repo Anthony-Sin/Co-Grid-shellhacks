@@ -251,6 +251,9 @@ _OVERLAP_SORTS = {
     "distance": lambda r: (
         r["min_distance_km"] if r.get("min_distance_km") is not None else 1e9,
         -r.get("score", 0)),
+    "distance_desc": lambda r: (
+        -(r["min_distance_km"] if r.get("min_distance_km") is not None else -1e9),
+        -r.get("score", 0)),
     "year": lambda r: (
         (r.get("shared_window") or {}).get("start") or 9999,
         -r.get("score", 0)),
@@ -263,7 +266,7 @@ def overlaps(
     timeline_only: bool = Query(False),
     q: Optional[str] = Query(None, description="substring match on ids, project names, utilities"),
     zone: Optional[str] = Query(None, description="region tag — matches zone labels incl. 'a / b' pairs"),
-    sort: Optional[str] = Query(None, description="score | distance | year"),
+    sort: Optional[str] = Query(None, description="score | distance | distance_desc | year"),
     limit: Optional[int] = Query(None, ge=1, le=500),
     offset: int = Query(0, ge=0, description="skip N rows after filter/sort (paging)"),
     geometry: bool = Query(True, description="false drops zone_geometry polygons"),
@@ -288,7 +291,7 @@ def overlaps(
         }).lower()]
     if sort is not None:
         if sort not in _OVERLAP_SORTS:
-            raise HTTPException(422, f"unknown sort {sort!r} — use score|distance|year")
+            raise HTTPException(422, f"unknown sort {sort!r} — use score|distance|distance_desc|year")
         rows = sorted(rows, key=_OVERLAP_SORTS[sort])
     total = len(rows)
     if offset:
@@ -312,6 +315,7 @@ def overlaps_csv(
     zone: Optional[str] = Query(None),
     timeline_only: bool = Query(False),
     adjacent_only: bool = Query(False),
+    sort: Optional[str] = Query(None, description="score | distance | distance_desc | year"),
 ) -> "Response":
     """Ranked overlaps as flat CSV — teammates/spreadsheets/BI friendly.
     Accepts the same filters as the agent's find_overlaps tool (shared
@@ -328,8 +332,10 @@ def overlaps_csv(
             adjacent_only=adjacent_only)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
-    # rank = position in the canonical engine ordering (the same order
-    # /api/overlaps serves and the UI displays) — not a separate sort.
+    if sort is not None:
+        if sort not in _OVERLAP_SORTS:
+            raise HTTPException(422, f"unknown sort {sort!r} — use score|distance|distance_desc|year")
+        rows = sorted(rows, key=_OVERLAP_SORTS[sort])
     rows = list(rows)  # overlaps.json is already engine-ordered
 
     cols = [

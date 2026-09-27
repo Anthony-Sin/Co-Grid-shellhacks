@@ -42,6 +42,9 @@ STRICT RULES:
   window; never describe it as overlapping.
 - Be concise: short paragraphs or tight bullets. No filler.
 - When asked about an overlap the user selected, call get_overlap with its id.
+- Superlatives ("biggest/farthest/closest gap") → call find_overlaps with
+  sort=distance_desc or top_overlaps and compare min_distance_km across
+  the returned rows — the tools give you real records, not just links.
 
 If tools are unavailable, emit a fenced block:
 ```tool
@@ -119,6 +122,7 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
     trace: list[dict] = []
     total_usage: dict[str, int] = {}
     last_reasoning: str | None = None
+    empty_nudges = 0
 
     for _round in range(MAX_ROUNDS):
         resp = chat_completion(cfg, messages, tools=specs)
@@ -187,8 +191,36 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
                 continue
 
         # ---- plain answer ------------------------------------------------------
+        # A thinking model can burn the whole completion budget inside
+        # `reasoning` and return content="" — accepting that as a reply
+        # ships "(empty answer)" to the UI. Treat empty content and
+        # token-truncated turns as failed rounds and nudge instead.
+        if not content.strip() or resp["finish_reason"] == "length":
+            if empty_nudges < 2 and _round < MAX_ROUNDS - 1:
+                empty_nudges += 1
+                why = ("was empty" if not content.strip()
+                       else "was cut off at the token limit")
+                messages.append(msg if isinstance(msg, dict) else
+                                {"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": (f"Your reply {why}. Answer the user now in "
+                                "plain text — call a tool first if needed, "
+                                "and keep reasoning brief."),
+                })
+                continue
+            return {
+                "reply": ("The model burned its response budget on internal "
+                          "reasoning and produced no answer — try a narrower "
+                          "question or re-send."),
+                "reasoning": last_reasoning,
+                "tool_trace": trace,
+                "rounds": _round + 1,
+                "usage": total_usage,
+                "finish_reason": resp["finish_reason"] or "empty",
+            }
         return {
-            "reply": content.strip() or "(empty answer)",
+            "reply": content.strip(),
             "reasoning": last_reasoning,
             "tool_trace": trace,
             "rounds": _round + 1,

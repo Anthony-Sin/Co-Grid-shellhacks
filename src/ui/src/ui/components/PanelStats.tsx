@@ -64,6 +64,7 @@ export interface PanelStatsProps {
 export function PanelStats({ records, total, tierCounts, onAskAgent }: PanelStatsProps) {
   const visibleTiers = useAppStore((s) => s.visibleTiers)
   const toggleTier = useAppStore((s) => s.toggleTier)
+  const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)
 
   const s = useMemo<ViewStats>(() => {
     let shared = 0
@@ -148,20 +149,25 @@ export function PanelStats({ records, total, tierCounts, onAskAgent }: PanelStat
         </span>
       </div>
 
-      {/* Top-4 quick-jump buttons — the four best-ranked records in the
-          CURRENT filtered view (records arrive in canonical API rank:
-          tier asc, then closest-point km). Click = select + camera fly
-          via the store's focus rig. */}
+      {/* Top-4 quick-jump buttons — the four best-SCORED records in the
+          CURRENT filtered view. Score order (the same rank the agent's
+          top_overlaps tool uses: tier base + closeness + timeline bonus)
+          puts genuinely best records first — array order would bury a
+          score-100 record at position 19 behind lower-scored tier-1s.
+          Click = select + camera fly via the store's focus rig. */}
       <div className="pnl-top4" role="group" aria-label="Top coordination opportunities">
         <span className="pnl-sec-title">top picks</span>
         <div className="pnl-top4-row">
-          {records.slice(0, 4).map((o, i) => {
+          {[...records]
+            .sort((a, b) => (b.score - a.score) || a.overlap_id.localeCompare(b.overlap_id))
+            .slice(0, 4)
+            .map((o, i) => {
             const t = TIERS.find((x) => x.tier === o.tier)
             return (
               <button
                 key={o.overlap_id}
                 type="button"
-                className="pnl-top4-btn"
+                className={`pnl-top4-btn${o.overlap_id === selectedOverlapId ? ' is-selected' : ''}`}
                 title={`${o.overlap_id} — ${humanize(o)} · fly to zone`}
                 onClick={() => selectOverlapInScene(o.overlap_id, o.zone)}
               >

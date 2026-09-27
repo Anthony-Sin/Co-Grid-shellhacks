@@ -87,6 +87,10 @@ const TOOL_LABELS: Record<string, string> = {
 }
 const toolLabel = (t: string) => TOOL_LABELS[t] ?? t
 
+/** Backend degenerate-answer literals — suppress the reasoning dump
+ * alongside them; the dump is the failure, not useful context. */
+const EMPTY_REPLY_RE = /^\(empty answer\)$|^the model burned its response budget/i
+
 /** `tool(json)` with args compacted to ≤80 chars. */
 const fmtCall = (t: AgentTrace) => {
   const j = JSON.stringify(t.args ?? {})
@@ -126,7 +130,9 @@ export const MsgView = memo(function MsgView({
         </details>
       )}
       {m.role === 'assistant' && !m.progress ? body : m.content}
-      {m.reasoning && (
+      {/* hide raw reasoning on degenerate answers — the thinking dump is
+          the failure itself, not context the user should read */}
+      {m.reasoning && !EMPTY_REPLY_RE.test(m.content.trim()) && (
         <details className="agent-reasoning">
           <summary>thinking</summary>
           <div className="agent-reasoning-body">{m.reasoning}</div>

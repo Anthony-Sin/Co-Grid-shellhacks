@@ -43,16 +43,19 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import { Html } from '@react-three/drei'
 import { api, type OverlapRecord } from '../../lib/api'
 import { deduped } from '../../ui/hooks/useApiData'
 import { passesMapFilters, passesProjectFilters } from '../../lib/overlapFilters'
-import { TIER_COLORS } from '../../lib/palette'
+import { PALETTE, SELECT_COLOR, TIER_COLORS } from '../../lib/palette'
 import { SCENE_CENTERS } from '../../lib/projection'
 import { useZoomAtLeast } from '../city/cityUtils'
 import { STATE_RELEVANCE_M } from './zoneData'
 import { useAppStore } from '../../state/store'
 import { ConnectorLink } from './ConnectorLink'
 import { OverlapLines } from './OverlapLines'
+import { OverlapStackPopup } from './OverlapStackPopup'
+import { buildStacks, STACK_RADIUS_FAR_M, STACK_RADIUS_NEAR_M, type OverlapStack } from './stackData'
 import { buildProjectGeoms, buildZoneDatum, type ProjectsById, type ZoneDatum } from './zoneData'
 import { ZoneLabel } from './ZoneLabel'
 import { ZonePolygon } from './ZonePolygon'
@@ -91,8 +94,11 @@ const TOP_LABEL_COUNT = 3
 const MAX_RENDERED = 200
 /** Connector arc+pill cap — selected/hovered records always feature on
  *  top of the best-scored N (the pill is an Html root each; a swarm of
- *  them was both expensive and unreadable at statewide zoom). */
-const PILL_CAP = 12
+ *  them was both expensive and unreadable at statewide zoom). At
+ *  statewide zoom the stack chips are the click target, so fewer loose
+ *  pills; corridor zoom gets the full dozen. */
+const PILL_CAP_NEAR = 12
+const PILL_CAP_FAR = 8
 /** Ortho zoom where soft zone overlays fade in — corridor-scale reading
  *  starts ~0.01 (state overview sits at 0.0022). Hysteresis below. */
 const ZONE_ZOOM = 0.01
@@ -248,13 +254,25 @@ export function OverlapZones() {
     return top
   }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, zoneFilter, searchText, selectedOverlapId, hoveredOverlapId, data])
 
+  /** Coincident featured records collapse into one `N overlaps` stack
+   *  chip + popup list instead of pills fighting for the same pixel.
+   *  Radius follows zoom — at statewide scale ~24km of world still reads
+   *  as the same screen spot; zoomed in it tightens to genuinely
+   *  coincident (2.5km). */
+  const stackZoomedIn = useZoomAtLeast(0.05, 0.7)
+  const stacks = useMemo(
+    () => buildStacks(rendered, stackZoomedIn ? STACK_RADIUS_NEAR_M : STACK_RADIUS_FAR_M),
+    [rendered, stackZoomedIn],
+  )
+
   /** Featured records draw the connector arc + `T{n} · A⇄B · km` pill:
    *  the best-scored PILL_CAP (timeline-honest) plus selected + hovered. */
+  const pillCap = stackZoomedIn ? PILL_CAP_NEAR : PILL_CAP_FAR
   const featured = useMemo(() => {
     const ids = new Set<string>()
     let n = 0
     for (const d of rendered) {
-      if (n >= PILL_CAP) break
+      if (n >= pillCap) break
       if (timelineOnly && !d.rec.timeline_overlap) continue
       ids.add(d.rec.overlap_id)
       n++
@@ -263,7 +281,20 @@ export function OverlapZones() {
       if (id && rendered.some((d) => d.rec.overlap_id === id)) ids.add(id)
     }
     return ids
-  }, [rendered, timelineOnly, selectedOverlapId, hoveredOverlapId])
+  }, [rendered, timelineOnly, selectedOverlapId, hoveredOverlapId, pillCap])
+
+  const stackById = useMemo(() => {
+    const m = new Map<string, OverlapStack>()
+    for (const s of stacks) for (const d of s.members) m.set(d.rec.overlap_id, s)
+    return m
+  }, [stacks])
+  const [openStackKey, setOpenStackKey] = useState<string | null>(null)
+  const openStack = openStackKey ? stacks.find((s) => s.key === openStackKey) ?? null : null
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenStackKey(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   /** Top-3 scored records eligible for floating labels (timeline-honest). */
   const labelIds = useMemo(() => {
@@ -325,10 +356,12 @@ export function OverlapZones() {
       />
 
       {/* connector arc + pill — featured records only (top-N + selected +
-          hovered), so the Html pills never swarm */}
+          hovered), so the Html pills never swarm. Members of a stack keep
+          their arc but cede the pill to the shared `N overlaps` chip. */}
       {showProjects &&
         rendered.map((d) => {
           if (!featured.has(d.rec.overlap_id)) return null
+          const stacked = (stackById.get(d.rec.overlap_id)?.members.length ?? 0) > 1
           const selected = d.rec.overlap_id === selectedOverlapId
           return (
             <ConnectorLink
@@ -338,10 +371,48 @@ export function OverlapZones() {
               selected={selected}
               highlighted={d.rec.overlap_id === hoveredOverlapId}
               faint={timelineOnly && !d.rec.timeline_overlap}
-              showChip={showLabels}
+              showChip={showLabels && !stacked}
             />
           )
         })}
+
+      {/* one chip per coincident stack — opens the member list so the
+          user picks deliberately instead of raycast winner-take-all */}
+      {showProjects &&
+        showLabels &&
+        stacks.map((s) => {
+          if (s.members.length < 2) return null
+          if (!s.members.some((d) => featured.has(d.rec.overlap_id))) return null
+          const color = TIER_COLORS[s.bestTier] ?? '#888888'
+          return (
+            <Html key={`stack-${s.key}`} position={[s.centroid[0], 60, -s.centroid[1]]} center zIndexRange={[90, 0]} wrapperClass="map-pill">
+              <button
+                type="button"
+                onClick={() => setOpenStackKey((k) => (k === s.key ? null : s.key))}
+                title={`${s.members.length} filed overlaps share this spot — open the list`}
+                style={{
+                  padding: '5px 12px',
+                  background: PALETTE.chipBg,
+                  color: PALETTE.chipText,
+                  border: 'none',
+                  borderLeft: `4px solid ${color}`,
+                  borderRadius: 999,
+                  boxShadow: '2px 3px 0 rgba(43,43,43,0.25)',
+                  whiteSpace: 'nowrap',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                {s.members.length} overlaps
+              </button>
+            </Html>
+          )
+        })}
+
+      {openStack && <OverlapStackPopup stack={openStack} onClose={() => setOpenStackKey(null)} />}
 
       {/* ZoneLabel is the fallback chip for when the connector's
           midpoint pill isn't showing (projects layer off) — rendering
@@ -362,7 +433,7 @@ export function OverlapZones() {
   )
 }
 
-/** Translucent tier-colored beacon column at the selected zone centroid. */
+/** Translucent SELECT_COLOR beacon column at the selected zone centroid. */
 function SelectionBeacon({ datum }: { datum: ZoneDatum }) {
   return (
     <mesh
@@ -371,7 +442,7 @@ function SelectionBeacon({ datum }: { datum: ZoneDatum }) {
     >
       <cylinderGeometry args={[BEACON_RADIUS, BEACON_RADIUS, BEACON_HEIGHT, 48, 1, true]} />
       <meshBasicMaterial
-        color={TIER_COLORS[datum.rec.tier] ?? '#888888'}
+        color={SELECT_COLOR}
         transparent
         opacity={0.15}
         depthWrite={false}

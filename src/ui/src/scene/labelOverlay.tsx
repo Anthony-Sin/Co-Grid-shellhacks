@@ -100,6 +100,11 @@ const _v = new THREE.Vector3()
  *  box must stay distinct while it lives in the placed set). */
 const _placed: ScreenBox[] = []
 let _placedLen = 0
+/** Rendered-frame stamp — every LabelOverlay instance shares the placed
+ *  set within one frame so city chips, project chips and tooltips
+ *  declutter against EACH OTHER, not only themselves. The first
+ *  subscriber to run in a frame resets the pool. */
+let _placedFrame = -1
 const _cand: ScreenBox = { x: 0, y: 0, w: 0, h: 0 }
 const _blocked: ScreenBox[] = []
 
@@ -315,7 +320,12 @@ export function LabelOverlay<L extends OverlayLabel>({
       0,
       typeof maxVisible === 'function' ? maxVisible(zoom) : maxVisible,
     )
-    _placedLen = 0
+    const frameStamp = state.gl.info.render.frame
+    if (frameStamp !== _placedFrame) {
+      _placedFrame = frameStamp
+      _placedLen = 0
+    }
+    let placedByMe = 0 // cap stays per-instance; collisions are global
     const blocked = blockedBoxes(
       panelOpen,
       state.size.width,
@@ -349,7 +359,7 @@ export function LabelOverlay<L extends OverlayLabel>({
       const visible =
         Math.abs(_v.x) <= margin &&
         Math.abs(_v.y) <= margin &&
-        _placedLen < cap &&
+        placedByMe < cap &&
         !overlapsPlaced &&
         !blocked.some((b) => boxesOverlap(b, _cand, 0))
 
@@ -364,6 +374,7 @@ export function LabelOverlay<L extends OverlayLabel>({
       placed.w = _cand.w
       placed.h = _cand.h
       _placedLen++
+      placedByMe++
       wrap.style.visibility = 'visible'
       wrap.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`
 

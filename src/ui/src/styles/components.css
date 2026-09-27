@@ -60,6 +60,9 @@
   background: #ece2c8;
   transform: translate(1px, 1px);
   box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+  /* SELECT_COLOR stripe echoes the map repaint — the row and its lines
+     share one unmistakable "this record" accent */
+  box-shadow: inset 4px 0 0 #ff2e9a, 2px 2px 0 rgba(30, 30, 30, 0.9);
 }
 
 .ov-rank {

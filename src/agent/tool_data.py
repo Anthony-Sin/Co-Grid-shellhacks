@@ -230,6 +230,7 @@ def tool_find_overlaps(utility: str | None = None,
                        zone: str | None = None,
                        timeline_only: bool = False,
                        adjacent_only: bool = False,
+                       sort: str | None = None,
                        limit: int = 25) -> dict:
     """Filtered overlap search — the record-level query primitive.
 
@@ -238,8 +239,10 @@ def tool_find_overlaps(utility: str | None = None,
     match on the record's zone label (incl. 'a / b' composites).
     `timeline_only` keeps true window intersections; `adjacent_only`
     keeps the end-to-start handoff records instead (a different
-    coordination class — never both). Results stay in engine rank
-    order (tier asc -> distance asc)."""
+    coordination class — never both). Default order is engine rank
+    (tier asc -> distance asc); `sort="distance"`/`"distance_desc"`
+    orders by closest-point km instead — the only way to reach the
+    FARTHEST gaps (rank order puts them last)."""
     try:
         rows = filter_records(
             overlaps(), utility=utility, utilities=utilities, tier=tier,
@@ -247,6 +250,16 @@ def tool_find_overlaps(utility: str | None = None,
             adjacent_only=adjacent_only)
     except ValueError as e:
         return {"error": str(e)}
+    if sort:
+        s = sort.strip().lower()
+        # missing distances sort last in both directions — a record with
+        # no km is never the answer to "closest" or "farthest"
+        if s in ("distance", "distance_asc"):
+            rows = sorted(rows, key=lambda r: r.get("min_distance_km") if r.get("min_distance_km") is not None else 1e9)
+        elif s in ("distance_desc", "farthest"):
+            rows = sorted(rows, key=lambda r: r.get("min_distance_km") if r.get("min_distance_km") is not None else -1e9, reverse=True)
+        elif s != "rank":
+            return {"error": f"unknown sort '{sort}' — rank|distance|distance_desc"}
     lim = max(1, min(int(limit or 25), 50))
     # download link mirrors this exact filter set — /api/overlaps.csv
     # shares filter_records so the export is faithful to this result.
@@ -264,6 +277,8 @@ def tool_find_overlaps(utility: str | None = None,
         qs["timeline_only"] = "true"
     if adjacent_only:
         qs["adjacent_only"] = "true"
+    if sort and sort.strip().lower() != "rank":
+        qs["sort"] = sort.strip().lower()
     return {
         "total_matching": len(rows),
         "shown": min(len(rows), lim),

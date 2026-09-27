@@ -73,10 +73,166 @@ async function waitArrived(page, maxMs = 25000) {
   return last
 }
 
+/** visible left-drag pan — real X button events so the capture reads
+ * as a hand on the map, not a state jump */
+async function dragMap(page, x0, y0, dx, dy, steps = 14) {
+  await mouse(x0, y0)
+  await sleep(350)
+  execSync('DISPLAY=:99 xdotool mousedown 1')
+  for (let i = 1; i <= steps; i++) {
+    mouse(x0 + (dx * i) / steps, y0 + (dy * i) / steps)
+    await sleep(65)
+  }
+  execSync('DISPLAY=:99 xdotool mouseup 1')
+  await sleep(900)
+}
+
+/** click an element with the cursor visibly moving to it first;
+ * if `verifyFn` is given, keep clicking until it flips — a checkbox
+ * that didn't toggle means the click missed (stale metrics override
+ * once put every rect off-viewport: real clicks fell through, so we
+ * verify then fall back to a DOM click which always reaches React) */
+async function clickEl(page, sel, idx = 0, verifyFn = null, markName = null) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const c = await page.evaluate(([s, i]) => {
+      const el = [...document.querySelectorAll(s)][i]
+      if (!el) return null
+      el.scrollIntoView({ block: 'nearest' })
+      const r = el.getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    }, [sel, idx])
+    if (!c) return false
+    await mouse(c.x, c.y)
+    await sleep(320)
+    if (attempt === 0) await page.mouse.click(c.x, c.y)
+    else await page.evaluate(([s, i]) =>
+      [...document.querySelectorAll(s)][i]?.click(), [sel, idx])
+    if (!verifyFn) { await sleep(400); if (markName) mark(markName); return true }
+    // verify twice: a React re-render can re-assert the OLD controlled
+    // state ~1s after the click — only a value that persists counts
+    await sleep(400)
+    await page.evaluate(verifyFn).catch(() => false)
+    await sleep(1000)
+    const stuck = await page.evaluate(verifyFn).catch(() => false)
+    if (stuck) { if (markName) mark(markName); return true }
+    console.log(`  click ${sel}[${idx}] did not stick — retry ${attempt + 1}`)
+  }
+  return false
+}
+
+/** poll until the agent's streamed answer lands (footer meta appears)
+ * — the whole point of these beats is watching it write live */
+async function waitStreamDone(page, prevMetaCount, maxMs = 60000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < maxMs) {
+    const n = await page.evaluate(() => document.querySelectorAll('.agent-meta').length).catch(() => -1)
+    if (n > prevMetaCount) return true
+    await sleep(800)
+  }
+  return false
+}
+
+/** smooth-scroll an element so the motion is visible on camera */
+async function smoothScroll(page, sel, to, ms = 1400) {
+  await page.evaluate(([s, target, dur]) => new Promise((res) => {
+    const el = document.querySelector(s)
+    if (!el) return res(false)
+    const from = el.scrollTop
+    const t0 = performance.now()
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / dur)
+      el.scrollTop = from + (target - from) * (1 - Math.pow(1 - k, 3))
+      if (k < 1) requestAnimationFrame(step)
+      else res(true)
+    }
+    step()
+  }), [sel, to, ms])
+}
+
 const actions = {
   async overview_idle(page) {
     await store(page, `setActiveScene('state')`)
     for (let i = 0; i < 3; i++) { mouse(620 + i * 80, 400 + i * 25); await sleep(750) }
+  },
+  /** three big drags — the map visibly moves under the narration */
+  async slow_pan(page) {
+    mark('pan1')
+    await dragMap(page, 1100, 400, -420, 140)
+    await sleep(500)
+    mark('pan2')
+    await dragMap(page, 640, 560, 330, -180)
+    await sleep(400)
+    mark('pan3')
+    await dragMap(page, 900, 420, -260, -60)
+  },
+  /** scroll the ranked table then flip "timeline overlap only" so the
+   * counters recompute on camera (1957 ↔ 897) */
+  async filter_showcase(page) {
+    mark('table_scroll')
+    await smoothScroll(page, '.overlap-list', 420, 1600)
+    await sleep(700)
+    // timeline checkbox off -> on; the KPI counters visibly recompute —
+    // verify the toggle actually flipped before moving on
+    const tl = '.filter-row--timeline input'
+    await clickEl(page, tl, 0,
+      () => document.querySelector('.filter-row--timeline input').checked === false, 'timeline_off')
+    await sleep(2200)
+    await clickEl(page, tl, 0,
+      () => document.querySelector('.filter-row--timeline input').checked === true, 'timeline_on')
+    await sleep(1600)
+    await smoothScroll(page, '.overlap-list', 0, 900)
+  },
+  /** isolate tier 1 — uncheck t2/t3/t4, hold, restore */
+  async tier_ladder(page) {
+    const tiers = await page.evaluate(() =>
+      [...document.querySelectorAll('.pnl-tier-row')].map((r) => r.textContent.trim().slice(0, 14)),
+    )
+    console.log('  tier rows:', JSON.stringify(tiers))
+    // rows are tier 1..4 in order — uncheck 2,3,4 (index 1..3), retry
+    // until the checkbox state actually reads back false on camera
+    for (const i of [1, 2, 3]) {
+      for (let a = 0; a < 3; a++) {
+        if (!(await clickEl(page, '.pnl-tier-row input', i))) break
+        const off = await page.evaluate((i2) =>
+          !document.querySelectorAll('.pnl-tier-row input')[i2]?.checked, i)
+        if (off) break
+        console.log(`  tier ${i} uncheck missed — retry`)
+      }
+      await sleep(500)
+    }
+    mark('tiers_isolated')
+    await sleep(2600) // let the map thin visibly
+    for (const i of [1, 2, 3]) {
+      for (let a = 0; a < 3; a++) {
+        if (!(await clickEl(page, '.pnl-tier-row input', i))) break
+        const on = await page.evaluate((i2) =>
+          !!document.querySelectorAll('.pnl-tier-row input')[i2]?.checked, i)
+        if (on) break
+        console.log(`  tier ${i} recheck missed — retry`)
+      }
+      await sleep(350)
+    }
+    mark('tiers_restored')
+  },
+  /** click top-pick #1 — flight, then scroll the detail card */
+  async pick_ov1(page) {
+    const c = await centerOf(page, '.pnl-top4-btn')
+    if (c) { mouse(c.x, c.y); await sleep(350); await page.mouse.click(c.x, c.y) }
+    mark('pick_clicked')
+    const z = await waitArrived(page)
+    mark('flight_arrived')
+    console.log(`  pick flight arrived at zoom ${z}`)
+    await page.waitForFunction(() =>
+      !document.body.textContent.includes('loading overlap detail'), { timeout: 20000 }).catch(() => {})
+    await sleep(1800)
+    mark('card_scroll')
+    // scroll the detail card through snapshot → projects → schedule → value
+    const sc = await page.evaluate(() => {
+      const el = document.querySelector('.agent-detail') || document.querySelector('.overlap-detail')
+      return el ? el.scrollHeight : 0
+    })
+    for (const frac of [0.33, 0.66, 0.95]) await smoothScroll(page, '.agent-detail, .overlap-detail', sc * frac, 1200)
+    await smoothScroll(page, '.agent-detail, .overlap-detail', 0, 700)
   },
   async overview_pan(page) {
     await mouse(760, 430); await sleep(400)
@@ -103,6 +259,60 @@ const actions = {
       !document.body.textContent.includes('loading overlap detail'), { timeout: 20000 }).catch(() => {})
     await sleep(3000)
   },
+  /** type a question, watch the streamed answer, then click the first
+   * OV citation link in it — the map flies on the link's own action */
+  async agent_stream(page, home, seg) {
+    const prompt = seg?.prompt || 'which overlaps sit near the savannah river?'
+    const prevMeta = await page.evaluate(() => document.querySelectorAll('.agent-meta').length).catch(() => 0)
+    const c = await centerOf(page, '.agent-input textarea')
+    if (c) { mouse(c.x, c.y); await sleep(250) }
+    await page.evaluate(() => document.querySelector('.agent-input textarea')?.focus())
+    await page.click('.agent-input textarea').catch(() => {})
+    mark('type_start')
+    await page.keyboard.type(prompt, { delay: 50 })
+    const tail = prompt.split(/\s+/).pop().toLowerCase()
+    const typed = await page.evaluate(() => document.querySelector('.agent-input textarea')?.value ?? '')
+    if (!typed.toLowerCase().includes(tail)) {
+      await page.evaluate(() => document.querySelector('.agent-input textarea')?.focus())
+      await page.keyboard.type(prompt, { delay: 50 })
+    }
+    await sleep(350)
+    mark('typed')
+    await page.keyboard.press('Enter')
+    mark('sent')
+    const done = await waitStreamDone(page, prevMeta, 55000)
+    mark('streamed')
+    console.log(`  stream ${done ? 'completed' : 'TIMED OUT (kept rolling)'}`)
+    await sleep(1200)
+    // click a citation chip in the answer — the link flies the map itself
+    const n = await page.evaluate(() => document.querySelectorAll('.md-ovlink').length)
+    if (n > 0) {
+      const ok = await clickEl(page, '.md-ovlink', n - 1, null, 'ovlink_clicked')
+      if (ok) {
+        const z = await waitArrived(page, 20000)
+        mark('ovlink_arrived')
+        console.log(`  ovlink flight arrived at zoom ${z}`)
+      }
+    } else console.log('  no ovlink chips in answer — skipped flight')
+  },
+  /** click a quick-action chip by label and let the answer stream */
+  async chip_ask(page, home, seg) {
+    const prevMeta = await page.evaluate(() => document.querySelectorAll('.agent-meta').length).catch(() => 0)
+    const c = await page.evaluate((label) => {
+      const btn = [...document.querySelectorAll('.agent-chips button')].find(b => b.textContent.trim() === label)
+      if (!btn) return null
+      btn.scrollIntoView({ block: 'nearest' })
+      const r = btn.getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    }, seg?.chip || 'Top opportunities')
+    if (!c) { console.log('  chip not found (may be consumed)') ; return }
+    await mouse(c.x, c.y); await sleep(300); await page.mouse.click(c.x, c.y)
+    mark('chip_clicked')
+    const done = await waitStreamDone(page, prevMeta, 50000)
+    mark('chip_streamed')
+    console.log(`  chip stream ${done ? 'completed' : 'TIMED OUT'}`)
+    await sleep(1000)
+  },
   async agent_ask_macon(page, home, seg) {
     const prompt = seg?.prompt || 'zoom to Macon'
     const c = await centerOf(page, '.agent-input textarea')
@@ -127,30 +337,41 @@ const actions = {
   async export_and_open(page, home, seg, browser) {
     // click the rail CSV export (real /api/overlaps.csv download) and
     // verify the file actually landed — the click must produce an artifact
-    const before = new Set(fs.readdirSync(DOWNLOADS).filter((f) => f.endsWith('.csv')))
     const a = await page.$('a[href*="overlaps.csv"]')
     if (a) {
       const r = await a.boundingBox()
       if (r) { mouse(r.x + r.width / 2, r.y + r.height / 2); await sleep(300); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2) }
     }
+    mark('csv_clicked')
     await sleep(2500)
-    const fresh = fs.readdirSync(DOWNLOADS).filter((f) => f.endsWith('.csv') && !before.has(f))
+    // a same-name re-download lands as " (1).csv" OR overwrites — verify by
+    // freshness, not by filename-set diff (which misses the overwrite case)
+    const fresh = fs.readdirSync(DOWNLOADS).filter((f) =>
+      f.endsWith('.csv') && Date.now() - fs.statSync(path.join(DOWNLOADS, f)).mtimeMs < 15000)
     console.log(`  csv downloaded: ${fresh[0] ?? 'NONE — export click did not produce a file'}`)
     // …then show the deliverable in a second tab — the generated HTML
     // report renders the same ranked set and paints instantly (a raw CSV
     // won't render via file:// and LibreOffice cold-start exceeded 30s)
     const latest = execSync(`ls -t ${JSON.stringify(EXPORT_DIR)}/*.html 2>/dev/null | head -1 || true`).toString().trim()
     if (latest) {
-      const tab = await browser.newPage()
-      await tab.goto('file://' + latest, { waitUntil: 'load' }).catch(() => {})
-      await sleep(6000)
-      await tab.close()
-      await page.bringToFront()
+      try {
+        // bound the whole tab cycle — a wedged newPage once burned
+        // ~5min of take; never let the artifact beat hold the segment
+        const tab = await Promise.race([browser.newPage(), sleep(8000).then(() => null)])
+        if (tab) {
+          await tab.goto('file://' + latest, { waitUntil: 'load', timeout: 10000 }).catch(() => {})
+          mark('report_open')
+          await sleep(6000)
+          await tab.close().catch(() => {})
+        }
+      } catch (e) { console.log('  report tab err:', e.message) }
+      await page.bringToFront().catch(() => {})
     }
     await sleep(1500)
   },
   async zoom_out_state(page, home) {
     await store(page, `selectOverlap(null)`).catch(() => {}) // collapse the detail card
+    mark('deselected')
     await sleep(400)
     if (!home) return
     // ease back to the statewide pose captured at setup — write target +
@@ -175,7 +396,7 @@ const actions = {
         else res(cam.zoom)
       }
       step()
-    }), home).then((z) => console.log('  flew home, zoom', z)).catch((e) => console.log('  fly err:', e.message))
+    }), home).then((z) => { mark('home'); console.log('  flew home, zoom', z) }).catch((e) => console.log('  fly err:', e.message))
     await sleep(3000)
     await mouse(700, 450)
   },
@@ -184,10 +405,29 @@ const actions = {
 const wanted = process.argv.slice(2)
 const segs = SCRIPT.segments.filter((s) => !wanted.length || wanted.includes(s.id))
 const marks = []
+/** name an on-camera moment so the edit can align narration to the
+ * action, not the segment boundary (VO consistently led the visuals) */
+const mark = (name) => {
+  marks[marks.length - 1].events = marks[marks.length - 1].events || {}
+  marks[marks.length - 1].events[name] = Date.now()
+  fs.writeFileSync('/tmp/demo_marks.json', JSON.stringify(marks, null, 2))
+}
 const browser = await puppeteer.connect({ browserURL: CDP })
 const page = (await browser.pages()).find((p) => p.url().includes('3210')) || (await browser.pages())[0]
 await page.bringToFront()
 const cdp = await page.createCDPSession()
+// the window is 1600x900 but a stale metrics override / page zoom can leave
+// the CSS viewport at 800x600 — clicks then land off-viewport and toggles
+// silently never fire. Assert before recording a single frame.
+await cdp.send('Emulation.clearDeviceMetricsOverride').catch(() => {})
+await cdp.send('Emulation.setDeviceMetricsOverride',
+  { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false }).catch(() => {})
+const vw = await page.evaluate(() => innerWidth)
+if (vw !== 1600) {
+  console.log(`!! viewport is ${vw}px — clicks will miss. Fix before recording.`)
+  process.exit(2)
+}
+console.log('viewport ok 1600x900')
 // bare-X chromium maps the content view at 800×600 regardless of window
 // size — force the real viewport via emulation, then reload so the app
 // mounts against the final size (mid-flight overrides leave it blank)
@@ -195,7 +435,10 @@ await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 900,
 // downloads must land in ~/Downloads — chromium kiosk otherwise prompts
 await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() =>
   cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() => {}))
-await page.reload({ waitUntil: 'domcontentloaded' })
+// reload so the app mounts against the final viewport — but the dev
+// server + 40MB of artifacts can exceed the nav timeout under
+// swiftshader; a live app is fine to record against as-is
+await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => console.log('  reload timed out — continuing on the live page'))
 await page.waitForFunction('window.__cogridReady===true', { timeout: 120000, polling: 500 }).catch(() => {})
 await sleep(4000) // let the post-mount render burst finish before X input
 // snapshot the statewide resting view — the outro flies back to it
@@ -213,7 +456,8 @@ for (const s of segs) {
   const pad = s.dur_s * 1000 - (Date.now() - t0)
   if (pad > 0) await sleep(pad)
   marks[marks.length - 1].end_ms = Date.now()
+  // flush per segment — a wedged/killed run must not lose the marks
+  fs.writeFileSync('/tmp/demo_marks.json', JSON.stringify(marks, null, 2))
 }
-fs.writeFileSync('/tmp/demo_marks.json', JSON.stringify(marks, null, 2))
 console.log('done — marks in /tmp/demo_marks.json')
 await browser.disconnect()

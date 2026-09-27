@@ -343,6 +343,20 @@ button {
   z-index: 10;
 }
 
+/* CameraMoveLabelGuard: while the camera is in motion (pan/zoom/flight),
+ * floating labels would pile up mid-flight — fade both label systems out
+ * until the view settles (~140ms after the last motion frame). */
+.label-overlay,
+.map-pill {
+  transition: opacity 140ms ease;
+}
+
+.is-camera-moving .label-overlay,
+.is-camera-moving .map-pill {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 .label-chip {
   display: inline-flex;
   align-items: baseline;

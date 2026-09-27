@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { useEffect, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MapControls } from '@react-three/drei'
 import { useShallow } from 'zustand/react/shallow'
 import { PALETTE } from '../lib/palette'
@@ -85,6 +85,46 @@ function StaticShadows() {
       gl.shadowMap.autoUpdate = true
     }
   }, [gl])
+  return null
+}
+
+/**
+ * Suppresses floating labels while the camera moves. Two label systems
+ * paint over the canvas — .label-overlay chips and drei <Html> pills
+ * (.map-pill) — and neither can declutter fast enough during a pan,
+ * wheel-zoom, or FocusRig flight, so they visibly pile up. Toggling a
+ * CSS class on .canvas-wrap fades both systems until ~140ms after the
+ * last motion frame; the timeout (not a frame check) clears it because
+ * frameloop="demand" stops rendering the instant motion ends.
+ */
+function CameraMoveLabelGuard() {
+  const gl = useThree((s) => s.gl)
+  const last = useRef({ x: 0, y: 0, z: 0, zoom: -1, timer: 0 })
+  useFrame(({ camera }) => {
+    const wrap = gl.domElement.closest('.canvas-wrap')
+    if (!wrap) return
+    const l = last.current
+    const zoom = 'zoom' in camera ? (camera as { zoom: number }).zoom : 1
+    const p = camera.position
+    const moved =
+      l.zoom >= 0 &&
+      (Math.abs(zoom - l.zoom) > 1e-9 ||
+        p.x !== l.x || p.y !== l.y || p.z !== l.z)
+    if (moved) {
+      l.x = p.x
+      l.y = p.y
+      l.z = p.z
+      l.zoom = zoom
+      wrap.classList.add('is-camera-moving')
+      window.clearTimeout(l.timer)
+      l.timer = window.setTimeout(
+        () => wrap.classList.remove('is-camera-moving'),
+        140,
+      )
+    } else if (l.zoom < 0) {
+      l.zoom = zoom // baseline on first frame so mount isn't "motion"
+    }
+  })
   return null
 }
 
@@ -198,6 +238,7 @@ export function CityCanvas() {
         {layers.projects && <GridOverlay key={`grid-${activeScene}`} />}
         {(layers.zones || hasSelection) && <OverlapZones key={`zones-${activeScene}`} />}
         <FocusRig />
+        <CameraMoveLabelGuard />
         <SceneCamera />
         <StaticShadows />
         <FrameTicker fps={12} />

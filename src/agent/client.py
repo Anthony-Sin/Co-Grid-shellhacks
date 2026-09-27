@@ -20,7 +20,7 @@ class AgentConfig:
     base_url: str
     model: str
     timeout_s: float = 90.0
-    max_tokens: int = 4096  # reasoning models burn tokens before answering
+    max_tokens: int = 8192  # reasoning models burn tokens before answering
     temperature: float = 0.2
 
 

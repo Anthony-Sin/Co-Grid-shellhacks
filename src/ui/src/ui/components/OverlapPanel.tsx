@@ -10,6 +10,7 @@ import type { ProjectMap } from './OverlapRow'
 import { PanelStats } from './PanelStats'
 import { TimeframeSlider } from './TimeframeSlider'
 import { utilityColor } from './utilityColors'
+import { emptyCauses } from './panelCopy'
 import { SORT_OPTIONS, SORTERS, type SortKey } from './overlapSort'
 import type { OverlapRecord, ProjectProps, Tier } from '../../lib/api'
 import '../../styles/panel.css'
@@ -353,11 +354,12 @@ export function OverlapPanel() {
   } else if (all.length === 0) {
     listArea = <Empty title="0 overlaps found" note="The spatial engine found no project pairs within 40 km in the current dataset." />
   } else if (shown.length === 0) {
+    const causes = emptyCauses({ allTiersOn, yearFilter, timelineOnly, adjacentOnly, utilityFilter, zoneFilter })
     listArea = (
       <Empty
-        title={q ? `0 matches for '${search.trim()}'.` : `All ${all.length} overlaps filtered out.`}
+        title={q ? `0 matches for '${search.trim()}'.` : `0 of ${all.length.toLocaleString('en-US')} overlaps match.`}
         note={q ? 'Clear the search or broaden the filters above.'
-                : 'Re-enable a tier above or turn off the timeline filter.'}
+                : causes.length ? `Empty because of ${causes.join(' + ')} — reset or widen it.` : 'Reset filters to see records.'}
       />
     )
   } else {

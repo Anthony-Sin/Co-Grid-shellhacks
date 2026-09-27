@@ -79,6 +79,11 @@ export const TIER_COLORS: Record<Tier, string> = {
   4: '#8E7CC3', // purple — <40km shared crews
 }
 
+/** Selection accent — hot magenta, the only hue arc unused by any tier
+ *  color, utility color, or basemap tone. A selected overlap repaints to
+ *  this so it reads as "chosen", not just a wider same-hue stroke. */
+export const SELECT_COLOR = '#FF2E9A'
+
 /** Tier metadata for legend + filter UI (order matters: most valuable first) */
 export const TIERS = [
   { tier: 1, color: TIER_COLORS[1], label: 'Touching', hint: 'crossing — must coordinate outages' },

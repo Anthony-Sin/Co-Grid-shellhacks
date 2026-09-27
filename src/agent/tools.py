@@ -123,17 +123,20 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "find_overlaps": (
         tool_find_overlaps,
-        "Filtered overlap search: utility (either side), utilities (exact "
-        "pair 'GPC,DESC'), tier, zone substring, timeline_only "
-        "(intersecting) OR adjacent_only (end-to-start handoffs — a "
-        "different coordination class). Engine rank order. Returns a "
-        "csv_export link — same filters on /api/overlaps.csv — you can "
-        "hand to the analyst for the full result as a spreadsheet.",
+        "Filtered overlap search returning the matching RECORDS "
+        "(overlap_id, utilities, tier, min_distance_km, score per row). "
+        "Filters: utility (either side), utilities (exact pair "
+        "'GPC,DESC'), tier, zone substring, timeline_only (intersecting) "
+        "OR adjacent_only (end-to-start handoffs). sort: 'rank' "
+        "(default), 'distance', or 'distance_desc' — use distance_desc "
+        "for farthest/biggest-gap questions. Also returns a csv_export "
+        "link for the full filtered set.",
         {"utility": "string (optional, either side)",
          "utilities": "string 'A,B' or list (optional, exact pair)",
          "tier": "int 1-4 (optional)", "zone": "string (optional)",
          "timeline_only": "bool (optional)",
          "adjacent_only": "bool (optional, exclusive w/ timeline_only)",
+         "sort": "string rank|distance|distance_desc (optional)",
          "limit": "int <=50 (optional)"},
     ),
     "project_overlaps": (
