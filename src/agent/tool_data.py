@@ -274,6 +274,9 @@ def tool_find_overlaps(utility: str | None = None,
     lim = max(1, min(int(limit or 25), 50))
     off = max(0, int(offset or 0))
     page = rows[off:off + lim]
+    # if the model asked for >50, say so — a silent clamp reads as
+    # "that's everything" and triggers wasteful re-queries
+    capped = int(limit or 25) > 50
     # download link mirrors this exact filter set — /api/overlaps.csv
     # shares filter_records so the export is faithful to this result.
     qs: dict[str, Any] = {}
@@ -300,6 +303,8 @@ def tool_find_overlaps(utility: str | None = None,
         "total_matching": len(rows),
         "shown": len(page),
         "offset": off,
+        **({"limit_capped_at": 50,
+            "hint": "use offset to page further"} if capped else {}),
         "overlaps": [_overlap_brief(r) for r in page],
         "csv_export": (f"/api/overlaps.csv?{urlencode(qs)}" if qs
                        else "/api/overlaps.csv"),

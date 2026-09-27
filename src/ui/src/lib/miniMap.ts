@@ -13,4 +13,5 @@
  */
 
 export * from './miniMapSpec'
+export * from './miniMapSat'
 export * from './miniMapSvg'

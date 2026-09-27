@@ -291,7 +291,9 @@ def openai_tool_specs() -> list[dict]:
         spec_props = {}
         for k, v in props.items():
             if "list" in v.lower():
-                p = {"type": "array", "items": {"type": "string"}}
+                item = ("integer" if "int" in v else
+                        "number" if "float" in v else "string")
+                p = {"type": "array", "items": {"type": item}}
             else:
                 p = {"type": "number" if "float" in v else "integer" if "int" in v
                      else "boolean" if "bool" in v else "string"}
