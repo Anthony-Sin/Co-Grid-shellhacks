@@ -3,7 +3,7 @@ import { api } from '../../lib/api'
 import { TIER_COLORS } from '../../lib/palette'
 import { sceneForZone } from '../../lib/projection'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
-import { miniMapSvg, overlapContext, overlapMapSpec } from '../../lib/miniMap'
+import { miniMapSvg, overlapMapSpec } from '../../lib/miniMap'
 import { downloadHtml, overlapReportHtml } from '../../lib/report'
 import { fmtLonLat, fmtUsd, safeFileName, voltageOf, yearsOf } from '../../lib/format'
 import { ConfBadge, Kv, ScheduleStrip, SourceLine } from '../../lib/detailAtoms'
@@ -150,15 +150,22 @@ function DetailBody({
   // Tier 3–4 logistics records carry a zeroed cost struct — "$0–$0 / 0.0
   // acres" would be a lie, so land-savings kvs only render when real.
   const hasSavings = (o.cost?.est_savings_usd_high ?? 0) > 0
-  // state bounds for the snapshot's light border context — shares the
-  // 'state-bounds' request cache with the scene layer, never refetches
+  // snapshot backdrops — state bounds + existing grid share the deduped
+  // request cache ('state-bounds'/'basemap'), never refetched per card
   const states = useApiData('state-bounds', api.stateBounds)
+  const basemap = useApiData('basemap', api.basemap)
   const fa = featureById.get(o.project_a)
   const fb = featureById.get(o.project_b)
-  const snapSvg = useMemo(() => {
-    const context = overlapContext(o, fa, fb, features)
-    return miniMapSvg(overlapMapSpec(o, fa, fb, context, states.data))
-  }, [o, fa, fb, features, states.data])
+  const snapSvg = useMemo(
+    () =>
+      miniMapSvg(
+        overlapMapSpec(o, fa, fb, [], states.data, {
+          allProjects: features,
+          basemap: basemap.data,
+        }),
+      ),
+    [o, fa, fb, features, states.data, basemap.data],
+  )
   return (
     <>
       <p className="detail-expl">{o.explanation}</p>

@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
+import { TIER_COLORS } from '../../lib/palette'
 import { buildWindow, humanize, safeFileName } from '../../lib/format'
 import { ConfBadge, Kv, SourceLine } from '../../lib/detailAtoms'
-import {
-  miniMapSvg,
-  projectContext,
-  projectMapSpec,
-  projectPartnerIds,
-} from '../../lib/miniMap'
+import { miniMapSvg, projectMapSpec, projectPartnerIds } from '../../lib/miniMap'
+import type { ZoneSpec } from '../../lib/miniMap'
 import { downloadHtml, projectReportHtml } from '../../lib/report'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
@@ -28,9 +25,10 @@ export function ProjectDetail() {
   const setAgentPromptDraft = useAppStore((s) => s.setAgentPromptDraft)
   const projects = useProjects()
   const overlaps = useOverlaps()
-  // state bounds for the snapshot's border context — shares the
-  // 'state-bounds' request cache with the scene layer, never refetches
+  // snapshot backdrops — state bounds + existing grid share the deduped
+  // request cache ('state-bounds'/'basemap'), never refetched per card
   const states = useApiData('state-bounds', api.stateBounds)
+  const basemap = useApiData('basemap', api.basemap)
   const [reporting, setReporting] = useState(false)
 
   const { feature, featureById, features } = useMemo(() => {
@@ -51,18 +49,29 @@ export function ProjectDetail() {
     )
   }, [overlaps.data, selectedProjectId])
 
-  /** Mini-map snapshot — the project in its utility color, its coordination
-   * partners in theirs, plain siblings within 30km dimmed. Same spec the
-   * exported report inlines. */
+  /** Mini-map snapshot — real-geography crop: this project emphasized in
+   * its utility color, coordination partners in theirs, its overlaps'
+   * zones as tier-colored overlays, and every filed line + existing-grid
+   * work passing through the crop as ink context. */
   const snapSvg = useMemo(() => {
     if (!feature) return null
     const partnerIds = projectPartnerIds(records, feature.properties.project_id)
     const partners = [...partnerIds]
       .map((id) => featureById.get(id))
       .filter((f): f is GeoFeature<ProjectProps> => Boolean(f))
-    const context = projectContext(feature, partnerIds, features)
-    return miniMapSvg(projectMapSpec(feature, partners, context, states.data))
-  }, [feature, records, featureById, features, states.data])
+    const zones: ZoneSpec[] = records.flatMap((o) =>
+      o.zone_geometry
+        ? [{ geom: o.zone_geometry, color: TIER_COLORS[o.tier] ?? '#2B2B2B' }]
+        : [],
+    )
+    return miniMapSvg(
+      projectMapSpec(feature, partners, [], states.data, {
+        allProjects: features,
+        basemap: basemap.data,
+        zones,
+      }),
+    )
+  }, [feature, records, featureById, features, states.data, basemap.data])
 
   // Escape clears the selection (listener only lives while one exists).
   useEffect(() => {
