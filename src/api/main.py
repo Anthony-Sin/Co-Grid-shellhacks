@@ -129,7 +129,19 @@ def basemap(zone: Optional[str] = Query(None)) -> dict:  # noqa: ARG001
 
 @app.get("/api/city/{scene}")
 def city(scene: str) -> dict:
-    if scene not in ("savannah", "augusta", "state"):
+    if scene not in (
+        "savannah",
+        "augusta",
+        "state",
+        # metro cores — composited into the statewide view as detail
+        "atlanta",
+        "columbia",
+        "charleston",
+        "greenville_sc",
+        "columbus_ga",
+        "athens",
+        "macon",
+    ):
         raise HTTPException(404, "unknown scene")
     return _fresh(f"city_{scene}.json")
 
@@ -153,6 +165,13 @@ def regions() -> dict:
     for scene, label in [
         ("savannah", "Savannah corridor"),
         ("augusta", "Augusta corridor"),
+        ("atlanta", "Atlanta core"),
+        ("columbia", "Columbia SC core"),
+        ("charleston", "Charleston core"),
+        ("greenville_sc", "Greenville SC core"),
+        ("columbus_ga", "Columbus GA core"),
+        ("athens", "Athens core"),
+        ("macon", "Macon core"),
     ]:
         p = PROCESSED / f"city_{scene}.json"
         out.append({
