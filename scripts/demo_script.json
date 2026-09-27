@@ -1,5 +1,6 @@
 {
-  "title": "CO-GRID demo — ShellHacks 2026 (74s shipped)",
+  "title": "CO-GRID demo — ShellHacks 2026",
+  "note": "dur_s values are per-segment capture budgets (86s of raw footage); the shipped cut is 74s — see cogrid_transcript.txt",
   "segments": [
     {
       "id": "hook",

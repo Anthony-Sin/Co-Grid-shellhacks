@@ -24,10 +24,14 @@
 import puppeteer from 'puppeteer-core'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 const CDP = 'http://127.0.0.1:9222'
+const REPO = path.resolve(new URL('..', import.meta.url).pathname)
 const SCRIPT = JSON.parse(fs.readFileSync(new URL('./demo_script.json', import.meta.url)))
-const EXPORT_DIR = '/home/ANT/projects/Co-Grid-shellhacks/exports'
+const EXPORT_DIR = path.join(REPO, 'exports')
+const DOWNLOADS = path.join(os.homedir(), 'Downloads')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** real X cursor ops so the capture shows deliberate motion.
@@ -106,8 +110,10 @@ const actions = {
     await page.click('.agent-input textarea').catch(() => {})
     await page.keyboard.type(prompt, { delay: 55 })
     // verify the text landed — if focus was lost, force it and retry once
+    // (check for the prompt's last word so any future prompt works)
+    const tail = prompt.split(/\s+/).pop().toLowerCase()
     const typed = await page.evaluate(() => document.querySelector('.agent-input textarea')?.value ?? '')
-    if (!typed.toLowerCase().includes('macon')) {
+    if (!typed.toLowerCase().includes(tail)) {
       await page.evaluate(() => document.querySelector('.agent-input textarea')?.focus())
       await page.keyboard.type(prompt, { delay: 55 })
     }
@@ -116,17 +122,21 @@ const actions = {
     await sleep(11000) // one tool call → map flight + streamed reply on screen
   },
   async export_and_open(page, home, seg, browser) {
-    // click the rail CSV export (real /api/overlaps.csv download)…
+    // click the rail CSV export (real /api/overlaps.csv download) and
+    // verify the file actually landed — the click must produce an artifact
+    const before = new Set(fs.readdirSync(DOWNLOADS).filter((f) => f.endsWith('.csv')))
     const a = await page.$('a[href*="overlaps.csv"]')
     if (a) {
       const r = await a.boundingBox()
       if (r) { mouse(r.x + r.width / 2, r.y + r.height / 2); await sleep(300); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2) }
     }
     await sleep(2500)
+    const fresh = fs.readdirSync(DOWNLOADS).filter((f) => f.endsWith('.csv') && !before.has(f))
+    console.log(`  csv downloaded: ${fresh[0] ?? 'NONE — export click did not produce a file'}`)
     // …then show the deliverable in a second tab — the generated HTML
-    // report is a real styled artifact that paints instantly (LibreOffice
-    // cold-start under capture load exceeded 30s and never shipped)
-    const latest = execSync(`ls -t ${EXPORT_DIR}/*.html 2>/dev/null | head -1 || true`).toString().trim()
+    // report renders the same ranked set and paints instantly (a raw CSV
+    // won't render via file:// and LibreOffice cold-start exceeded 30s)
+    const latest = execSync(`ls -t ${JSON.stringify(EXPORT_DIR)}/*.html 2>/dev/null | head -1 || true`).toString().trim()
     if (latest) {
       const tab = await browser.newPage()
       await tab.goto('file://' + latest, { waitUntil: 'load' }).catch(() => {})
@@ -180,8 +190,8 @@ const cdp = await page.createCDPSession()
 // mounts against the final size (mid-flight overrides leave it blank)
 await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false })
 // downloads must land in ~/Downloads — chromium kiosk otherwise prompts
-await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: '/home/ANT/Downloads' }).catch(() =>
-  cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: '/home/ANT/Downloads' }).catch(() => {}))
+await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() =>
+  cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOADS }).catch(() => {}))
 await page.reload({ waitUntil: 'domcontentloaded' })
 await page.waitForFunction('window.__cogridReady===true', { timeout: 120000, polling: 500 }).catch(() => {})
 await sleep(4000) // let the post-mount render burst finish before X input

@@ -29,6 +29,11 @@ export function VoiceButton({ voice }: { voice: VoiceInput }) {
           d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm6-3a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-2.06A8 8 0 0 0 20 12h-2z"
         />
       </svg>
+      {voice.denied && (
+        <span className="sr-only" role="status">
+          microphone access blocked — allow mic access to dictate
+        </span>
+      )}
     </button>
   )
 }

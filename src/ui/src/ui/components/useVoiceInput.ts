@@ -7,8 +7,10 @@
  * Finals append to the draft; interim words render live so the user
  * sees them land. Listening survives until toggled off, a hard error,
  * unmount — or an external draft edit: send() clearing the field (or
- * the user typing mid-utterance) ends the session rather than letting
- * already-sent words resurrect on the next onresult.
+ * the user typing mid-utterance) aborts the session — stop() would
+ * still deliver the buffered audio as a final result, resurrecting
+ * just-sent words; abort() discards it and a dead-session guard drops
+ * any late event either way.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -57,16 +59,20 @@ export function useVoiceInput(
   /** last value this hook wrote via setDraft — any other draft value is
    * an external edit (send() clearing the field, manual typing). Trying
    * to rebase mid-utterance would double-append the in-flight interim,
-   * so the session ends instead: sent text can never resurrect, and a
-   * user edit is never overwritten by the next result. */
+   * so the session is aborted instead: sent text can never resurrect,
+   * and a user edit is never overwritten by the next result. */
   const writtenRef = useRef<string | null>(null)
+  /** set before abort() — drops any event that outlives the session */
+  const deadRef = useRef(false)
 
   const stop = useCallback(() => {
     recRef.current?.stop()
   }, [])
 
   useEffect(() => {
-    if (recRef.current && draft !== writtenRef.current) recRef.current.stop()
+    if (!recRef.current || draft === writtenRef.current) return
+    deadRef.current = true
+    recRef.current.abort()
   }, [draft])
 
   const toggle = useCallback(() => {
@@ -82,7 +88,9 @@ export function useVoiceInput(
     baseRef.current = draft
     finalsRef.current = ''
     writtenRef.current = draft
+    deadRef.current = false
     rec.onresult = (e) => {
+      if (deadRef.current) return
       let interim = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i]

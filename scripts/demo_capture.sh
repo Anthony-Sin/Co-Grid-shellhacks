@@ -35,8 +35,10 @@ start() {
   sleep 6
   # bare Xvfb has no WM to enforce kiosk geometry — force the window to
   # fill the screen so the app renders its large-viewport layout
+  # (SIZE is WxHxDEPTH — split off the color depth, don't eat it as height)
+  local W="${SIZE%%x*}" H="${SIZE#*x}"; H="${H%%x*}"
   for w in $(DISPLAY=$DISP xdotool search --class chromium 2>/dev/null); do
-    DISPLAY=$DISP xdotool windowsize "$w" "${SIZE%%x*}" "${SIZE##*x}" windowmove "$w" 0 0 2>/dev/null
+    DISPLAY=$DISP xdotool windowsize "$w" "$W" "$H" windowmove "$w" 0 0 2>/dev/null
   done
   sleep 1
   ffmpeg -y -loglevel error -f x11grab -video_size "${SIZE%x*}" -framerate 30 \
