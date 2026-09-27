@@ -52,7 +52,10 @@ const LAND = '#F6F2E5'
 const HALO = '#F8F5EC'
 const GRID_INK = '#5C584D' // existing HIFLD grid
 const CTX_INK = '#39362D' // other filed projects through the crop
-const CAPTION = 'map data: CO-GRID processed filings'
+const CAPTION = 'imagery: esri world imagery · map data: CO-GRID filings'
+/** Free public raster basemap — real satellite photography of the site. */
+const ESRI_TILE =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile'
 
 /** Shared projection frame — identical to the statewide scene's. */
 const C = SCENE_CENTERS.state
@@ -74,7 +77,10 @@ const MAX_CTX = 80 // markup guard on crop-filtered sibling projects
  * Build the thumbnail SVG markup. Pure: same spec in -> same string out.
  * Returns a complete <svg> element (viewBox 320×180).
  */
-export function miniMapSvg(spec: MiniMapSpec): string {
+/** Crop-frame math shared by the SVG builder and the satellite tile
+ *  prefetcher — both must agree on EXACTLY which lon/lat window the
+ *  thumbnail covers, so this is computed once here. */
+function miniFrame(spec: MiniMapSpec) {
   const focus = spec.focus ?? []
   const partners = spec.partners ?? []
 
@@ -154,8 +160,113 @@ export function miniMapSvg(spec: MiniMapSpec): string {
     const b = geomBBox(g)
     return !!b && b[0] <= llMax[0] && b[2] >= llMin[0] && b[1] <= llMax[1] && b[3] >= llMin[1]
   }
+  return { s, toPxLL, lonAt, latAt, inCrop }
+}
+
+/** Web-mercator tiles covering the spec's crop — each tile's NW/SE
+ *  corners are projected separately so the meridian-vs-equirectangular
+ *  skew lands inside a per-tile stretch (sub-pixel at thumbnail scale).
+ *  The root viewBox clips tiles that overhang the frame. */
+function satTiles(
+  spec: MiniMapSpec,
+): { url: string; x: number; y: number; w: number; h: number }[] {
+  const { toPxLL, lonAt, latAt } = miniFrame(spec)
+  const lonW = lonAt(0)
+  const lonE = lonAt(MINIMAP_W)
+  const latN = latAt(0)
+  const latS = latAt(MINIMAP_H)
+  const lonSpan = Math.max(1e-6, lonE - lonW)
+  // pick z so ~320 CSS px covers the crop longitude span
+  let z = Math.round(Math.log2((MINIMAP_W * 360) / (lonSpan * 256)))
+  z = Math.max(6, Math.min(15, z))
+  const n = 2 ** z
+  const txOf = (lon: number) => Math.floor(((lon + 180) / 360) * n)
+  const tyOf = (lat: number) => {
+    const r = (lat * Math.PI) / 180
+    return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n)
+  }
+  const lonOf = (tx: number) => (tx / n) * 360 - 180
+  const latOf = (ty: number) => {
+    const r = Math.PI - (2 * Math.PI * ty) / n
+    return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(r) - Math.exp(-r)))
+  }
+  const tiles: { url: string; x: number; y: number; w: number; h: number }[] = []
+  for (let tx = Math.max(0, txOf(lonW)); tx <= Math.min(n - 1, txOf(lonE)); tx++) {
+    for (let ty = Math.max(0, tyOf(latN)); ty <= Math.min(n - 1, tyOf(latS)); ty++) {
+      const nw = toPxLL([lonOf(tx), latOf(ty)])
+      const se = toPxLL([lonOf(tx + 1), latOf(ty + 1)])
+      const w = Math.abs(se[0] - nw[0])
+      const h = Math.abs(se[1] - nw[1])
+      if (w < 1 || h < 1) continue
+      tiles.push({
+        url: `${ESRI_TILE}/${z}/${ty}/${tx}`,
+        x: Math.min(nw[0], se[0]),
+        y: Math.min(nw[1], se[1]),
+        w,
+        h,
+      })
+    }
+  }
+  return tiles
+}
+
+/** url -> data URI. Remote <image href> inside inline SVG paints
+ *  unreliably under Chromium (tiles arbitrarily never rasterize), so the
+ *  component prefetches tiles into base64 first — embedded data URIs
+ *  render deterministically AND make downloaded reports self-contained.
+ *  Unfetched urls still fall back to the remote href. */
+const TILE_CACHE = new Map<string, string>()
+const TILE_PENDING = new Map<string, Promise<void>>()
+
+/** Fetch every tile a spec's snapshot needs into TILE_CACHE. Idempotent,
+ *  deduped, and failure-tolerant (a dead tile just keeps its remote href
+ *  or paints the paper land underlay — never a broken-image frame). */
+export function prefetchSatTiles(spec: MiniMapSpec): Promise<void> {
+  const jobs: Promise<void>[] = []
+  for (const t of satTiles(spec)) {
+    if (TILE_CACHE.has(t.url)) continue
+    let job = TILE_PENDING.get(t.url)
+    if (!job) {
+      job = fetch(t.url)
+        .then((r) => (r.ok ? r.blob() : Promise.reject(r.status)))
+        .then(
+          (blob) =>
+            new Promise<void>((res) => {
+              const fr = new FileReader()
+              fr.onload = () => {
+                TILE_CACHE.set(t.url, String(fr.result))
+                res()
+              }
+              fr.onerror = () => res()
+              fr.readAsDataURL(blob)
+            }),
+        )
+        .catch(() => undefined)
+        .finally(() => TILE_PENDING.delete(t.url))
+      TILE_PENDING.set(t.url, job)
+    }
+    jobs.push(job)
+  }
+  return Promise.all(jobs).then(() => undefined)
+}
+
+export function miniMapSvg(spec: MiniMapSpec, opts?: { satellite?: boolean }): string {
+  const satellite = opts?.satellite !== false // default ON — real imagery
+  const { s, toPxLL, inCrop } = miniFrame(spec)
+  const focus = spec.focus ?? []
+  const partners = spec.partners ?? []
 
   const parts: string[] = [`<rect width="${MINIMAP_W}" height="${MINIMAP_H}" fill="${OUTSIDE}"/>`]
+
+  // ---------- satellite backdrop: real Esri World Imagery tiles -------
+  if (satellite) {
+    const imgs = satTiles(spec).map(
+      (t) =>
+        `<image href="${TILE_CACHE.get(t.url) ?? t.url}" x="${f1(t.x)}" y="${f1(t.y)}" width="${f1(t.w)}" height="${f1(t.h)}" preserveAspectRatio="none"/>`,
+    )
+    if (imgs.length)
+      parts.push(`<g opacity="0.92">${imgs.join('')}</g>`)
+  }
 
   // ---------- land: filled GA/SC polygons clipped to the crop ----------
   // (Census 500k cartographic boundary — real coastline + the Savannah
@@ -171,7 +282,9 @@ export function miniMapSvg(spec: MiniMapSpec): string {
     }
     if (fills) {
       parts.push(
-        `<path d="${fills}" fill="${LAND}" fill-rule="evenodd"/>`,
+        // satellite mode: keep the state outline but drop the opaque land
+        // sheet to a paper wash so real imagery shows through
+        `<path d="${fills}" fill="${LAND}" fill-opacity="${satellite ? 0.18 : 1}" fill-rule="evenodd"/>`,
         `<path d="${edges}" fill="none" stroke="${HALO}" stroke-width="3" stroke-opacity="0.85" stroke-linejoin="round"/>`,
         `<path d="${edges}" fill="none" stroke="${INK}" stroke-width="1.1" stroke-opacity="0.8" stroke-linejoin="round"/>`,
       )

@@ -23,6 +23,7 @@ import {
   miniMapSvg,
   overlapContext,
   overlapMapSpec,
+  prefetchSatTiles,
   projectContext,
   projectMapSpec,
   projectPartnerIds,
@@ -182,7 +183,7 @@ export interface OverlapReportArgs {
   total?: number
 }
 
-export function overlapReportHtml(args: OverlapReportArgs): string {
+export async function overlapReportHtml(args: OverlapReportArgs): Promise<string> {
   const { o, projectById, featureById, features, states, neighbors, impact, rank, total } =
     args
   const pa = projectById.get(o.project_a)
@@ -190,9 +191,10 @@ export function overlapReportHtml(args: OverlapReportArgs): string {
   const fa = featureById.get(o.project_a)
   const fb = featureById.get(o.project_b)
   const tierColor = TIER_COLORS[o.tier] ?? INK
-  const svg = miniMapSvg(
-    overlapMapSpec(o, fa, fb, overlapContext(o, fa, fb, features), states),
-  )
+  const spec = overlapMapSpec(o, fa, fb, overlapContext(o, fa, fb, features), states)
+  // embed tiles as data URIs so the downloaded file is self-contained
+  await prefetchSatTiles(spec)
+  const svg = miniMapSvg(spec)
   const hasSavings = (o.cost?.est_savings_usd_high ?? 0) > 0
 
   // filing table — one row per filed field, A/B side by side
@@ -295,7 +297,7 @@ export function overlapReportHtml(args: OverlapReportArgs): string {
     )} · tier ${o.tier}${rank ? ` · rank #${rank}${total ? ` of ${total}` : ''}` : ''}</div>` +
     `<p class="expl">${esc(o.explanation)}</p>` +
     `<figure>${svg}<figcaption>area snapshot — ${esc(
-      'map data: CO-GRID processed filings',
+      'imagery: esri world imagery · map data: CO-GRID processed filings',
     )} · overlap zone in tier color · A/B = closest points</figcaption></figure>` +
     `<h2>Filed projects</h2>${filing}` +
     `<h2>Schedule</h2>${ganttHtml(pa, pb, o, tierColor)}` +
@@ -321,7 +323,7 @@ export interface ProjectReportArgs {
   states: FeatureCollection<StateBoundsProps> | null
 }
 
-export function projectReportHtml(args: ProjectReportArgs): string {
+export async function projectReportHtml(args: ProjectReportArgs): Promise<string> {
   const { feature, features, featureById, records, states } = args
   const p = feature.properties
   const pid = p.project_id
@@ -330,9 +332,14 @@ export function projectReportHtml(args: ProjectReportArgs): string {
   const partners = [...partnerIds]
     .map((id) => featureById.get(id))
     .filter((f): f is GeoFeature<ProjectProps> => Boolean(f))
-  const svg = miniMapSvg(
-    projectMapSpec(feature, partners, projectContext(feature, partnerIds, features), states),
+  const spec = projectMapSpec(
+    feature,
+    partners,
+    projectContext(feature, partnerIds, features),
+    states,
   )
+  await prefetchSatTiles(spec)
+  const svg = miniMapSvg(spec)
   const zones = (p.zones ?? []).map(humanize).filter(Boolean)
 
   const filing =

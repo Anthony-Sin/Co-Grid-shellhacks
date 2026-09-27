@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
+import { prefetchSatTiles } from '../../lib/miniMap'
+import type { MiniMapSpec } from '../../lib/miniMap'
 import type {
   FeatureCollection,
   ImpactEstimate,
@@ -121,6 +123,25 @@ export function useImpact(overlapId: string | null): ApiDataState<ImpactEstimate
     [overlapId],
   )
   return useApiData(`impact:${overlapId ?? 'none'}`, fetcher)
+}
+
+/** Satellite tiles for a snapshot spec — returns a tick that bumps once
+ *  the spec's tiles are embedded as data URIs, so callers rebuild their
+ *  svg string on it (remote <image href> paints unreliably in inline
+ *  SVG; embedded data renders deterministically). */
+export function useSatTiles(spec: MiniMapSpec | null): number {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!spec) return
+    let live = true
+    prefetchSatTiles(spec).then(() => {
+      if (live) setTick((t) => t + 1)
+    })
+    return () => {
+      live = false
+    }
+  }, [spec])
+  return tick
 }
 
 /** /api/analysis/nearby/{id} — staging neighborhood count for the detail card */

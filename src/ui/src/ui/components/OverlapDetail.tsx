@@ -15,6 +15,7 @@ import {
   useNearby,
   useOverlaps,
   useProjects,
+  useSatTiles,
 } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { GeoFeature, OverlapRecord, ProjectProps } from '../../lib/api'
@@ -156,16 +157,16 @@ function DetailBody({
   const basemap = useApiData('basemap', api.basemap)
   const fa = featureById.get(o.project_a)
   const fb = featureById.get(o.project_b)
-  const snapSvg = useMemo(
+  const snapSpec = useMemo(
     () =>
-      miniMapSvg(
-        overlapMapSpec(o, fa, fb, [], states.data, {
-          allProjects: features,
-          basemap: basemap.data,
-        }),
-      ),
+      overlapMapSpec(o, fa, fb, [], states.data, {
+        allProjects: features,
+        basemap: basemap.data,
+      }),
     [o, fa, fb, features, states.data, basemap.data],
   )
+  const satTick = useSatTiles(snapSpec)
+  const snapSvg = useMemo(() => miniMapSvg(snapSpec), [snapSpec, satTick])
   return (
     <>
       <p className="detail-expl">{o.explanation}</p>
@@ -337,7 +338,7 @@ export function OverlapDetail() {
       ])
       downloadHtml(
         `co-grid-${safeFileName(o.overlap_id)}.html`,
-        overlapReportHtml({
+        await overlapReportHtml({
           o,
           projectById,
           featureById,

@@ -8,7 +8,7 @@ import type { ZoneSpec } from '../../lib/miniMap'
 import { downloadHtml, projectReportHtml } from '../../lib/report'
 import { selectOverlapInScene } from '../../lib/selectOverlap'
 import { useAppStore } from '../../state/store'
-import { useApiData, useOverlaps, useProjects } from '../hooks/useApiData'
+import { useApiData, useOverlaps, useProjects, useSatTiles } from '../hooks/useApiData'
 import { utilityColor } from './utilityColors'
 import type { GeoFeature, ProjectProps } from '../../lib/api'
 import '../../styles/detail.css'
@@ -54,7 +54,7 @@ export function ProjectDetail() {
    * its utility color, coordination partners in theirs, its overlaps'
    * zones as tier-colored overlays, and every filed line + existing-grid
    * work passing through the crop as ink context. */
-  const snapSvg = useMemo(() => {
+  const snapSpec = useMemo(() => {
     if (!feature) return null
     const partnerIds = projectPartnerIds(records, feature.properties.project_id)
     const partners = [...partnerIds]
@@ -65,14 +65,17 @@ export function ProjectDetail() {
         ? [{ geom: o.zone_geometry, color: TIER_COLORS[o.tier] ?? '#2B2B2B' }]
         : [],
     )
-    return miniMapSvg(
-      projectMapSpec(feature, partners, [], states.data, {
-        allProjects: features,
-        basemap: basemap.data,
-        zones,
-      }),
-    )
+    return projectMapSpec(feature, partners, [], states.data, {
+      allProjects: features,
+      basemap: basemap.data,
+      zones,
+    })
   }, [feature, records, featureById, features, states.data, basemap.data])
+  const satTick = useSatTiles(snapSpec)
+  const snapSvg = useMemo(
+    () => (snapSpec ? miniMapSvg(snapSpec) : null),
+    [snapSpec, satTick],
+  )
 
   // Escape clears the selection (listener only lives while one exists).
   useEffect(() => {
@@ -91,13 +94,19 @@ export function ProjectDetail() {
 
   /** Lighter sibling of the overlap card's report — same self-contained
    * HTML file, scoped to this project + its coordination records. */
-  const onReport = () => {
+  const onReport = async () => {
     if (!feature || reporting) return
     setReporting(true)
     try {
       downloadHtml(
         `co-grid-${safeFileName(selectedProjectId)}.html`,
-        projectReportHtml({ feature, features, featureById, records, states: states.data }),
+        await projectReportHtml({
+          feature,
+          features,
+          featureById,
+          records,
+          states: states.data,
+        }),
       )
     } finally {
       setReporting(false)
