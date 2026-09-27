@@ -298,7 +298,13 @@ def tool_find_overlaps(utility: str | None = None,
     if missing_dates:
         qs["missing_dates"] = "true"
     if sort and sort.strip().lower() != "rank":
-        qs["sort"] = sort.strip().lower()
+        # normalize aliases to the export route's vocabulary so the link
+        # never 422s (distance_asc→distance, farthest→distance_desc)
+        sa = sort.strip().lower()
+        qs["sort"] = {"distance_asc": "distance",
+                      "farthest": "distance_desc"}.get(sa, sa)
+    if tier is not None and not 1 <= int(tier) <= 4:
+        qs.pop("tier", None)
     return {
         "total_matching": len(rows),
         "shown": len(page),

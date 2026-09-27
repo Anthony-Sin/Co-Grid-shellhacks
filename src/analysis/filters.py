@@ -56,18 +56,31 @@ def filter_records(rows: list[dict],
     single-name `utilities` (a pair can never match), or an unknown
     `state` — callers translate to HTTP 422 (route) or an error dict
     (tool)."""
-    if utility:
-        u = str(utility).strip()
-        rows = [r for r in rows if u in (r.get("utilities") or [])]
-    if utilities:
-        pair = _as_list(utilities)
-        if len(pair) == 1:
-            raise ValueError(
-                "utilities expects an exact PAIR like 'GPC,MEAG' — "
-                "for a single side use utility= instead")
-        pair = sorted(pair)
-        rows = [r for r in rows
-                if sorted(r.get("utilities") or []) == pair]
+    if utility or utilities:
+        # canonical casing from the data itself — 'gpc'/'santee cooper' → GPC/SanteeCooper
+        canon = {}
+        for r in rows:
+            for name in r.get("utilities") or []:
+                canon.setdefault(str(name).lower(), str(name))
+                canon.setdefault(str(name).replace(" ", "").lower(), str(name))
+        if utility:
+            u = str(utility).strip()
+            u = canon.get(u.lower(), canon.get(u.replace(" ", "").lower(), u))
+            rows = [r for r in rows if u in (r.get("utilities") or [])]
+        if utilities:
+            pair = _as_list(utilities)
+            if len(pair) == 1:
+                raise ValueError(
+                    "utilities expects an exact PAIR like 'GPC,MEAG' — "
+                    "for a single side use utility= instead")
+            if len(pair) != 2:
+                raise ValueError(
+                    "utilities expects exactly TWO names — records always "
+                    "span exactly two utilities")
+            pair = sorted(canon.get(p.lower(), canon.get(p.replace(" ", "").lower(), p))
+                          for p in pair)
+            rows = [r for r in rows
+                    if sorted(r.get("utilities") or []) == pair]
     if tier is not None:
         rows = [r for r in rows if r.get("tier") == int(tier)]
     if zone:

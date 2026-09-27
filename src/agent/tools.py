@@ -8,6 +8,7 @@ crashes.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from .tool_analysis import (
@@ -290,13 +291,17 @@ def openai_tool_specs() -> list[dict]:
     for name, (_, desc, props) in TOOLS.items():
         spec_props = {}
         for k, v in props.items():
-            if "list" in v.lower():
-                item = ("integer" if "int" in v else
-                        "number" if "float" in v else "string")
+            # word-boundary match — "Plant" must not imply integer
+            low = v.lower()
+            is_int = re.search(r"\bint\b", low) is not None
+            is_flt = re.search(r"\bfloat\b|\bnumber\b", low) is not None
+            is_bol = re.search(r"\bbool\b|true/false", low) is not None
+            if re.search(r"\blist\b", low):
+                item = "integer" if is_int else "number" if is_flt else "string"
                 p = {"type": "array", "items": {"type": item}}
             else:
-                p = {"type": "number" if "float" in v else "integer" if "int" in v
-                     else "boolean" if "bool" in v else "string"}
+                p = {"type": "number" if is_flt else "integer" if is_int
+                     else "boolean" if is_bol else "string"}
             p["description"] = v
             spec_props[k] = p
         required = [k for k, v in props.items() if "required" in v]

@@ -26,7 +26,7 @@
     {
       "id": "pick",
       "dur_s": 24,
-      "narration": "The top-ranked site sits on the Savannah River — Dominion Energy South Carolina and Georgia Power rebuilding parallel corridors in the same twenty twenty-six window. Distance: zero. The filed geometry is touching — and the filing itself is one click away, alongside the build windows, the shared corridor value, and a snapshot drawn on real geography.",
+      "narration": "The top-ranked site sits on the Savannah River — Dominion Energy South Carolina and Georgia Power rebuilding parallel corridors in the same twenty twenty-six window. Distance: zero. The filed geometry is touching — and the filing itself is one click away, alongside the build windows, the shared corridor value, and a satellite snapshot of the real ground.",
       "action": "pick_ov1",
       "note": "click top-pick #1 -> camera flight -> scroll the detail card through snapshot/projects/schedule/value"
     },

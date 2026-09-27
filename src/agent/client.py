@@ -38,8 +38,15 @@ def load_config() -> AgentConfig | None:
         api_key=key,
         base_url=os.getenv("AGENT_BASE_URL", "https://api.tensormux.com/v1").rstrip("/"),
         model=os.getenv("AGENT_MODEL", "glm-4-7-flash"),
-        max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "16384")),
+        max_tokens=_env_int("AGENT_MAX_TOKENS", 16384),
     )
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
 
 
 class ChatError(RuntimeError):
@@ -59,7 +66,10 @@ def chat_completion(
     # ~4 chars/token (+ tool specs) and clamp, keeping a floor so a fat
     # history can still answer.
     est_prompt = (
-        sum(len(str(m.get("content") or "")) for m in messages) // 4
+        sum(len(str(m.get("content") or "")) // 4
+            + len(str(m.get("reasoning") or "")) // 4
+            + len(str(m.get("tool_calls") or "")) // 4
+            for m in messages)
         + (len(tools) * 120 if tools else 0)
         + 512
     )
@@ -113,6 +123,9 @@ def chat_completion(
         raise ChatError(
             f"agent endpoint returned non-JSON body: {resp.text[:200]!r}"
         ) from e
+    if not isinstance(data, dict):
+        raise ChatError(
+            f"agent endpoint returned non-object JSON: {str(data)[:200]!r}")
     choice = (data.get("choices") or [{}])[0]
     msg = choice.get("message") or {}
     return {

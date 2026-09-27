@@ -203,22 +203,32 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
                                 "Emit a corrected ```tool block or answer."),
                 })
                 continue
+            # A ```tool block was emitted but unparseable/empty — never
+            # return the raw protocol block as the user's answer.
+            if empty_nudges < 2 and _round < MAX_ROUNDS - 1:
+                empty_nudges += 1
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": ("Your ```tool block was malformed (bad JSON "
+                                "or no 'tool' key). Emit a corrected block "
+                                "or answer in plain text."),
+                })
+                continue
 
         # ---- plain answer ------------------------------------------------------
         # A thinking model can burn the whole completion budget inside
         # `reasoning` and return content="" — accepting that as a reply
         # ships "(empty answer)" to the UI. Treat empty content and
         # token-truncated turns as failed rounds and nudge instead.
-        if not content.strip() or resp["finish_reason"] == "length":
+        if not content.strip():
             if empty_nudges < 2 and _round < MAX_ROUNDS - 1:
                 empty_nudges += 1
-                why = ("was empty" if not content.strip()
-                       else "was cut off at the token limit")
                 messages.append(msg if isinstance(msg, dict) else
                                 {"role": "assistant", "content": content})
                 messages.append({
                     "role": "user",
-                    "content": (f"Your reply {why}. Answer the user now in "
+                    "content": ("Your reply was empty. Answer the user now in "
                                 "plain text — call a tool first if needed, "
                                 "and keep reasoning brief."),
                 })
