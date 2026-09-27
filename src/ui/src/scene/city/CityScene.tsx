@@ -80,21 +80,32 @@ export function CityScene({ showLabels = true }: { showLabels?: boolean }) {
   )
 
   // Ready flag for headless captures (scripts/screenshot.mjs waits on it).
-  // Set after data lands + a few committed frames so geometry is on-screen.
+  // Set after data lands + a few committed frames so geometry is on-screen —
+  // or after 8 s regardless: headless rAF can stall under software GL, and
+  // a screenshot is better slightly-early than never.
   useEffect(() => {
     if (!data) return
-    ;(window as unknown as { __cogridReady?: boolean }).__cogridReady = false
+    const w = window as unknown as { __cogridReady?: boolean }
+    w.__cogridReady = false
     let frames = 0
     let raf = 0
+    const mark = () => {
+      w.__cogridReady = true
+    }
+    const fallback = setTimeout(mark, 8000)
     const tick = () => {
       if (++frames >= 30) {
-        ;(window as unknown as { __cogridReady?: boolean }).__cogridReady = true
+        clearTimeout(fallback)
+        mark()
         return
       }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(fallback)
+    }
   }, [data])
 
   // All city casters mount together when `data` lands — one shadow bake.
