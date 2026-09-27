@@ -117,6 +117,13 @@
     max-height: calc(100% - 220px);
   }
 
+  /* the same lift when a conversation log exists — the bar grows
+     min(40vh,340px) taller than the idle strip, so the rail must yield
+     that much more or its bottom rows slide under the chip row */
+  .app-shell:has(.agent-log) .panel {
+    max-height: calc(100% - 220px - min(40vh, 340px));
+  }
+
   /* lift the map-tools card with the right rail */
   .app-shell .viewmodes-wrap {
     bottom: 132px;
@@ -130,6 +137,22 @@
   .app-shell:has(.agent-log) .viewmodes-wrap {
     bottom: calc(130px + min(40vh, 340px));
     max-height: calc(100vh - 200px - min(40vh, 340px));
+  }
+}
+
+/* ≤560px: the viewport can't fit both rails side by side — the right rail
+   starts collapsed (Legend default) but detail cards still need to fit:
+   cap them at the viewport width so an open card never exceeds the screen. */
+@media (max-width: 560px) {
+  .app-shell .right-rail {
+    right: 10px;
+    left: auto;
+    align-items: flex-end;
+  }
+
+  .app-shell .right-rail .overlap-detail,
+  .app-shell .right-rail .project-detail {
+    width: min(322px, calc(100vw - 24px));
   }
 }
 

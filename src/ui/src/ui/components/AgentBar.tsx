@@ -92,10 +92,15 @@ export function AgentBar() {
     return () => cancelAnimationFrame(id)
   }, [promptDraft, setPromptDraft, setAgentContext])
 
-  // Escape aborts a running call; otherwise collapses the bar
+  // Escape aborts a running call; otherwise collapses the bar. This
+  // listener mounts at app start — BEFORE any detail card's listener —
+  // so it runs first: bail while a selection exists and let the detail
+  // card consume the keypress (one Esc = one dismissal, not two).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      const s = useAppStore.getState()
+      if (s.selectedOverlapId || s.selectedProjectId) return
       if (abortRef.current) abortRef.current.abort()
       else setOpen(false)
     }

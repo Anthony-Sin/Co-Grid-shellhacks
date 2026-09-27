@@ -102,6 +102,7 @@ button {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.14em;
+  white-space: nowrap; /* never wrap mid-word on narrow headers */
 }
 
 .brand-sep {
@@ -331,6 +332,7 @@ button {
 /* ---- legend -------------------------------------------------------------- */
 
 .legend {
+  position: relative; /* anchors the .legend-fold toggle */
   /* shrinkable inside .right-rail — capped at 40vh and scrolls internally,
      so the rail's own max-height can never be exceeded by its children */
   flex: 0 1 auto;
@@ -351,6 +353,48 @@ button {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   margin-bottom: 7px;
+}
+
+/* collapse toggle — sits top-right of the legend card; a slim "≡ legend"
+   pill when collapsed so narrow viewports can dismiss it entirely */
+.legend-fold {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2b2b2b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.legend-fold:hover {
+  text-decoration: underline;
+}
+
+.legend--collapsed {
+  position: relative;
+  flex: none;
+  max-height: none;
+  overflow: visible;
+  padding: 8px 14px;
+}
+
+.legend--collapsed .legend-title,
+.legend--collapsed .legend-list,
+.legend--collapsed .legend-note,
+.legend--collapsed .legend-sources {
+  display: none;
+}
+
+.legend--collapsed .legend-fold {
+  position: static;
+  padding: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .legend-list {

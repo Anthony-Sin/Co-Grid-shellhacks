@@ -23,6 +23,13 @@ export function Legend() {
   const toggleUtilityFilter = useAppStore((s) => s.toggleUtilityFilter)
   const clearUtilityFilter = useAppStore((s) => s.clearUtilityFilter)
   const [meta, setMeta] = useState<MetaResponse | null>(null)
+  // narrow viewports start collapsed — the open legend would cover the
+  // left rail with no escape (QA: 430px had x161–416 painting over x0–334)
+  const [collapsed, setCollapsed] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 560px)').matches,
+  )
 
   // One-shot freshness fetch — artifact build dates for the sources fold.
   // On error we simply render no freshness line.
@@ -62,7 +69,16 @@ export function Legend() {
       <OverlapDetail />
       <ProjectDetail />
 
-      <div className="legend">
+      <div className={collapsed ? 'legend legend--collapsed' : 'legend'}>
+        <button
+          type="button"
+          className="legend-fold"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'show the legend' : 'hide the legend'}
+        >
+          {collapsed ? '≡ legend' : '×'}
+        </button>
         <div className="legend-title">Overlap tiers · click to filter</div>
         <ul className="legend-list">
           {TIERS.map((t) => {
