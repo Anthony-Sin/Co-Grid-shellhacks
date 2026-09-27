@@ -20,7 +20,10 @@ class AgentConfig:
     base_url: str
     model: str
     timeout_s: float = 90.0
-    max_tokens: int = 8192  # reasoning models burn tokens before answering
+    # thinking models burn thousands of tokens in the reasoning field
+    # before content — a tight cap truncates them into empty answers.
+    # Keep it generous; AGENT_MAX_TOKENS overrides when needed.
+    max_tokens: int = 32768
     temperature: float = 0.2
 
 
@@ -32,6 +35,7 @@ def load_config() -> AgentConfig | None:
         api_key=key,
         base_url=os.getenv("AGENT_BASE_URL", "https://api.tensormux.com/v1").rstrip("/"),
         model=os.getenv("AGENT_MODEL", "glm-4-7-flash"),
+        max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "32768")),
     )
 
 
