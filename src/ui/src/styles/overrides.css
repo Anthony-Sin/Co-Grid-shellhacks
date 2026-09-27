@@ -156,6 +156,16 @@
   }
 }
 
+/* ≥860px with the left rail open: the bottom-left map-tools card would
+   paint over the rail's filter/table area (rail occupies x∈[0,390]) —
+   shift it right of the rail. Collapsed rail = only the small reopen
+   pill top-left, so the card can reclaim the corner. */
+@media (min-width: 860px) {
+  .app-shell:not(:has(.panel-reopen)) .viewmodes-wrap {
+    left: 404px;
+  }
+}
+
 /* ---- reduced motion --------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

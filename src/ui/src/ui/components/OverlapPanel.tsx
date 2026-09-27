@@ -452,7 +452,7 @@ export function OverlapPanel() {
             {(yearFilter || filtersModified) && (
               <div className="pnl-active-row">
                 {yearFilter && (
-                  <span className="pnl-chip pnl-chip--static mono">window {yearFilter.start}–{yearFilter.end}
+                  <span className="pnl-chip pnl-chip--static mono">window {yearFilter.start}–{yearFilter.end}{' ·'}
                     <button type="button" className="pnl-chip-x" onClick={() => setYearFilter(null)}
                       aria-label="Clear year window filter" title="Clear year window filter">×</button>
                   </span>

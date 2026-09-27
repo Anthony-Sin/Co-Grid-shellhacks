@@ -57,6 +57,10 @@ function loadGridData(): Promise<GridData> {
 
 export function GridOverlay() {
   const activeScene = useAppStore((s) => s.activeScene)
+  // Existing-grid web (HIFLD) belongs to the basemap contract — the
+  // 'basemap' toggle controls it; 'planned projects' gates only filed
+  // builds. QA flagged the surprise of "projects off" erasing context.
+  const showBasemapGrid = useAppStore((s) => s.layers.basemap)
   const utilityFilter = useAppStore((s) => s.utilityFilter)
   const yearFilter = useAppStore((s) => s.yearFilter)
   const zoneFilter = useAppStore((s) => s.zoneFilter)
@@ -111,9 +115,13 @@ export function GridOverlay() {
   if (!grid || !visible) return null
   return (
     <group>
-      <ExistingLines lines={grid.existingLines} />
-      <ExistingSubstations subs={grid.existingSubs} />
-      <ExistingPlants plants={grid.existingPlants} />
+      {showBasemapGrid && (
+        <>
+          <ExistingLines lines={grid.existingLines} />
+          <ExistingSubstations subs={grid.existingSubs} />
+          <ExistingPlants plants={grid.existingPlants} />
+        </>
+      )}
       <PlannedLines projects={visible.lineProjects} />
       <PlannedStations projects={visible.stationProjects} />
       <PlannedPlants projects={visible.plantProjects} />

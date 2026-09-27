@@ -43,6 +43,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ReactNode } from 'react'
 import { PALETTE } from '../lib/palette'
+import { useAppStore } from '../state/store'
 
 export interface OverlayLabel {
   /** Stable identity for the separate root, declutter + measurement. */
@@ -93,6 +94,20 @@ interface ElRec {
 const DEFAULT_ESTIMATE = { w: 150, h: 24 }
 const _v = new THREE.Vector3()
 const _placed: ScreenBox[] = []
+const _blocked: ScreenBox[] = []
+
+/** Chrome keep-out zones (CSS px, centered-box form) — chips whose box
+ *  overlaps the left rail, the header strip, or the idle agent-bar strip
+ *  are DROPPED from placement entirely (declutter-style, not clipped):
+ *  a label half-hidden behind UI chrome reads as a bug, an absent one
+ *  is honest. Right rail is skipped — it's bottom-anchored and variable. */
+function blockedBoxes(panelOpen: boolean, w: number, h: number): ScreenBox[] {
+  _blocked.length = 0
+  if (panelOpen) _blocked.push({ x: 195, y: h / 2, w: 390, h }) // left rail
+  _blocked.push({ x: w / 2, y: 27, w, h: 54 }) // header strip
+  _blocked.push({ x: w / 2, y: h - 60, w: 640, h: 120 }) // idle agent bar
+  return _blocked
+}
 
 export function LabelOverlay<L extends OverlayLabel>({
   labels,
@@ -104,6 +119,9 @@ export function LabelOverlay<L extends OverlayLabel>({
 }: LabelOverlayProps<L>) {
   const gl = useThree((s) => s.gl)
   const invalidate = useThree((s) => s.invalidate)
+  // keep-out rects track the left rail — the frame closure re-reads the
+  // latest committed value each pass, so a one-frame stale flag is fine
+  const panelOpen = useAppStore((s) => s.panelOpen)
 
   // One container div over the canvas — same parent drei Html targets.
   // useState initializer so StrictMode's double-invocation can't leak a div.
@@ -229,6 +247,7 @@ export function LabelOverlay<L extends OverlayLabel>({
       typeof maxVisible === 'function' ? maxVisible(zoom) : maxVisible,
     )
     _placed.length = 0
+    const blocked = blockedBoxes(panelOpen, state.size.width, state.size.height)
 
     for (const label of labels) {
       const rec = els.current.get(label.key)
@@ -252,7 +271,8 @@ export function LabelOverlay<L extends OverlayLabel>({
         Math.abs(_v.x) <= margin &&
         Math.abs(_v.y) <= margin &&
         _placed.length < cap &&
-        !_placed.some((p) => boxesOverlap(p, box, gap))
+        !_placed.some((p) => boxesOverlap(p, box, gap)) &&
+        !blocked.some((b) => boxesOverlap(b, box, 0))
 
       if (!visible) {
         wrap.style.visibility = 'hidden'

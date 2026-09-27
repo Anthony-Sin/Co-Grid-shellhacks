@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { MapControls } from '@react-three/drei'
+import { useShallow } from 'zustand/react/shallow'
 import { PALETTE } from '../lib/palette'
 import type { SceneId } from '../lib/api'
 import { useAppStore } from '../state/store'
@@ -38,6 +39,40 @@ function FrameTicker({ fps = 12 }: { fps?: number }) {
     }, 1000 / fps)
     return () => window.clearInterval(id)
   }, [invalidate, fps, beating])
+  return null
+}
+
+/**
+ * demand-loop safety net: store-driven changes that don't touch the R3F
+ * element tree (store updates consumed by memos inside scene components,
+ * layer toggles that remove whole subtrees) can leave the last frame on
+ * screen until the next interaction. Subscribe to every scene-affecting
+ * slice and poke invalidate — the commit + poke land in the same tick,
+ * so the canvas repaints with the new state instead of a stale frame.
+ */
+function DemandInvalidator() {
+  const invalidate = useThree((s) => s.invalidate)
+  const filters = useAppStore(
+    useShallow((s) =>
+      [
+        s.visibleTiers,
+        s.utilityFilter,
+        s.yearFilter,
+        s.zoneFilter,
+        s.searchText,
+        s.timelineOnly,
+        s.layers,
+        s.mapStyle,
+        s.selectedOverlapId,
+        s.selectedProjectId,
+        s.hoveredOverlapId,
+        s.hoveredProjectId,
+      ] as const,
+    ),
+  )
+  useEffect(() => {
+    invalidate()
+  }, [filters, invalidate])
   return null
 }
 
@@ -175,6 +210,7 @@ export function CityCanvas() {
         <SceneCamera />
         <StaticShadows />
         <FrameTicker fps={12} />
+        <DemandInvalidator />
 
         <MapControls
           makeDefault
