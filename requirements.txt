@@ -10,3 +10,4 @@ pydantic>=2.8
 python-dotenv>=1.0
 pytest>=8.3
 httpx2>=0.28  # starlette TestClient backend (route tests only)
+openpyxl>=3.1  # export_data tool — real .xlsx workbooks

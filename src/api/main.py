@@ -24,6 +24,14 @@ load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "data" / "processed"
 RAW = ROOT / "data" / "raw"
+EXPORTS = ROOT / "exports"  # agent-generated downloads (gitignored)
+
+# the only artifact types export_data writes — anything else is refused
+_EXPORT_MIME = {
+    ".csv": "text/csv",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".html": "text/html",
+}
 
 app = FastAPI(title="CO-GRID API", version="0.1.0")
 app.add_middleware(
@@ -380,6 +388,23 @@ def stats() -> dict:
         for u, ids in covered.items()
     }
     return out
+
+
+@app.get("/api/exports/{name}")
+def export_file(name: str) -> FileResponse:
+    """Serve one generated export (the agent's export_data links point
+    here). Names are confined to the flat exports/ dir — separators,
+    traversal, and non-export extensions are all refused."""
+    if "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(403, "bad export name")
+    ext = Path(name).suffix.lower()
+    if ext not in _EXPORT_MIME:
+        raise HTTPException(403, "only .csv/.xlsx/.html exports are served")
+    target = (EXPORTS / name).resolve()
+    if not target.is_relative_to(EXPORTS.resolve()) or not target.is_file():
+        raise HTTPException(404, "export not found — it may have been cleaned up")
+    return FileResponse(target, media_type=_EXPORT_MIME[ext],
+                        filename=name)
 
 
 @app.get("/api/raw/{path:path}")

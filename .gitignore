@@ -31,6 +31,9 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 
+# agent-generated export artifacts (csv/xlsx/html downloads)
+exports/
+
 # headless UI captures (regenerable via scripts/screenshot.sh)
 shots/
 

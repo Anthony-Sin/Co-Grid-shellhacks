@@ -22,6 +22,7 @@ from .tool_reports import (
 )
 from .tool_whatif import tool_what_if_drop_utility, tool_what_if_shift
 from .tool_map import tool_map_focus
+from .tool_export import tool_export_data
 from .tool_data import (
     tool_data_health, tool_find_overlaps, tool_gazetteer, tool_get_overlap,
     tool_get_project, tool_list_projects, tool_no_overlap_reason,
@@ -253,6 +254,25 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
          "place": "string (optional) — fly the camera to a metro/place/"
                   "facility name (Atlanta, Columbia, Plant Vogtle…)",
          "clear": "bool (optional) — reset selection + all filters"},
+    ),
+    "export_data": (
+        tool_export_data,
+        "Create a downloadable CSV/Excel/HTML file of the REAL overlap/"
+        "project data — same records and filters as find_overlaps/"
+        "list_projects, never fabricated rows. Use when the user asks for "
+        "a spreadsheet, export, doc, or report ('give me a csv', 'excel "
+        "sheet of tier-1 overlaps', 'project list for DESC'). Then link "
+        "it for the user like [Download CSV](url) using the returned url.",
+        {"format": "string csv|xlsx|html (optional, default csv)",
+         "kind": "string overlaps|projects (optional, default overlaps)",
+         "utility": "string (optional, either side for overlaps)",
+         "utilities": "string 'A,B' or list (optional, exact pair — overlaps only)",
+         "tier": "int 1-4 (optional — overlaps only)",
+         "zone": "string (optional) — zone substring / project zone tag",
+         "source": "string substring of the provenance source (optional — projects only)",
+         "timeline_only": "bool (optional — overlaps only)",
+         "adjacent_only": "bool (optional — overlaps only, exclusive w/ timeline_only)",
+         "limit": "int <=2000 (optional, default 200)"},
     ),
 }
 

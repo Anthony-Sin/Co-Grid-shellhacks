@@ -12,6 +12,9 @@ import type { AgentTrace } from '../../lib/api'
  * `onSelect` turns overlap references into live chips: a markdown link
  * or deep-link token carrying select=OV-NNNN (optionally scene=X) jumps
  * scene + selects; a bare OV-NNNN id selects in the current scene.
+ * Other [label](url) markdown links render as real <a> elements —
+ * http(s) links open in a new tab, same-origin paths (/api/exports/…)
+ * stay in place; unsafe schemes (javascript:…) degrade to plain text.
  */
 
 export type OverlapSelectFn = (overlapId: string, scene?: string) => void
@@ -49,6 +52,7 @@ const TOOL_LABELS: Record<string, string> = {
   handoff_chains: 'handoff chains', voltage_match: 'voltage match',
   utility_profile: 'utility profile',
   what_if_drop_utility: 'what-if drop utility', define: 'define',
+  export_data: 'export data',
 }
 const toolLabel = (t: string) => TOOL_LABELS[t] ?? t
 
@@ -128,11 +132,32 @@ const TOKEN_RE = new RegExp(
   `\\[([^\\]]*)\\]\\(([^)\\]\\n]*?select=(OV${DASH}\\d+)[^)\\]\\n]*)\\)` +
   `|\\*\\*(OV${DASH}\\d{3,})\\*\\*` +
   `|\\/?\\?scene=(savannah|augusta|state)&select=(OV${DASH}\\d+)[^ )\\].,;:'"]*` +
-  `|\\b(OV${DASH}\\d{3,})\\b`,
+  `|\\b(OV${DASH}\\d{3,})\\b` +
+  `|\\[([^\\]]+)\\]\\(([^)\\]\\n]+)\\)`, // generic [label](url) — LAST: OV links win
   'g',
 )
 const normalizeOid = (s: string | undefined) =>
   s?.replace(/[\u2010-\u2015]/g, '-')
+
+/** Same-origin relative path or http(s) only — anything else
+ * (javascript:, data:, vbscript:, protocol-relative //) is refused so a
+ * model-emitted link can't smuggle script into the reply. */
+const safeHref = (url: string | undefined): string | null => {
+  const u = (url ?? '').trim().split(/\s+/)[0] // drop optional "title"
+  if (/^https?:\/\//i.test(u)) return u
+  if (u.startsWith('/') && !u.startsWith('//')) return u
+  if (u.startsWith('./') || u.startsWith('../')) return u
+  return null
+}
+
+/** Dashed-underline link styling — consistent with the app's other
+ * inline links (src-link provenance underlines, legend hovers). */
+const LINK_STYLE = {
+  color: '#7db8ff',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dashed',
+  textUnderlineOffset: '2px',
+} as const
 
 const SCENE_RE = /scene=(savannah|augusta|state)/
 
@@ -189,21 +214,46 @@ function inline(text: string, keyBase: string,
       bold = textRun(text.slice(last, m.index), out, `${keyBase}-${n}`, bold)
     }
     const oid = normalizeOid(m[3] ?? m[4] ?? m[6] ?? m[7])
-    if (!oid) continue
-    const scene = m[5] ?? m[2]?.match(SCENE_RE)?.[1]
-    out.push(
-      <button
-        key={`${keyBase}-ov${n}`}
-        type="button"
-        className="md-ovlink mono"
-        title={scene ? `jump to ${scene} scene + select ${oid}` : `select ${oid}`}
-        onClick={() => onSelect?.(oid, scene || undefined)}
-      >
-        {oid}
-      </button>,
-    )
-    last = m.index + m[0].length
-    n++
+    if (oid) {
+      const scene = m[5] ?? m[2]?.match(SCENE_RE)?.[1]
+      out.push(
+        <button
+          key={`${keyBase}-ov${n}`}
+          type="button"
+          className="md-ovlink mono"
+          title={scene ? `jump to ${scene} scene + select ${oid}` : `select ${oid}`}
+          onClick={() => onSelect?.(oid, scene || undefined)}
+        >
+          {oid}
+        </button>,
+      )
+      last = m.index + m[0].length
+      n++
+      continue
+    }
+    // generic markdown link — the last TOKEN_RE alternative (m[8]/m[9]).
+    // An unsafe scheme renders the label as plain text, never a link.
+    if (m[8] != null && m[9] != null) {
+      const href = safeHref(m[9])
+      if (href) {
+        const external = /^https?:/i.test(href)
+        out.push(
+          <a
+            key={`${keyBase}-a${n}`}
+            href={href}
+            style={LINK_STYLE}
+            title={href}
+            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          >
+            {m[8]}
+          </a>,
+        )
+      } else {
+        out.push(<span key={`${keyBase}-a${n}`}>{m[8]}</span>)
+      }
+      last = m.index + m[0].length
+      n++
+    }
   }
   if (last < text.length) {
     textRun(text.slice(last), out, `${keyBase}-${n}`, bold)

@@ -456,6 +456,97 @@ class TestToolsAgainstRealData:
             assert res["ok"] is False and "error" in res, bad
             assert "ui_action" not in res
 
+    def test_export_data_writes_real_csv_and_route_serves_it(self):
+        import csv
+        import io
+        from fastapi.testclient import TestClient
+        from src.api.main import app
+
+        r = run_tool("export_data", {"format": "csv"})
+        res = r["result"]
+        assert res["ok"] is True
+        assert res["rows"] > 0 and res["rows"] <= 200
+        assert res["url"] == f"/api/exports/{res['filename']}"
+        assert res["filename"].startswith("co-grid-overlaps-")
+        assert res["filename"].endswith(".csv")
+        assert res["note"] == "share the markdown link with the user"
+        # a real file on disk under exports/ — same rows the tool counted
+        path = Path(__file__).resolve().parents[1] / "exports" / res["filename"]
+        assert path.exists()
+        lines = list(csv.reader(io.StringIO(path.read_text())))
+        assert "overlap_id" in lines[0] and len(lines) == res["rows"] + 1
+        assert all(row[1].startswith("OV-") for row in lines[1:])
+        # the route serves it back with the right MIME + attachment
+        resp = TestClient(app).get(res["url"])
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        assert "attachment" in resp.headers["content-disposition"]
+
+    def test_export_data_filters_and_honest_empty(self):
+        import csv
+        import io
+        root = Path(__file__).resolve().parents[1]
+        # utility+tier narrows the set vs the unfiltered total
+        total = run_tool("export_data", {"format": "csv"})[
+            "result"]["total_matching"]
+        r = run_tool("export_data",
+                     {"format": "csv", "utility": "DESC", "tier": 1})
+        res = r["result"]
+        assert res["ok"] and 0 < res["rows"] < total
+        path = root / "exports" / res["filename"]
+        rows = list(csv.reader(io.StringIO(path.read_text())))
+        hdr = rows[0]
+        for row in rows[1:]:
+            assert "DESC" in row[hdr.index("utilities")].split("|")
+            assert int(row[hdr.index("tier")]) == 1
+        # honest error on an empty result — no file written
+        r = run_tool("export_data", {"zone": "__nowhere__"})
+        assert r["result"]["ok"] is False and "error" in r["result"]
+        assert "url" not in r["result"]
+        # bad format / kind are honest errors too
+        assert run_tool("export_data", {"format": "docx"})[
+            "result"]["ok"] is False
+        assert run_tool("export_data", {"kind": "bogus"})[
+            "result"]["ok"] is False
+        # exclusive flags surface the shared filter error
+        assert "error" in run_tool(
+            "export_data", {"timeline_only": True,
+                            "adjacent_only": True})["result"]
+
+    def test_export_data_xlsx_and_html(self):
+        import openpyxl
+        root = Path(__file__).resolve().parents[1]
+        r = run_tool("export_data",
+                     {"format": "xlsx", "kind": "projects", "limit": 25})
+        res = r["result"]
+        assert res["ok"] and res["filename"].endswith(".xlsx")
+        wb = openpyxl.load_workbook(root / "exports" / res["filename"])
+        ws = wb.active
+        assert ws.max_row == res["rows"] + 1
+        assert ws.cell(1, 1).value == "project_id"
+        assert ws.cell(2, 1).value  # a real project id, never fabricated
+        # html: self-contained printable report with a real table
+        r = run_tool("export_data", {"format": "html", "utility": "GPC"})
+        res = r["result"]
+        assert res["ok"] and res["filename"].endswith(".html")
+        body = (root / "exports" / res["filename"]).read_text()
+        assert "<table>" in body and "generated" in body.lower()
+        assert "OV-" in body and "GPC" in body
+
+    def test_exports_route_confined_and_typed(self):
+        from fastapi.testclient import TestClient
+        from src.api.main import app
+        client = TestClient(app)
+        # traversal / separators / wrong extensions are refused
+        for bad in ("../data/processed/overlaps.json",
+                    "..%2F..%2Fetc%2Fpasswd",
+                    "evil.exe", "co-grid-overlaps-20260101-000000.json"):
+            r = client.get(f"/api/exports/{bad}")
+            assert r.status_code in (403, 404, 422), bad
+        # a name that doesn't exist -> honest 404
+        r = client.get("/api/exports/co-grid-overlaps-19990101-000000.csv")
+        assert r.status_code == 404
+
     def test_client_nonjson_200_raises_chaterror(self):
         # regression: a non-JSON 200 body crashed with JSONDecodeError
         # instead of a controlled ChatError (route -> 502, not 500).
