@@ -29,10 +29,10 @@ const SCENES: { id: SceneId; label: string }[] = [
 ]
 
 /** Basemap style pills — flat is the default clean web map; sketch is
- * the hand-drawn 3D paper city. Reuses the .vm-scenes pill styling. */
+ * the hand-drawn paper city. Reuses the .vm-scenes pill styling. */
 const MAP_STYLES: { id: MapStyle; label: string; hint: string }[] = [
   { id: 'flat', label: 'map', hint: 'flat basemap — filled states, blue water, no 3D' },
-  { id: 'sketch', label: 'sketch', hint: 'hand-drawn 3D basemap — extruded buildings + ink' },
+  { id: 'sketch', label: 'sketch', hint: 'hand-drawn basemap — flat ink footprints + hatching' },
 ]
 
 /** Debounce window for year-range writes while a thumb is dragging. */
