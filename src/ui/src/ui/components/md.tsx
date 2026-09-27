@@ -119,8 +119,20 @@ export const MsgView = memo(function MsgView({
  *   OV-xxxx                     bare id        → OV chip
  * Trailing . , ; : ' " are excluded so sentence punctuation isn't eaten.
  */
-const TOKEN_RE =
-  /\[([^\]]*)\]\(([^)\]\n]*?select=(OV-\d+)[^)\]\n]*)\)|\*\*(OV-\d{3,})\*\*|\/?\?scene=(savannah|augusta|state)&select=(OV-\d+)[^ )\].,;:'"]*|\b(OV-\d{3,})\b/g
+/* The model (glm) emits ids with U+2011 non-breaking hyphens — `OV‑0001`
+ * looks identical to `OV-0001` but never matched TOKEN_RE, so chips were
+ * dead text. Accept the unicode dash range then normalize back to ASCII
+ * before the id hits the store. */
+const DASH = '[\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015-]'
+const TOKEN_RE = new RegExp(
+  `\\[([^\\]]*)\\]\\(([^)\\]\\n]*?select=(OV${DASH}\\d+)[^)\\]\\n]*)\\)` +
+  `|\\*\\*(OV${DASH}\\d{3,})\\*\\*` +
+  `|\\/?\\?scene=(savannah|augusta|state)&select=(OV${DASH}\\d+)[^ )\\].,;:'"]*` +
+  `|\\b(OV${DASH}\\d{3,})\\b`,
+  'g',
+)
+const normalizeOid = (s: string | undefined) =>
+  s?.replace(/[\u2010-\u2015]/g, '-')
 
 const SCENE_RE = /scene=(savannah|augusta|state)/
 
@@ -176,7 +188,8 @@ function inline(text: string, keyBase: string,
     if (m.index > last) {
       bold = textRun(text.slice(last, m.index), out, `${keyBase}-${n}`, bold)
     }
-    const oid = m[3] ?? m[4] ?? m[6] ?? m[7]
+    const oid = normalizeOid(m[3] ?? m[4] ?? m[6] ?? m[7])
+    if (!oid) continue
     const scene = m[5] ?? m[2]?.match(SCENE_RE)?.[1]
     out.push(
       <button

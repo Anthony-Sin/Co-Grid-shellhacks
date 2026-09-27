@@ -27,6 +27,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { api } from '../../lib/api'
 import type { CityBuilding, CityPolygon, CityPoi, CityScene, SceneId } from '../../lib/api'
 import { SCENE_CENTERS, type Vec2 } from '../../lib/projection'
+import { useAppStore } from '../../state/store'
 import { deduped } from '../../ui/hooks/useApiData'
 
 const METERS_PER_DEG_LAT = 110540
@@ -261,10 +262,12 @@ export function useCorridorZoomGate(): boolean {
     const w = window as unknown as {
       __cogridCamera?: unknown
       __cogridControls?: unknown
+      __cogridStore?: unknown
       __cogridInvalidate?: () => void
     }
     w.__cogridCamera = camera
     w.__cogridControls = controls
+    w.__cogridStore = useAppStore
     w.__cogridInvalidate = invalidate
   }, [camera, controls, invalidate])
   useFrame(() => {

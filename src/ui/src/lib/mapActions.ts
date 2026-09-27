@@ -23,6 +23,8 @@ export interface MapUiAction {
   select_project?: string | null
   utility_filter?: string[] | null
   tiers?: number[] | null
+  /** Camera fly-to resolved server-side from a place/facility name. */
+  focus_view?: { lon: number; lat: number } | null
   clear?: boolean
 }
 
@@ -35,6 +37,8 @@ function actionFromArgs(args: Record<string, unknown> | undefined): MapUiAction 
   if (typeof args.utility === 'string' && args.utility) a.utility_filter = [args.utility]
   if (Array.isArray(args.tiers))
     a.tiers = args.tiers.filter((t): t is number => typeof t === 'number')
+  // args.place is only a NAME — without the server-resolved lon/lat there
+  // is nothing to fly to; the preview path carries focus_view instead.
   if (args.clear === true) a.clear = true
   return Object.keys(a).length ? a : null
 }
@@ -112,5 +116,10 @@ export function applyMapAction(a: MapUiAction): void {
   } else if (a.select_project) {
     s.selectProject(a.select_project)
     flyToProject(a.select_project)
+  } else if (a.focus_view && typeof a.focus_view.lon === 'number' && typeof a.focus_view.lat === 'number') {
+    // Server-resolved place target — fly the camera without selecting
+    // anything (selections stay honest; the flight is the whole action).
+    const [x, y] = lonLatToLocal(a.focus_view.lon, a.focus_view.lat, SCENE_CENTERS[s.activeScene])
+    s.setFocusTarget([x, -y])
   }
 }

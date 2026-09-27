@@ -423,7 +423,9 @@
   text-align: left;
   white-space: normal;
   max-width: 220px;
-  overflow-wrap: anywhere;
+  /* `anywhere` broke "Atlant/a" mid-word — break-word only wraps at real
+     break points; the wrap's overflow-x catches what still overflows */
+  overflow-wrap: break-word;
 }
 .md-table th {
   background: rgba(43, 43, 43, 0.08);

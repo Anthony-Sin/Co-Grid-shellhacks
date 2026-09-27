@@ -440,6 +440,15 @@ class TestToolsAgainstRealData:
         res = run_tool("map_focus", {"clear": True})["result"]
         assert res["ok"] and res["ui_action"]["clear"] is True
 
+        # place names fly the camera: metros resolve to their artifact
+        # centers, facilities via the gazetteer, unknowns error honestly
+        res = run_tool("map_focus", {"place": "Atlanta"})["result"]
+        assert res["ok"] and "focus_view" in res["ui_action"]
+        fv = res["ui_action"]["focus_view"]
+        assert isinstance(fv["lon"], float) and isinstance(fv["lat"], float)
+        res = run_tool("map_focus", {"place": "Atlantis"})["result"]
+        assert res["ok"] is False
+
         # honest errors — unknown ids, out-of-range tiers, empty call
         for bad in ({"overlap_id": "OV-NOPE"}, {"project_id": "NOPE"},
                     {"utility": "FAKECO"}, {"tiers": [0, 9]}, {}):

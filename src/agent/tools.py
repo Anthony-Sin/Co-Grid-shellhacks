@@ -238,16 +238,20 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     "map_focus": (
         tool_map_focus,
         "Drive the user's interactive map: select + fly to an overlap or "
-        "project, restrict the visible tiers, filter to one utility, or "
-        "clear everything (reset selection + filters). Ids are validated "
-        "against the loaded data — unknown ids return honest errors, so "
-        "resolve real ids first (get_overlap/top_overlaps/list_projects). "
-        "Use when the user says 'show me …' or right after citing a "
-        "record worth looking at; then describe what the map is showing.",
+        "project, fly the camera to a named place/metro/facility, restrict "
+        "the visible tiers, filter to one utility, or clear everything "
+        "(reset selection + filters). Ids and places are validated against "
+        "the loaded data — unknown names return honest errors, so resolve "
+        "real ids first (get_overlap/top_overlaps/list_projects/gazetteer). "
+        "Use when the user says 'show me …', 'zoom to …', or right after "
+        "citing a record worth looking at; then describe what the map is "
+        "showing — only claim a move the ui_action actually carried out.",
         {"overlap_id": "string (optional) — select + zoom to a record",
          "project_id": "string (optional) — select + zoom to a project",
          "utility": "string (optional) — filter map to one utility",
          "tiers": "list<int> 1-4 (optional) — visible tiers",
+         "place": "string (optional) — fly the camera to a metro/place/"
+                  "facility name (Atlanta, Columbia, Plant Vogtle…)",
          "clear": "bool (optional) — reset selection + all filters"},
     ),
 }

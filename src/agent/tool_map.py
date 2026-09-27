@@ -12,15 +12,60 @@ The `ui_action` dict is consumed verbatim by the dashboard:
     select_project  -> select the project + fly to its centroid
     utility_filter  -> set the utility filter to exactly this list
     tiers           -> set visible tiers to exactly this subset of 1-4
+    focus_view      -> fly the camera to {lon, lat} (place/metro/facility)
     clear           -> reset selection + all map filters to defaults
 """
 from __future__ import annotations
 
 from typing import Any
 
-from .tool_data import overlaps, projects
+from .tool_data import load_processed, overlaps, projects
 
 _TIERS = (1, 2, 3, 4)
+
+# Place names ("zoom to Atlanta") resolve to real artifact centers — the
+# metro extracts' own `center` fields, not hand-typed coordinates. A name
+# that matches no metro falls through to the facility gazetteer; nothing
+# matched = an honest error, never a fabricated target.
+_METRO_ARTIFACTS = {
+    "savannah": "city_savannah",
+    "augusta": "city_augusta",
+    "atlanta": "city_atlanta",
+    "columbia": "city_columbia",
+    "charleston": "city_charleston",
+    "greenville": "city_greenville_sc",
+    "columbus": "city_columbus_ga",
+    "athens": "city_athens",
+    "macon": "city_macon",
+}
+
+
+def _resolve_place(place: str) -> tuple[float, float, str] | None:
+    """Place name -> (lon, lat, resolved-name) via metro centers then the
+    facility gazetteer. None when nothing real matches."""
+    q = "".join(c for c in place.lower() if c.isalnum())
+    q = q.removesuffix("georgia").removesuffix("sc").removesuffix("ga") or q
+    hit = next((art for name, art in _METRO_ARTIFACTS.items()
+                if name == q or (len(q) >= 5 and (q in name or name in q))), None)
+    if hit:
+        try:
+            center = load_processed(f"{hit}.json").get("center")
+            if center:
+                return center[0], center[1], hit.removeprefix("city_").replace("_", " ")
+        except FileNotFoundError:
+            pass
+    # facility fallback — same fuzzy index the gazetteer tool exposes
+    try:
+        from .tool_data import tool_gazetteer
+        m = (tool_gazetteer(place).get("matches") or [])
+        best = next((e for e in m
+                     if isinstance(e.get("lon"), (int, float))
+                     and isinstance(e.get("lat"), (int, float))), None)
+        if best:
+            return float(best["lon"]), float(best["lat"]), str(best["name"])
+    except Exception:
+        pass
+    return None
 
 
 def _find_overlap(oid: str) -> dict | None:
@@ -60,6 +105,7 @@ def tool_map_focus(overlap_id: str | None = None,
                    project_id: str | None = None,
                    utility: str | None = None,
                    tiers: Any = None,
+                   place: str | None = None,
                    clear: Any = False) -> dict:
     """Validate a map-driving request; return the ui_action to apply."""
     action: dict[str, Any] = {}
@@ -108,6 +154,17 @@ def tool_map_focus(overlap_id: str | None = None,
         action["tiers"] = valid
         notes.append(f"show tiers {valid}")
 
+    if place:
+        resolved = _resolve_place(str(place))
+        if resolved is None:
+            return {"ok": False,
+                    "error": f"couldn't place '{place}' — try a metro name "
+                             f"({', '.join(sorted(_METRO_ARTIFACTS))}), an "
+                             "overlap/project id, or a facility name"}
+        lon, lat, name = resolved
+        action["focus_view"] = {"lon": lon, "lat": lat}
+        notes.append(f"fly to {name} ({lon:.3f}, {lat:.3f})")
+
     if _truthy(clear):
         action["clear"] = True
         notes.append("reset selection + filters")
@@ -115,6 +172,6 @@ def tool_map_focus(overlap_id: str | None = None,
     if not action:
         return {"ok": False,
                 "error": "map_focus needs at least one of: overlap_id, "
-                         "project_id, utility, tiers, clear"}
+                         "project_id, utility, tiers, place, clear"}
 
     return {"ok": True, "ui_action": action, "applied": "; ".join(notes)}
