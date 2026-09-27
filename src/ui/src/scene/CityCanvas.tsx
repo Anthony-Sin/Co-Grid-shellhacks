@@ -5,16 +5,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { PALETTE } from '../lib/palette'
 import type { SceneId } from '../lib/api'
 import { useAppStore } from '../state/store'
-import { DevPreviewScene } from './DevPreviewScene'
 import { CityScene } from './city/CityScene'
 import { GridOverlay } from './grid/GridOverlay'
 import { OverlapZones } from './overlap/OverlapZones'
 import { FocusRig } from './FocusRig'
-
-/** When the real city pipeline data is available we render it and park the
- * dev placeholder. Each flag flips independently so layers can land one
- * agent at a time. */
-const USE_REAL_CITY = true
 
 /**
  * Renders frames ONLY when something actually changes (frameloop="demand").
@@ -198,12 +192,9 @@ export function CityCanvas() {
         {/* Real pipeline layers — each gated by its ViewModes layer flag;
             `labels` cascades into chips (city labels, zone labels, connector
             pills) without hiding their underlying geometry */}
-        {layers.basemap &&
-          (USE_REAL_CITY ? (
-            <CityScene key={`city-${activeScene}`} showLabels={layers.labels} />
-          ) : (
-            <DevPreviewScene key={activeScene} seed={`dev-${activeScene}`} showLabels={layers.labels} />
-          ))}
+        {layers.basemap && (
+          <CityScene key={`city-${activeScene}`} showLabels={layers.labels} />
+        )}
         {layers.projects && <GridOverlay key={`grid-${activeScene}`} />}
         {(layers.zones || hasSelection) && <OverlapZones key={`zones-${activeScene}`} />}
         <FocusRig />

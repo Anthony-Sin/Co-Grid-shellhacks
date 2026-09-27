@@ -238,10 +238,12 @@ export function OverlapZones() {
         if (extra) top.push(extra)
       }
     }
-    if (eligible.length <= MAX_RENDERED) {
-      console.debug(`[OverlapZones] rendering ${eligible.length} of ${datums.length} scene-relevant overlaps`)
-    } else {
-      console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
+    if (import.meta.env.DEV) {
+      if (eligible.length <= MAX_RENDERED) {
+        console.debug(`[OverlapZones] rendering ${eligible.length} of ${datums.length} scene-relevant overlaps`)
+      } else {
+        console.debug(`[OverlapZones] rendering ${top.length} of ${eligible.length} filtered overlaps (${datums.length} scene-relevant) — capped at ${MAX_RENDERED}`)
+      }
     }
     return top
   }, [datums, zonesOn, visibleTiers, utilityFilter, yearFilter, zoneFilter, searchText, selectedOverlapId, hoveredOverlapId, data])
@@ -288,17 +290,6 @@ export function OverlapZones() {
   }, [rendered.length])
 
   if (failed || !data) return null
-
-  // TEMP DEBUG
-  ;(window as unknown as { __ov?: unknown }).__ov = {
-    rendered: rendered.length,
-    featured: featured.size,
-    featuredIds: [...featured].slice(0, 5),
-    corridorZoom,
-    showProjects,
-    showLabels,
-    selectedOverlapId,
-  }
 
   return (
     <group>

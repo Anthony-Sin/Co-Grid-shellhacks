@@ -240,7 +240,7 @@ export function useCorridorDetail(enabled: boolean): CorridorDetail | null {
       for (const pk of slice.parks) out.parks.push(pk)
       for (const poi of slice.pois) out.pois.push(poi)
     }
-    if (!compositeLogged) {
+    if (import.meta.env.DEV && !compositeLogged) {
       compositeLogged = true
       console.debug(
         `[corridorComposite] ${payloads.map((p) => p.scene).join(' + ')} → state: ` +

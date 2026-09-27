@@ -14,10 +14,11 @@ import type { GeoFeature, ProjectProps } from '../../lib/api'
 import '../../styles/detail.css'
 
 /**
- * Detail card for the clicked project marker — docked above the Legend in
- * the bottom-right rail (rendered by Legend, exclusive with OverlapDetail
- * via store-level selection exclusivity). Every field comes straight from
- * /api/projects; missing values render as "not filed", never fabricated.
+ * Detail card for the clicked project marker — docked in the agent rail's
+ * .agent-detail slot (rendered by AgentRailSelection, exclusive with
+ * OverlapDetail via store-level selection exclusivity). Every field comes
+ * straight from /api/projects; missing values render as "not filed",
+ * never fabricated.
  */
 export function ProjectDetail() {
   const selectedProjectId = useAppStore((s) => s.selectedProjectId)

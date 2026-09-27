@@ -219,9 +219,11 @@ export function buildOverlayGeometry(
   hits: number[],
 ): { geometry: THREE.BufferGeometry; count: number } | null {
   if (hits.length > MAX_OVERLAY_BUILDINGS) {
-    console.debug(
-      `[zoneHighlight] ${hits.length} buildings inside zone > cap ${MAX_OVERLAY_BUILDINGS} — skipping tint (city-wide envelope)`,
-    )
+    if (import.meta.env.DEV) {
+      console.debug(
+        `[zoneHighlight] ${hits.length} buildings inside zone > cap ${MAX_OVERLAY_BUILDINGS} — skipping tint (city-wide envelope)`,
+      )
+    }
     return null
   }
   const shapes: THREE.Shape[] = []

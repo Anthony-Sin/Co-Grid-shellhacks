@@ -90,7 +90,9 @@ AGENT_MODEL=glm-4-7-flash
 
 Tool layer (`src/agent/tools.py`): `stats`, `list_projects`, `get_project`,
 `top_overlaps`, `get_overlap`, `projects_near`, `timeline_summary`,
-`impact_estimate`, `gazetteer` — all read `data/processed/` only, unknown
+`impact_estimate`, `gazetteer`, `map_focus`, `export_data`, … — all read
+`data/processed/` only (`export_data` writes snapshots to `exports/`),
+unknown
 tools/bad args return `{error}` instead of crashing the loop. The engine
 (`src/agent/engine.py`) runs a bounded tool-call loop (native OpenAI
 `tools` + a JSON-fallback for models that can't emit `tool_calls`) and
@@ -158,7 +160,7 @@ src/
   analysis/          # timeline bands + impact/cost estimates + staging
                      # clusters/playbook/conflicts/filters (pure fns
                      # shared by routes AND agent tools + routes)
-  agent/             # 30-tool analyst (client/engine/routes/tools/tool_*)
+  agent/             # 32-tool analyst (client/engine/routes/tools/tool_*)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
 tests/               # engine + api-routes + agent + build-projects tests
                      # (synthetic fixtures, logic only)
@@ -182,8 +184,9 @@ ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
 reserved for the data layer**: planned project geometry uses utility
 colors, coordination zones use tier colors with diagonal hatching.
 Large zones get airier hatching + fainter fills so markup never floods;
-the map renders the top ~40 scored zones (all 1,957 stay listed —
-the ranked panel caps the DOM at the top 200 rows).
+the map renders up to the top 200 scored zones (`MAX_RENDERED` — all
+1,957 stay listed; the ranked panel caps the DOM at the top 150 rows,
+`MAX_LIST_ROWS`).
 
 ### Performance notes
 

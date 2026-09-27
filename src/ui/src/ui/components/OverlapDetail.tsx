@@ -251,9 +251,9 @@ function DetailBody({
 }
 
 /**
- * Detail card for the selected overlap — docked above the Legend in the
- * bottom-right rail (rendered by Legend). All fields come straight from
- * /api/overlaps + /api/projects; nothing is fabricated.
+ * Detail card for the selected overlap — docked in the agent rail's
+ * .agent-detail slot (rendered by AgentRailSelection). All fields come
+ * straight from /api/overlaps + /api/projects; nothing is fabricated.
  */
 export function OverlapDetail() {
   const selectedOverlapId = useAppStore((s) => s.selectedOverlapId)

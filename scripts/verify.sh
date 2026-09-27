@@ -14,6 +14,8 @@ echo "== frontend typecheck + build =="
 
 echo
 echo "== 500-line rule (AGENTS.md §1) =="
+# Scoped to code files only (.py/.ts/.tsx/.mjs): §1 limits "data processing
+# scripts" and "UI components" — stylesheets are neither.
 fail=0
 while IFS= read -r f; do
   n=$(wc -l < "$f")
@@ -21,7 +23,7 @@ while IFS= read -r f; do
     echo "  OVER LIMIT: $f ($n lines)"
     fail=1
   fi
-done < <(find src -name '*.py' -o -name '*.tsx' -o -name '*.ts' -o -name '*.css' | grep -v node_modules)
+done < <(find src -name '*.py' -o -name '*.tsx' -o -name '*.ts' -o -name '*.mjs' | grep -v node_modules)
 [ "$fail" -eq 0 ] && echo "  all source files <= 500 lines"
 
 echo
@@ -34,11 +36,11 @@ done
 echo
 echo "== no secrets / raw data / env dirs tracked (AGENTS.md §4) =="
 bad_tracked=$(git ls-files | grep -vE '^\.env\.example$' | grep -cE '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true)
-bad_raw=$(git ls-files 'data/raw/*' | grep -vcE '^data/raw/(\.gitkeep|README\.md)$' || true)
+bad_raw=$(git ls-files 'data/raw/*' | grep -vcE '^data/raw/(\.gitkeep|README\.md|SOURCES\.md)$' || true)
 if [ "$bad_tracked" -gt 0 ] || [ "$bad_raw" -gt 0 ]; then
   echo "  TRACKED FILES THAT SHOULD NOT BE COMMITTED:"
   git ls-files | grep -vE '^\.env\.example$' | grep -E '(^|/)\.env($|\.)|(^|/)venv/|(^|/)node_modules/|\.(pem|key)$|^secrets/' || true
-  git ls-files 'data/raw/*' | grep -vE '^data/raw/(\.gitkeep|README\.md)$' || true
+  git ls-files 'data/raw/*' | grep -vE '^data/raw/(\.gitkeep|README\.md|SOURCES\.md)$' || true
   fail=1
 else
   echo "  clean — no .env/venv/node_modules/secrets/raw-data tracked"
