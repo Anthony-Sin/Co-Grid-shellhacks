@@ -4,7 +4,17 @@
  * All data returned is REAL — HIFLD / OSM / public PSC filings. Never mock.
  */
 
-export type SceneId = 'savannah' | 'augusta' | 'state'
+export type SceneId =
+  | 'savannah'
+  | 'augusta'
+  | 'state'
+  | 'atlanta'
+  | 'columbia'
+  | 'charleston'
+  | 'greenville_sc'
+  | 'columbus_ga'
+  | 'athens'
+  | 'macon'
 export type Tier = 1 | 2 | 3 | 4
 
 // ---------- /api/city/{scene} ----------
@@ -92,6 +102,12 @@ export interface FeatureCollection<P> {
   features: GeoFeature<P>[]
 }
 
+// ---------- /api/state-bounds ----------
+export interface StateBoundsProps {
+  /** Census STUSPS resolved: "Georgia" | "South Carolina" */
+  state: string
+}
+
 // ---------- /api/overlaps ----------
 export interface OverlapRecord {
   overlap_id: string
@@ -142,7 +158,14 @@ export interface StatsResponse {
   /** estimated staging yards needed (disk-cover, each ≤40 km radius) */
   staging_yards?: number | null
   staging_corridors?: number | null
-  peak_season?: { season: string; site_count: number } | null
+  /** peak build year (backend returns `year`, not `season`) */
+  peak_season?: {
+    year: number
+    site_count: number
+    value_score?: number
+    overlap_ids?: string[]
+    tiers?: number[]
+  } | null
   coverage?: Record<string, number>
 }
 
@@ -201,6 +224,24 @@ export interface NearbyResponse {
   neighbors: { overlap_id: string; distance_km: number; tier: number }[]
 }
 
+// ---------- /api/meta & /api/analysis/impacts ----------
+export interface MetaResponse {
+  /** artifact name -> {bytes, built_utc} */
+  processed: Record<string, { bytes: number; built_utc: string }>
+}
+
+export interface ImpactRow {
+  overlap_id: string
+  tier: number
+  timeline_overlap: boolean
+  est_savings_usd_range: { low: number | null; high: number | null } | null
+}
+
+export interface ImpactsResponse {
+  count: number
+  impacts: ImpactRow[]
+}
+
 // ---------- fetch helpers ----------
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path)
@@ -222,11 +263,13 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export const api = {
-  health: () => get<{ ok: boolean; processed: string[] }>('/api/health'),
   city: (scene: SceneId) => get<CityScene>(`/api/city/${scene}`),
   projects: () => get<FeatureCollection<ProjectProps>>('/api/projects'),
   basemap: () => get<FeatureCollection<BasemapProps>>('/api/basemap'),
   overlaps: () => get<OverlapsResponse>('/api/overlaps'),
+  /** GA + SC state boundary polygons (WGS84 GeoJSON) — Census 2024 500k
+   *  cartographic boundary set, public domain. Land fill + border strokes. */
+  stateBounds: () => get<FeatureCollection<StateBoundsProps>>('/api/state-bounds'),
   stats: () => get<StatsResponse>('/api/stats'),
   regions: () => get<RegionsResponse>('/api/regions'),
 
@@ -239,6 +282,9 @@ export const api = {
   agentBrief: (overlapId: string) => get<AgentBrief>(`/api/agent/brief/${overlapId}`),
 
   impact: (overlapId: string) => get<ImpactEstimate>(`/api/analysis/impact/${overlapId}`),
+  impacts: (top?: number) =>
+    get<ImpactsResponse>(`/api/analysis/impacts${top ? `?top=${top}` : ''}`),
+  meta: () => get<MetaResponse>('/api/meta'),
   nearby: (overlapId: string, radiusKm = 15) =>
     get<NearbyResponse>(`/api/analysis/nearby/${overlapId}?radius_km=${radiusKm}`),
   analysisBrief: (overlapId: string) =>

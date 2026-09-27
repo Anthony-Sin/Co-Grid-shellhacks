@@ -1,0 +1,64 @@
+{
+  "title": "CO-GRID demo — ShellHacks 2026",
+  "note": "dur_s values are per-segment capture budgets; narration is generated per segment and muxed at mark offsets (/tmp/demo_marks.json). The earlier shipped cut was 74s — this version targets ~2.5min with every interaction visible on camera.",
+  "segments": [
+    {
+      "id": "hook",
+      "dur_s": 14,
+      "narration": "Every year, utilities in Georgia and South Carolina file billions in future grid construction — and they plan it blind to what their neighbors are building next door.",
+      "action": "slow_pan",
+      "note": "statewide map, visible drag pans while VO runs"
+    },
+    {
+      "id": "numbers",
+      "dur_s": 22,
+      "narration": "Co Grid loads three hundred thirty-four real filed projects from nine utilities — every record cited to a public filing. It finds nearly two thousand physical overlaps, and when we enforce shared build windows — watch the count flip — eight hundred ninety-seven remain.",
+      "action": "filter_showcase",
+      "note": "scroll the ranked table, then toggle 'timeline overlap only' off->on so the counters visibly recompute"
+    },
+    {
+      "id": "tiers",
+      "dur_s": 16,
+      "narration": "Every overlap lands in a coordination tier: touching, shared right-of-way under a mile, shared logistics under eight kilometers, shared crews under forty. Isolate tier one and the map thins to the sites that are literally crossing.",
+      "action": "tier_ladder",
+      "note": "uncheck tiers 2-4 so only touching records glow, then restore"
+    },
+    {
+      "id": "pick",
+      "dur_s": 24,
+      "narration": "The top-ranked site sits on the Savannah River — Dominion Energy South Carolina and Georgia Power rebuilding parallel corridors in the same twenty twenty-six window. Distance: zero. The filed geometry is touching — and the filing itself is one click away, alongside the build windows, the shared corridor value, and a satellite snapshot of the real ground.",
+      "action": "pick_ov1",
+      "note": "click top-pick #1 -> camera flight -> scroll the detail card through snapshot/projects/schedule/value"
+    },
+    {
+      "id": "agent",
+      "dur_s": 30,
+      "prompt": "which tier 1 overlaps sit near the Savannah river?",
+      "narration": "Ask the analyst anything — it streams a live answer from the real dataset, every tool call on screen. And when it cites a record, that citation is a link: click it, and the camera flies there itself.",
+      "action": "agent_stream",
+      "note": "type the prompt, stream the answer visibly, then click an OV link chip in the answer -> map flies"
+    },
+    {
+      "id": "chips",
+      "dur_s": 18,
+      "chip": "Top opportunities",
+      "narration": "Built-in plays do the same — top opportunities, staging plans, outage calendars — thirty-two tools, every claim traced to filed data, never invented.",
+      "action": "chip_ask",
+      "note": "click a quick-action chip -> streamed answer with tool trace"
+    },
+    {
+      "id": "export",
+      "dur_s": 14,
+      "narration": "And the deliverable is real: the ranked coordination set, exported with its sources — one click, ready for a planning meeting.",
+      "action": "export_and_open",
+      "note": "panel CSV export (verified download) -> generated HTML report in a second tab"
+    },
+    {
+      "id": "close",
+      "dur_s": 15,
+      "narration": "Thirty to eighty-five million dollars of duplicated corridor — flagged before a single crew rolls. Built entirely on public filings and federal GIS. Co Grid. One grid, planned together.",
+      "action": "zoom_out_state",
+      "note": "deselect + invalidate-based flight back to statewide, hold"
+    }
+  ]
+}

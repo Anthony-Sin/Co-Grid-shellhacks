@@ -1,0 +1,304 @@
+/* Bottom-left "map tools" card (ViewModes) + header KPI strip extras.
+   Same paper/ink chrome as .panel / .legend: 2px ink border, 14px radius,
+   hard offset shadow, dashed section separators, mono numbers. */
+
+/* ---- viewmodes card -------------------------------------------------------- */
+
+.viewmodes-wrap {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 90;
+}
+
+.viewmodes {
+  width: 220px;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 rgba(43, 43, 43, 0.18);
+  overflow: hidden;
+}
+
+/* collapsed state — mirrors .panel-reopen */
+.viewmodes-reopen {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(240, 237, 229, 0.96);
+  border: 2px solid #2b2b2b;
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 rgba(43, 43, 43, 0.18);
+}
+
+.viewmodes-reopen:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.vm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 2px solid #2b2b2b;
+}
+
+.vm-head h2 {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-variant: small-caps;
+  text-transform: lowercase;
+}
+
+.vm-collapse {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.vm-collapse:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* collapsible sections — same <details>/<summary> idiom as .legend-sources */
+.vm-sec {
+  padding: 7px 12px 10px;
+}
+
+.vm-sec + .vm-sec {
+  border-top: 1px dashed rgba(43, 43, 43, 0.35);
+}
+
+.vm-sec-title {
+  cursor: pointer;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  list-style: none;
+  user-select: none;
+  margin-bottom: 6px;
+}
+
+.vm-sec-title::before {
+  content: '▾ ';
+}
+
+.vm-sec:not([open]) .vm-sec-title {
+  margin-bottom: 0;
+}
+
+.vm-sec:not([open]) .vm-sec-title::before {
+  content: '▸ ';
+}
+
+.vm-sec-title::-webkit-details-marker {
+  display: none;
+}
+
+/* ---- layers --------------------------------------------------------------- */
+
+.vm-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vm-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+  border-radius: 8px;
+  transition: background 0.1s ease;
+}
+
+.vm-layer:hover {
+  background: rgba(43, 43, 43, 0.07);
+}
+
+.vm-layer .vm-eye {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #f5f2ea;
+  flex: none;
+}
+
+.vm-layer.is-on .vm-eye {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.vm-layer:not(.is-on) {
+  opacity: 0.55;
+}
+
+/* ---- build window --------------------------------------------------------- */
+
+.vm-readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  min-height: 18px;
+}
+
+.vm-readout.is-off {
+  font-weight: 600;
+  opacity: 0.55;
+}
+
+.vm-clear {
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  background: transparent;
+  flex: none;
+}
+
+.vm-clear:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.vm-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vm-range + .vm-range {
+  margin-top: 5px;
+}
+
+.vm-range-tag {
+  width: 22px;
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.vm-tick {
+  font-size: 9.5px;
+  font-weight: 700;
+  opacity: 0.6;
+  flex: none;
+}
+
+.vm-range input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+  accent-color: #2b2b2b;
+  cursor: pointer;
+}
+
+.vm-note {
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-style: italic;
+  opacity: 0.5;
+}
+
+.vm-empty {
+  font-size: 11px;
+  opacity: 0.55;
+  font-style: italic;
+}
+
+/* ---- scenes ---------------------------------------------------------------- */
+
+.vm-scenes {
+  display: flex;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.2);
+}
+
+.vm-scene {
+  flex: 1;
+  padding: 4px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.vm-scene + .vm-scene {
+  border-left: 1.5px solid #2b2b2b;
+}
+
+.vm-scene:hover:not(:disabled) {
+  background: rgba(43, 43, 43, 0.08);
+}
+
+.vm-scene.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.vm-scene:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---- header KPI strip extras ------------------------------------------------
+   The pill stays on one line inside the fixed-height header: it clips
+   rather than wraps, and the lowest-priority segments drop out entirely
+   below ~1100px so the numbers that remain are never truncated mid-stat. */
+
+.header-stats {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.header-stats span {
+  white-space: nowrap;
+}
+
+/* transparent wrapper: sep + segment both stay flex children of the pill */
+.kpi-optional {
+  display: contents;
+}
+
+/* the full strip needs ~1600px — drop the optional segments (corridors,
+   adjacent count, peak year, per-tier counts) below that so nothing is
+   ever truncated mid-token */
+@media (max-width: 1650px) {
+  .kpi-optional {
+    display: none;
+  }
+}

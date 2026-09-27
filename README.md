@@ -60,15 +60,46 @@ with `./scripts/verify.sh`.
 ```bash
 ./scripts/screenshot.sh                        # all presets -> shots/
 ./scripts/screenshot.sh --out=/tmp/shots       # custom dir
-./scripts/screenshot.sh "name|scene=augusta&select=OV-0004&panel=0"
+./scripts/screenshot.sh "name|select=OV-0004&panel=0"
 ```
 
 Requires the dev server + API running and a system `chromium` binary
 (software WebGL via `--enable-unsafe-swiftshader`, works GPU-less).
-Deep-link params (`src/ui/src/lib/urlParams.ts`):
+Deep-link params (`src/ui/src/lib/urlParams.ts` — the build is
+single-scene statewide, so `scene=` is a no-op):
 
-`?scene=savannah|augusta` `?select=<overlap_id>` (flies the camera)
-`?focus=<lon>,<lat>` `?panel=0|1` `?tiers=1,2,3,4` `?timeline=0|1`
+`?select=<overlap_id>` (flies the camera) `?focus=<lon>,<lat>`
+`?panel=0|1` `?tiers=1,2,3,4` `?timeline=0|1`
+
+### Narrated demo (74s)
+
+Video: https://youtu.be/jv0fVHTFf-g (unlisted) — real UI footage, no
+slides. Transcript: `cogrid_transcript.txt`. Regenerate the capture
+with `scripts/demo_capture.sh start` + `scripts/record_demo.mjs`
+(segment timings in `scripts/demo_script.json`); rendered mp4s are
+gitignored — the published cut lives on YouTube.
+
+The shipped cut is assembled in three passes after the screen capture:
+
+1. **Narration** — each segment's `vo` text from `demo_script.json` was
+   synthesized with a locally-cloned voice (one per segment, wav).
+2. **QC** — every wav was re-transcribed (whisper) and diffed against
+   the script text; mismatched takes were regenerated.
+3. **Mux** — per-segment narration is delayed to its segment start and
+   mixed over the capture:
+
+   ```bash
+   # voice track: one delayed input per segment (offsets from marks)
+   ffmpeg -i seg1.wav -i seg2.wav ... \
+     -filter_complex "[0]adelay=0|0[a0];[1]adelay=12000|12000[a1];...;\
+       [a0][a1]...amix=inputs=N,loudnorm[out]" -map "[out]" voice.wav
+   ffmpeg -i demo_capture.mp4 -i voice.wav -c:v copy -shortest out.mp4
+   ```
+
+   `/tmp/demo_marks.json` (written by `record_demo.mjs`) records the
+   wall-clock start of each segment — it is the ground truth for the
+   `adelay` offsets above. The TTS/QC steps were run interactively and
+   are not scripted in-repo.
 
 ### AI coordination analyst (optional, server-side key)
 
@@ -90,14 +121,20 @@ AGENT_MODEL=glm-4-7-flash
 
 Tool layer (`src/agent/tools.py`): `stats`, `list_projects`, `get_project`,
 `top_overlaps`, `get_overlap`, `projects_near`, `timeline_summary`,
-`impact_estimate`, `gazetteer` — all read `data/processed/` only, unknown
+`impact_estimate`, `gazetteer`, `map_focus`, `export_data`, … — all read
+`data/processed/` only (`export_data` writes snapshots to `exports/`),
+unknown
 tools/bad args return `{error}` instead of crashing the loop. The engine
 (`src/agent/engine.py`) runs a bounded tool-call loop (native OpenAI
 `tools` + a JSON-fallback for models that can't emit `tool_calls`) and
 passes through the model's `reasoning` field when present.
 
-The UI mounts a minimal Drive-style `AgentBar` (bottom pill + quick chips)
-that sends conversation history + the selected overlap id as context.
+The UI mounts the analyst as a full-height right rail (`AgentBar`):
+conversation history + the selected overlap id go as context, detail
+cards render inside it, and the composer's mic button dictates
+questions via the Web Speech API (feature-detected — hidden where
+unsupported, nothing leaves the page beyond the browser's speech
+service).
 
 Deterministic analysis API (no model needed, `src/analysis/`):
 
@@ -158,7 +195,7 @@ src/
   analysis/          # timeline bands + impact/cost estimates + staging
                      # clusters/playbook/conflicts/filters (pure fns
                      # shared by routes AND agent tools + routes)
-  agent/             # 30-tool analyst (client/engine/routes/tools/tool_*)
+  agent/             # 32-tool analyst (client/engine/routes/tools/tool_*)
   ui/                # Vite+React+TS+react-three-fiber 3D map (port 3210)
 tests/               # engine + api-routes + agent + build-projects tests
                      # (synthetic fixtures, logic only)
@@ -182,8 +219,9 @@ ink outlines drawn twice, ink roads, grayscale water/parks, a procedural
 reserved for the data layer**: planned project geometry uses utility
 colors, coordination zones use tier colors with diagonal hatching.
 Large zones get airier hatching + fainter fills so markup never floods;
-the map renders the top ~40 scored zones (all 1,957 stay listed —
-the ranked panel caps the DOM at the top 200 rows).
+the map renders up to the top 200 scored zones (`MAX_RENDERED` — all
+1,957 stay listed; the ranked panel caps the DOM at the top 150 rows,
+`MAX_LIST_ROWS`).
 
 ### Performance notes
 

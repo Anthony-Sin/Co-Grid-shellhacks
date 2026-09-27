@@ -7,7 +7,7 @@
 # Usage:
 #   ./scripts/screenshot.sh                       # all presets -> shots/
 #   ./scripts/screenshot.sh --out=/tmp/shots      # custom output dir
-#   ./scripts/screenshot.sh "name|scene=augusta&select=OV-0004"
+#   ./scripts/screenshot.sh "name|select=OV-0004&panel=0"
 set -euo pipefail
 cd "$(dirname "$0")/.."
 exec node scripts/screenshot.mjs "$@"

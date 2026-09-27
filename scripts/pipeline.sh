@@ -2,8 +2,8 @@
 # Full data pipeline: raw -> processed -> overlaps.
 # Run from repo root: ./scripts/pipeline.sh
 # (Download steps are separate — network-bound, see README quick-start:
-#  hifld_download, osm_download, osm_pois, osm_power, osm_places,
-#  osm_borders, osm_roads_rivers.)
+#  hifld_download, osm_download [scene ...], osm_pois [scene ...],
+#  osm_power, osm_places, osm_borders, osm_roads_rivers.)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY=./venv/bin/python
@@ -15,7 +15,8 @@ echo "==> basemap (HIFLD raw + context ties -> basemap.geojson)"
 $PY -m src.processing.build_basemap
 
 echo "==> city scenes (OSM raw -> city_<scene>.json)"
-$PY -m src.processing.build_city savannah augusta
+$PY -m src.processing.build_city savannah augusta atlanta columbia \
+    charleston greenville_sc columbus_ga athens macon
 
 echo "==> state scene (borders/corridors/rivers/places -> city_state.json)"
 $PY -m src.processing.build_state

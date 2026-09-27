@@ -10,7 +10,7 @@
  *   node scripts/screenshot.mjs                 # all presets -> shots/
  *   node scripts/screenshot.mjs --out=/tmp/s    # custom output dir
  *   node scripts/screenshot.mjs --base=http://127.0.0.1:3210
- *   node scripts/screenshot.mjs "name|scene=augusta&select=OV-0004" ...
+ *   node scripts/screenshot.mjs "name|select=OV-0004&panel=0" ...
  */
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
@@ -43,20 +43,20 @@ if (!CHROME) {
   process.exit(1)
 }
 
-// name|query presets — all three scenes, map-only views, tier-1 close-ups,
-// arbitrary focus points. See src/ui/src/lib/urlParams.ts for params.
+// name|query presets — the build is single-scene (every ?scene= value
+// resolves to 'state', see urlParams.ts), so distinct shots come from
+// panel/tier filters, ?select= corridor fly-tos and ?focus= points.
+// See src/ui/src/lib/urlParams.ts for params.
 const SHOTS = custom.length
   ? custom
   : [
-      'state_overview|scene=state&panel=1',
-      'state_map_only|scene=state&panel=0',
-      'savannah_overview|scene=savannah&panel=1',
-      'savannah_map_only|scene=savannah&panel=0',
-      'augusta_overview|scene=augusta&panel=1',
-      'augusta_map_only|scene=augusta&panel=0',
-      'okatie_mcintosh_tier1|scene=savannah&select=OV-0004&panel=0',
-      'jasper_okatie_tier1|scene=savannah&select=OV-0001&panel=0',
-      'river_corridor_focus|scene=savannah&focus=-81.06,32.34&panel=0',
+      'state_overview|panel=1',
+      'state_map_only|panel=0',
+      'tier1_only|tiers=1&panel=1',
+      'okatie_mcintosh_tier1|select=OV-0004&panel=0',
+      'jasper_okatie_tier1|select=OV-0001&panel=0',
+      'select_with_panel|select=OV-0004&panel=1',
+      'river_corridor_focus|focus=-81.06,32.34&panel=0',
     ]
 
 const browser = await puppeteer.launch({
@@ -103,11 +103,13 @@ for (const entry of SHOTS) {
 if (process.env.AGENT_E2E === '1') {
   console.log('==> agent_e2e  (chat round-trip)')
   try {
-    await page.goto(`${BASE}/?scene=savannah`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction('window.__cogridReady === true', { timeout: 120_000, polling: 500 })
       .catch(() => {})
-    // open the agent bar
+    // open the agent rail only if collapsed — the rail defaults open and
+    // the toggle would otherwise close it
     await page.evaluate(() => {
+      if (document.querySelector('.agent-input textarea')) return
       const btn = document.querySelector('.agent-bar-toggle')
       if (btn) btn.click()
     })
@@ -116,11 +118,11 @@ if (process.env.AGENT_E2E === '1') {
     // (Quick chips kick off multi-round chains that can run minutes on a
     // thinking model; E2E verifies the path, not the benchmark.)
     const clicked = await page.evaluate(() => {
-      const input = document.querySelector('.agent-input input')
+      const input = document.querySelector('.agent-input textarea')
       const form = document.querySelector('.agent-input')
       if (!input || !form) return false
       const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value').set
+        window.HTMLTextAreaElement.prototype, 'value').set
       setter.call(input, 'what is SERTP? one sentence')
       input.dispatchEvent(new Event('input', { bubbles: true }))
       return true

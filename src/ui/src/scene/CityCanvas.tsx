@@ -1,18 +1,14 @@
-import { useEffect } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MapControls } from '@react-three/drei'
+import { useShallow } from 'zustand/react/shallow'
 import { PALETTE } from '../lib/palette'
+import type { SceneId } from '../lib/api'
 import { useAppStore } from '../state/store'
-import { DevPreviewScene } from './DevPreviewScene'
 import { CityScene } from './city/CityScene'
 import { GridOverlay } from './grid/GridOverlay'
 import { OverlapZones } from './overlap/OverlapZones'
 import { FocusRig } from './FocusRig'
-
-/** When the real city pipeline data is available we render it and park the
- * dev placeholder. Each flag flips independently so layers can land one
- * agent at a time. */
-const USE_REAL_CITY = true
 
 /**
  * Renders frames ONLY when something actually changes (frameloop="demand").
@@ -22,12 +18,55 @@ const USE_REAL_CITY = true
  */
 function FrameTicker({ fps = 12 }: { fps?: number }) {
   const invalidate = useThree((s) => s.invalidate)
+  // The beat exists ONLY to animate zone breathing/selection pulses —
+  // nothing else uses it. Ticking unconditionally meant re-rendering the
+  // whole (~5.7M-vert) scene 12×/s even fully idle, which is what made the
+  // map feel heavy. Run the beat only while the zones layer is on AND an
+  // overlap is selected or hovered — every other moment stays at 0 fps.
+  const beating = useAppStore(
+    (s) => s.layers.zones && (s.selectedOverlapId != null || s.hoveredOverlapId != null),
+  )
   useEffect(() => {
+    if (!beating) return
     const id = window.setInterval(() => {
       if (!document.hidden) invalidate()
     }, 1000 / fps)
     return () => window.clearInterval(id)
-  }, [invalidate, fps])
+  }, [invalidate, fps, beating])
+  return null
+}
+
+/**
+ * demand-loop safety net: store-driven changes that don't touch the R3F
+ * element tree (store updates consumed by memos inside scene components,
+ * layer toggles that remove whole subtrees) can leave the last frame on
+ * screen until the next interaction. Subscribe to every scene-affecting
+ * slice and poke invalidate — the commit + poke land in the same tick,
+ * so the canvas repaints with the new state instead of a stale frame.
+ */
+function DemandInvalidator() {
+  const invalidate = useThree((s) => s.invalidate)
+  const filters = useAppStore(
+    useShallow((s) =>
+      [
+        s.visibleTiers,
+        s.utilityFilter,
+        s.yearFilter,
+        s.zoneFilter,
+        s.searchText,
+        s.timelineOnly,
+        s.layers,
+        s.mapStyle,
+        s.selectedOverlapId,
+        s.selectedProjectId,
+        s.hoveredOverlapId,
+        s.hoveredProjectId,
+      ] as const,
+    ),
+  )
+  useEffect(() => {
+    invalidate()
+  }, [filters, invalidate])
   return null
 }
 
@@ -49,13 +88,66 @@ function StaticShadows() {
   return null
 }
 
+/**
+ * Suppresses floating labels while the camera moves. Two label systems
+ * paint over the canvas — .label-overlay chips and drei <Html> pills
+ * (.map-pill) — and neither can declutter fast enough during a pan,
+ * wheel-zoom, or FocusRig flight, so they visibly pile up. Toggling a
+ * CSS class on .canvas-wrap fades both systems until ~140ms after the
+ * last motion frame; the timeout (not a frame check) clears it because
+ * frameloop="demand" stops rendering the instant motion ends.
+ */
+function CameraMoveLabelGuard() {
+  const gl = useThree((s) => s.gl)
+  const last = useRef({ x: 0, y: 0, z: 0, zoom: -1, timer: 0 })
+  useFrame(({ camera }) => {
+    const wrap = gl.domElement.closest('.canvas-wrap')
+    if (!wrap) return
+    const l = last.current
+    const zoom = 'zoom' in camera ? (camera as { zoom: number }).zoom : 1
+    const p = camera.position
+    const moved =
+      l.zoom >= 0 &&
+      (Math.abs(zoom - l.zoom) > 1e-9 ||
+        p.x !== l.x || p.y !== l.y || p.z !== l.z)
+    if (moved) {
+      l.x = p.x
+      l.y = p.y
+      l.z = p.z
+      l.zoom = zoom
+      wrap.classList.add('is-camera-moving')
+      window.clearTimeout(l.timer)
+      l.timer = window.setTimeout(
+        () => wrap.classList.remove('is-camera-moving'),
+        140,
+      )
+    } else if (l.zoom < 0) {
+      l.zoom = zoom // baseline on first frame so mount isn't "motion"
+    }
+  })
+  return null
+}
+
 /** Per-scene default views — ortho zoom scales the visible world volume.
- * State spans ~830 km, corridors ~90 km, so zoom differs ~10x. */
-const SCENE_VIEWS = {
-  state: { position: [0, 3200, 1600] as const, zoom: 0.0022, target: [0, 0, 0] as const },
-  savannah: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
-  augusta: { position: [1400, 3200, 2500] as const, zoom: 0.06, target: [1400, 0, 2500] as const },
-} as const
+ * State spans ~830 km, corridors ~90 km, so zoom differs ~10x. The map
+ * is single-scene ('state'); corridor SceneIds exist only as composite
+ * detail sources, so they fall back to the state view here. */
+interface SceneView {
+  position: readonly [number, number, number]
+  zoom: number
+  target: readonly [number, number, number]
+}
+
+const STATE_VIEW: SceneView = { position: [0, 3200, 1600], zoom: 0.0022, target: [0, 0, 0] }
+
+const SCENE_VIEWS: Partial<Record<SceneId, SceneView>> = {
+  state: STATE_VIEW,
+  savannah: { position: [1400, 3200, 2500], zoom: 0.06, target: [1400, 0, 2500] },
+  augusta: { position: [1400, 3200, 2500], zoom: 0.06, target: [1400, 0, 2500] },
+}
+// Corridor/metro SceneIds are composite detail sources, not user-facing
+// scenes — any lookup beyond the table falls back to the state view.
+const sceneView = (id: SceneId): SceneView => SCENE_VIEWS[id] ?? STATE_VIEW
 
 /** Snaps camera+controls to the active scene's default view on switch. */
 function SceneCamera() {
@@ -68,7 +160,7 @@ function SceneCamera() {
   const invalidate = useThree((s) => s.invalidate)
 
   useEffect(() => {
-    const v = SCENE_VIEWS[activeScene] ?? SCENE_VIEWS.savannah
+    const v = sceneView(activeScene)
     camera.position.set(v.position[0], v.position[1], v.position[2])
     if ('zoom' in camera) {
       ;(camera as { zoom: number }).zoom = v.zoom
@@ -88,21 +180,37 @@ function SceneCamera() {
  */
 export function CityCanvas() {
   const activeScene = useAppStore((s) => s.activeScene)
+  const layers = useAppStore((s) => s.layers)
+  // zones layer off by default — but an explicit selection still draws its
+  // own zone polygon so the map answers "where is this overlap?"
+  const hasSelection = useAppStore((s) => s.selectedOverlapId != null)
+  // ?lowfx — demo/weak-hardware mode: on software GL (SwiftShader, CI
+  // captures) each frame costs seconds; a lower pixel ratio + no shadow
+  // map keeps camera flights visibly moving. No effect on real GPUs —
+  // the flag is opt-in only.
+  const lowfx = useMemo(
+    () => new URLSearchParams(window.location.search).has('lowfx'),
+    [],
+  )
 
   return (
     <div className="canvas-wrap">
       <Canvas
         orthographic
         flat
-        shadows="soft"
+        shadows={lowfx ? false : 'soft'}
         frameloop="demand"
-        dpr={[1, 1.5]}
-        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
+        dpr={lowfx ? 0.6 : [1, 1.5]}
+        gl={{ alpha: true, antialias: !lowfx, powerPreference: 'high-performance' }}
         camera={{
-          position: [1400, 3200, 2500],
-          zoom: 0.06,
-          near: 1,
-          far: 60000,
+          position: STATE_VIEW.position as unknown as [number, number, number],
+          zoom: STATE_VIEW.zoom,
+          // The tilted map's far corners sit ~150 km from the camera ALONG
+          // the view axis — a 60 km near/far slab sliced the state into a
+          // horizontal band (the "cut off" strip). ±250 km covers the
+          // whole sheet at every zoom (negative near is legal on ortho).
+          near: -250000,
+          far: 250000,
         }}
       >
         {/* transparent background — the CSS paper texture is the sheet */}
@@ -129,29 +237,45 @@ export function CityCanvas() {
           <shadowMaterial transparent opacity={0.14} />
         </mesh>
 
-        {/* Real pipeline layers (each owned by a separate agent) */}
-        {USE_REAL_CITY ? (
-          <CityScene key={`city-${activeScene}`} />
-        ) : (
-          <DevPreviewScene key={activeScene} seed={`dev-${activeScene}`} />
+        {/* Real pipeline layers — each gated by its ViewModes layer flag;
+            `labels` cascades into chips (city labels, zone labels, connector
+            pills) without hiding their underlying geometry */}
+        {layers.basemap && (
+          <CityScene key={`city-${activeScene}`} showLabels={layers.labels} />
         )}
-        <GridOverlay key={`grid-${activeScene}`} />
-        <OverlapZones key={`zones-${activeScene}`} />
+        {layers.projects && <GridOverlay key={`grid-${activeScene}`} />}
+        {(layers.zones || hasSelection) && <OverlapZones key={`zones-${activeScene}`} />}
         <FocusRig />
+        <CameraMoveLabelGuard />
         <SceneCamera />
         <StaticShadows />
         <FrameTicker fps={12} />
+        <DemandInvalidator />
 
         <MapControls
           makeDefault
           enableDamping
-          dampingFactor={0.09}
-          target={[1400, 0, 2500]}
+          // 0.09 damping + zoomToCursor chased the still-gliding anchor
+          // each wheel tick — QA measured ~40km of drift off the aimed
+          // feature over 10 ticks. Lower damping settles the glide
+          // sooner so the next tick re-anchors a stable point.
+          dampingFactor={0.055}
+          target={[0, 0, 0]}
           minPolarAngle={0}
           maxPolarAngle={0.55}
           minZoom={0.0008}
           maxZoom={1.4}
           screenSpacePanning={false}
+          // The zoom range is ~640x (statewide 0.0022 -> street 1.4):
+          // default speed (1.0, ~5%/notch) needs ~100 wheel ticks to reach
+          // building detail — effectively unreachable, reads as a "cut
+          // off" empty map. 1.9 gets overview->street in ~13 ticks; higher
+          // values re-anchor the zoomToCursor point mid-glide and the
+          // view drifts off the aimed feature.
+          // zoomToCursor keeps the pointed feature centered like every
+          // tiled web map.
+          zoomSpeed={1.9}
+          zoomToCursor
         />
       </Canvas>
     </div>

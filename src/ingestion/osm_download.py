@@ -11,17 +11,17 @@ overpass.kumi.systems mirror as fallback on HTTP 429 / timeouts, sleeps
 between requests, and retries each query with exponential backoff.
 
 Usage:
-    ./venv/bin/python src/ingestion/osm_download.py
+    ./venv/bin/python -m src.ingestion.osm_download [scene ...]
+
+With no arguments every region in ``BBOXES`` is pulled; pass scene names
+(e.g. ``atlanta columbia``) to fetch only those — the existing corridor
+files are large, so incremental pulls avoid re-downloading them.
 
 Outputs (exact Overpass response bodies, one per region/group):
-    data/raw/osm/savannah_buildings.json
-    data/raw/osm/savannah_roads.json
-    data/raw/osm/savannah_water.json
-    data/raw/osm/savannah_green.json
-    data/raw/osm/augusta_buildings.json
-    data/raw/osm/augusta_roads.json
-    data/raw/osm/augusta_water.json
-    data/raw/osm/augusta_green.json
+    data/raw/osm/<scene>_buildings.json
+    data/raw/osm/<scene>_roads.json
+    data/raw/osm/<scene>_water.json
+    data/raw/osm/<scene>_green.json
 """
 
 import json
@@ -42,10 +42,20 @@ ENDPOINTS = [
 ]
 
 # WGS84 bounding boxes, Overpass order: (south, west, north, east)
-# i.e. (min_lat, min_lon, max_lat, max_lon) -- from docs/DATA_SCHEMA.md.
+# i.e. (min_lat, min_lon, max_lat, max_lon) -- from docs/DATA_SCHEMA.md
+# and src/processing/projection.py SCENES (keep the two in sync).
 BBOXES = {
     "savannah": (31.95, -81.55, 32.45, -80.75),
     "augusta": (33.25, -82.30, 33.65, -81.60),
+    # Additional GA/SC urban cores — downtown-scale bboxes only (~13-22 km
+    # across). Deliberately NOT whole metros: a full-Atlanta pull is GBs.
+    "atlanta": (33.67, -84.50, 33.85, -84.28),
+    "columbia": (33.93, -81.13, 34.07, -80.95),
+    "charleston": (32.70, -80.03, 32.90, -79.85),
+    "greenville_sc": (34.77, -82.47, 34.92, -82.32),
+    "columbus_ga": (32.38, -85.07, 32.54, -84.91),
+    "athens": (33.895, -83.45, 34.015, -83.31),
+    "macon": (32.75, -83.72, 32.93, -83.55),
 }
 
 SERVER_TIMEOUT = 240        # Overpass [timeout:N] -- seconds the server may work
@@ -178,6 +188,12 @@ def build_query(group: str, bbox: tuple) -> str:
 
 
 def main() -> int:
+    scenes = sys.argv[1:] or list(BBOXES)
+    unknown = [s for s in scenes if s not in BBOXES]
+    if unknown:
+        print(f"unknown scene(s): {unknown} — choices: {sorted(BBOXES)}")
+        return 2
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Overpass endpoints: {ENDPOINTS}")
     print(f"Output dir: {OUT_DIR}\n")
@@ -185,6 +201,8 @@ def main() -> int:
     failures = []
     written = []
     for region, bbox in BBOXES.items():
+        if region not in scenes:
+            continue
         for group in QUERY_TEMPLATES:
             label = f"{region}_{group}"
             dest = OUT_DIR / f"{label}.json"
@@ -208,7 +226,7 @@ def main() -> int:
     if failures:
         print(f"FAILED queries: {failures}")
         return 1
-    print("all 8 downloads succeeded")
+    print(f"all {len(written)} downloads succeeded")
     return 0
 
 

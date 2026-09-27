@@ -9,6 +9,7 @@ import { lonLatToLocal, SCENE_CENTERS, type SceneId } from './projection'
  *   ?panel=0|1                hide/show the opportunities panel
  *   ?tiers=1,2,3,4            restrict visible tiers
  *   ?timeline=0|1             timeline-overlap-only filter
+ *   ?style=flat|sketch        basemap style (default flat)
  *
  * Used by scripts/screenshot.sh and handy for sharing specific views.
  */
@@ -16,16 +17,20 @@ export function applyUrlParams() {
   const q = new URLSearchParams(window.location.search)
   const s = useAppStore.getState()
 
+  // single-scene build — every recognized corridor value resolves to the
+  // statewide view (old agent/deep links with scene=savannah still work)
   const scene = q.get('scene')
-  let activeScene: SceneId = s.activeScene
+  const activeScene: SceneId = s.activeScene
   if (scene === 'savannah' || scene === 'augusta' || scene === 'state') {
-    s.setActiveScene(scene as SceneId)
-    activeScene = scene as SceneId  // s is a stale snapshot after set()
+    s.setActiveScene('state')
   }
 
   const panel = q.get('panel')
   if (panel === '0' || panel === 'false') s.setPanelOpen(false)
   if (panel === '1' || panel === 'true') s.setPanelOpen(true)
+
+  const style = q.get('style')
+  if (style === 'flat' || style === 'sketch') s.setMapStyle(style)
 
   const timeline = q.get('timeline')
   if (timeline === '0' || timeline === 'false') s.setTimelineOnly(false)
@@ -39,6 +44,17 @@ export function applyUrlParams() {
     }
   }
 
+  // select BEFORE focus: selectOverlap clears focusTarget by design
+  // (stale-target guard), so applying focus after preserves a
+  // ?select=X&focus=y deep link instead of silently dropping the fly-to.
+  const select = q.get('select')
+  if (select) s.selectOverlap(select)
+
+  // project selection is store-exclusive with overlap selection — applying
+  // it after `select` means ?project= wins when both are present
+  const project = q.get('project')
+  if (project) s.selectProject(project)
+
   const focus = q.get('focus')
   if (focus) {
     const [lon, lat] = focus.split(',').map(Number)
@@ -47,7 +63,4 @@ export function applyUrlParams() {
       s.setFocusTarget([x, -y])
     }
   }
-
-  const select = q.get('select')
-  if (select) s.selectOverlap(select)
 }

@@ -77,7 +77,7 @@ All pure functions, shared between API routes and agent tools:
 - GZip middleware — the 21 MB overlap artifact compresses ~10×
   (`a4fd05a`)
 
-## Agent — 30-tool analyst (`src/agent/`)
+## Agent — 32-tool analyst (`src/agent/`)
 
 Tool-calling loop over real artifacts only; fenced ` ```tool ` fallback
 for non-function-calling models; unknown-tool self-correction and
@@ -110,9 +110,14 @@ transient retry (`7d84911`, `2a6b09f`).
 - Overlap detail card: tier, distance, shared window, cost estimate
   derived when unpriced, staging neighborhood, **copy-link button**
   (`19896ab`, `d602a86`)
-- Agent bar: SSE streaming with live tool-progress line, markdown-lite
-  replies (bold/tables/bullets), graceful degradation to the
-  deterministic brief when no LLM key (`7b6b49f`, `3ca566e`, `0397e6f`)
+- Agent rail: full-height right-side dock hosting detail cards, SSE
+  streaming with live tool-progress line, markdown-lite replies
+  (bold/tables/bullets), graceful degradation to the deterministic
+  brief when no LLM key (`7b6b49f`, `3ca566e`, `0397e6f`, `4fd357f`)
+- Voice dictation in the composer: Web Speech API mic button,
+  feature-detected (hidden when unsupported); sending or typing ends
+  the session cleanly — dictated text can never resurrect after send
+  (`c0ba8c8`)
 - **Agent→map loop**: OV-ids and `?scene=` links in replies render as
   clickable chips that drive `selectOverlap`/`setActiveScene`
   (`10b21ab`); every tool output carries `deep_link`
@@ -124,8 +129,8 @@ transient retry (`7d84911`, `2a6b09f`).
 
 ## Testing & verification
 
-- 82 tests: engine (tier boundaries, falsy-zero regressions, same-
-  utility exclusion), API routes over real artifacts, all 30 tools,
+- 87 tests: engine (tier boundaries, falsy-zero regressions, same-
+  utility exclusion), API routes over real artifacts, all 32 tools,
   agent engine (round loop, SSE error paths, fallback catalog),
   route/tool parity (`4de8a4d`, `d331b1b`, and per-feature tests)
 - `scripts/verify.sh` — full gate: pytest, tsc+vite build, ≤500-line

@@ -1,17 +1,19 @@
 import { useMemo } from 'react'
-import { Html } from '@react-three/drei'
-import { PALETTE } from '../../lib/palette'
 import type { CityScene } from '../../lib/api'
 import { LabelChip } from '../../ui/components/LabelChip'
+import { LabelOverlay, type OverlayLabel } from '../labelOverlay'
 import { ringCentroid } from './cityUtils'
 
 /**
- * Floating dark pill chips over real named features.
+ * Floating dark pill chips over real named features — rendered by the
+ * shared DOM label overlay (scene/labelOverlay.tsx), which keeps chips
+ * mounted while their anchor is within ~1.2× the viewport and greedily
+ * declutters overlapping screen positions in priority order.
  *
- * Primary source is `data.pois` — optional in the scene schema and currently
- * absent from both exported scenes. When it yields too few labels we top up
- * from named *buildings* — still 100% real OSM names, never fabricated.
- * Every chip sits on a thin ink leader line rising from the ground point.
+ * Primary source is `data.pois` — optional in the scene schema. When it
+ * yields too few labels we top up from named *buildings* — still 100%
+ * real OSM names, never fabricated. Every chip gets a thin ink leader
+ * line down to its ground point (drawn by the overlay, same pass).
  */
 
 const POI_PRIORITY: Record<string, number> = {
@@ -36,16 +38,41 @@ const BUILDING_PRIORITY: Record<string, number> = {
   default: 1,
   residential: 0,
 }
-const MAX_LABELS = 14
+/** Candidate pool — the overlay's declutter + zoom cap pick the visible
+ *  subset each frame, so a deep pool costs only hidden DOM nodes while a
+ *  shallow one would starve local labels at city/street zoom (the global
+ *  top-N is all big cities hundreds of km away). */
+const MAX_LABELS = 48
 const MAX_NAME_LEN = 26
-const LEADER_H = 54
+/** Chip hover height (m) — the leader line spans chip → ground point. */
 const CHIP_Y = 62
 
-interface Label {
-  key: string
+/**
+ * On-screen chip cap by ortho zoom: a handful at statewide overview,
+ * more as the view tightens (fewer anchors share the screen, and the
+ * declutter alone can't keep a dense overview readable).
+ */
+const capForZoom = (zoom: number): number =>
+  zoom >= 0.03 ? 20 : zoom >= 0.006 ? 12 : 6
+
+/** Metro cores that carry the app's building extracts — at statewide
+ *  overview these outrank bigger out-of-state context cities (Charlotte,
+ *  Jacksonville) that OSM includes for orientation. Honest emphasis:
+ *  these ARE the places the data is about. */
+const FEATURED_METROS = new Set([
+  'savannah',
+  'augusta',
+  'atlanta',
+  'columbia',
+  'charleston',
+  'greenville',
+  'columbus',
+  'athens',
+  'macon',
+])
+
+interface Label extends OverlayLabel {
   text: string
-  x: number
-  y: number
 }
 
 function pickLabels(data: CityScene): Label[] {
@@ -55,7 +82,7 @@ function pickLabels(data: CityScene): Label[] {
     const dedupe = text.trim().toLowerCase()
     if (labels.length >= MAX_LABELS || seen.has(dedupe)) return
     seen.add(dedupe)
-    labels.push({ key, text, x, y })
+    labels.push({ key, text, anchor: [x, CHIP_Y, -y], ground: [x, 0, -y] })
   }
 
   if (data.pois?.length) {
@@ -63,6 +90,8 @@ function pickLabels(data: CityScene): Label[] {
       .filter((p) => p.name && p.name.length < MAX_NAME_LEN)
       .sort(
         (a, b) =>
+          Number(FEATURED_METROS.has(b.name.trim().toLowerCase())) -
+            Number(FEATURED_METROS.has(a.name.trim().toLowerCase())) ||
           (POI_PRIORITY[b.kind] ?? 0) - (POI_PRIORITY[a.kind] ?? 0) ||
           (b.pop ?? 0) - (a.pop ?? 0),
       )
@@ -90,26 +119,13 @@ function pickLabels(data: CityScene): Label[] {
 
 export function LabelChips({ data }: { data: CityScene }) {
   const labels = useMemo(() => pickLabels(data), [data])
-
   return (
-    <group>
-      {labels.map((l) => (
-        <group key={l.key} position={[l.x, 0, -l.y]}>
-          {/* thin leader line from the ground point up to the chip */}
-          <mesh position={[0, LEADER_H / 2, 0]}>
-            <cylinderGeometry args={[0.9, 0.9, LEADER_H, 5]} />
-            <meshBasicMaterial color={PALETTE.ink} transparent opacity={0.45} />
-          </mesh>
-          <Html
-            position={[0, CHIP_Y, 0]}
-            center
-            zIndexRange={[30, 0]}
-            style={{ pointerEvents: 'none' }}
-          >
-            <LabelChip text={l.text} />
-          </Html>
-        </group>
-      ))}
-    </group>
+    <LabelOverlay
+      labels={labels}
+      maxVisible={capForZoom}
+      margin={1.2}
+      gap={4}
+      render={(l) => <LabelChip text={l.text} />}
+    />
   )
 }

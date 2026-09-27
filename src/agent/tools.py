@@ -8,6 +8,7 @@ crashes.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from .tool_analysis import (
@@ -21,6 +22,8 @@ from .tool_reports import (
     tool_utility_profile, tool_voltage_match, tool_zone_report,
 )
 from .tool_whatif import tool_what_if_drop_utility, tool_what_if_shift
+from .tool_map import tool_map_focus
+from .tool_export import tool_export_data
 from .tool_data import (
     tool_data_health, tool_find_overlaps, tool_gazetteer, tool_get_overlap,
     tool_get_project, tool_list_projects, tool_no_overlap_reason,
@@ -121,17 +124,24 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
     ),
     "find_overlaps": (
         tool_find_overlaps,
-        "Filtered overlap search: utility (either side), utilities (exact "
-        "pair 'GPC,DESC'), tier, zone substring, timeline_only "
-        "(intersecting) OR adjacent_only (end-to-start handoffs — a "
-        "different coordination class). Engine rank order. Returns a "
-        "csv_export link — same filters on /api/overlaps.csv — you can "
-        "hand to the analyst for the full result as a spreadsheet.",
+        "Filtered overlap search returning the matching RECORDS "
+        "(overlap_id, utilities, tier, min_distance_km, score per row). "
+        "Filters: utility (either side), utilities (exact pair "
+        "'GPC,DESC'), tier, zone substring, state ('ga'|'sc'), missing_dates (no window filed), timeline_only (intersecting) "
+        "OR adjacent_only (end-to-start handoffs). sort: 'rank' "
+        "(default), 'distance', or 'distance_desc' — use distance_desc "
+        "for farthest/biggest-gap questions. offset+limit page through "
+        "long result sets. Also returns a csv_export link for the full "
+        "filtered set.",
         {"utility": "string (optional, either side)",
          "utilities": "string 'A,B' or list (optional, exact pair)",
          "tier": "int 1-4 (optional)", "zone": "string (optional)",
+         "state": "string ga|sc (optional)",
          "timeline_only": "bool (optional)",
          "adjacent_only": "bool (optional, exclusive w/ timeline_only)",
+         "missing_dates": "bool (optional)",
+         "sort": "string rank|distance|distance_desc (optional)",
+         "offset": "int (optional)",
          "limit": "int <=50 (optional)"},
     ),
     "project_overlaps": (
@@ -234,6 +244,44 @@ TOOLS: dict[str, tuple[Callable[..., Any], str, dict]] = {
         "Order 1920, tiers, 40km rule...) from the challenge glossary.",
         {"term": "string (required)"},
     ),
+    "map_focus": (
+        tool_map_focus,
+        "Drive the user's interactive map: select + fly to an overlap or "
+        "project, fly the camera to a named place/metro/facility, restrict "
+        "the visible tiers, filter to one utility, or clear everything "
+        "(reset selection + filters). Ids and places are validated against "
+        "the loaded data — unknown names return honest errors, so resolve "
+        "real ids first (get_overlap/top_overlaps/list_projects/gazetteer). "
+        "Use when the user says 'show me …', 'zoom to …', or right after "
+        "citing a record worth looking at; then describe what the map is "
+        "showing — only claim a move the ui_action actually carried out.",
+        {"overlap_id": "string (optional) — select + zoom to a record",
+         "project_id": "string (optional) — select + zoom to a project",
+         "utility": "string (optional) — filter map to one utility",
+         "tiers": "list<int> 1-4 (optional) — visible tiers",
+         "place": "string (optional) — fly the camera to a metro/place/"
+                  "facility name (Atlanta, Columbia, Plant Vogtle…)",
+         "clear": "bool (optional) — reset selection + all filters"},
+    ),
+    "export_data": (
+        tool_export_data,
+        "Create a downloadable CSV/Excel/HTML file of the REAL overlap/"
+        "project data — same records and filters as find_overlaps/"
+        "list_projects, never fabricated rows. Use when the user asks for "
+        "a spreadsheet, export, doc, or report ('give me a csv', 'excel "
+        "sheet of tier-1 overlaps', 'project list for DESC'). Then link "
+        "it for the user like [Download CSV](url) using the returned url.",
+        {"format": "string csv|xlsx|html (optional, default csv)",
+         "kind": "string overlaps|projects (optional, default overlaps)",
+         "utility": "string (optional, either side for overlaps)",
+         "utilities": "string 'A,B' or list (optional, exact pair — overlaps only)",
+         "tier": "int 1-4 (optional — overlaps only)",
+         "zone": "string (optional) — zone substring / project zone tag",
+         "source": "string substring of the provenance source (optional — projects only)",
+         "timeline_only": "bool (optional — overlaps only)",
+         "adjacent_only": "bool (optional — overlaps only, exclusive w/ timeline_only)",
+         "limit": "int <=2000 (optional, default 200)"},
+    ),
 }
 
 
@@ -241,12 +289,21 @@ def openai_tool_specs() -> list[dict]:
     """OpenAI `tools` payload — permissive schemas (small models)."""
     specs = []
     for name, (_, desc, props) in TOOLS.items():
-        spec_props = {
-            k: {"type": "number" if "float" in v else "integer" if "int" in v
-                else "boolean" if "bool" in v else "string",
-                "description": v}
-            for k, v in props.items()
-        }
+        spec_props = {}
+        for k, v in props.items():
+            # word-boundary match — "Plant" must not imply integer
+            low = v.lower()
+            is_int = re.search(r"\bint\b", low) is not None
+            is_flt = re.search(r"\bfloat\b|\bnumber\b", low) is not None
+            is_bol = re.search(r"\bbool\b|true/false", low) is not None
+            if re.search(r"\blist\b", low):
+                item = "integer" if is_int else "number" if is_flt else "string"
+                p = {"type": "array", "items": {"type": item}}
+            else:
+                p = {"type": "number" if is_flt else "integer" if is_int
+                     else "boolean" if is_bol else "string"}
+            p["description"] = v
+            spec_props[k] = p
         required = [k for k, v in props.items() if "required" in v]
         specs.append({
             "type": "function",

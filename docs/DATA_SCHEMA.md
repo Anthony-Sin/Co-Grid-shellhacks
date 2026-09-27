@@ -17,7 +17,19 @@ Single source of truth: `src/processing/projection.py` `SCENES` —
 
 - `savannah` bbox `(-81.55, 31.95, -80.75, 32.45)`, center `[-81.10, 32.13]`
 - `augusta` bbox `(-82.30, 33.25, -81.60, 33.65)`, center `[-81.97, 33.45]`
+- `atlanta` bbox `(-84.50, 33.67, -84.28, 33.85)`, center `[-84.39, 33.755]` —
+  downtown core only (~20×20 km); `core_radius_m` 8 km, `max_roads` 30k
+- `columbia` bbox `(-81.13, 33.93, -80.95, 34.07)`, center `[-81.035, 34.00]`
+- `charleston` bbox `(-80.03, 32.70, -79.85, 32.90)`, center `[-79.94, 32.80]`
+  (covers Charleston peninsula + North Charleston in one box)
+- `greenville_sc` bbox `(-82.47, 34.77, -82.32, 34.92)`, center `[-82.395, 34.845]`
+- `columbus_ga` bbox `(-85.07, 32.38, -84.91, 32.54)`, center `[-84.99, 32.46]`
+- `athens` bbox `(-83.45, 33.895, -83.31, 34.015)`, center `[-83.38, 33.955]`
+- `macon` bbox `(-83.72, 32.75, -83.55, 32.93)`, center `[-83.635, 32.84]`
 - `state` bbox `(-85.70, 30.30, -78.00, 35.25)`, center `[-81.85, 32.78]`
+
+The seven metro scenes are deliberately downtown-scale (13–22 km across)
+so Overpass pulls stay bounded — a whole-metro Atlanta pull would be GBs.
 
 The state bbox slightly over-extends so bbox-intersect pulls border
 counties in FL/AL/TN/NC — intentional, for edge rendering.

@@ -1,35 +1,50 @@
 /**
- * ZonePolygon — the hatched "affected area" polygon for one overlap.
+ * ZonePolygon — the "affected area" polygon for one overlap, rendered
+ * only at corridor zoom (the parent gates it — at statewide overview the
+ * overlap layer shows line glows + dots instead of flooding circles).
  *
  * Rendered flat at y≈7 (above ground/roads, below buildings) inside a
  * -90° X-rotated group so children use planar local-meter coords
  * ([x, y] → world [x, h, -y]):
- *   • translucent fill (tier color, ~0.35 opacity)
- *   • merged diagonal hatch LineSegments (signature look, breathing opacity)
- *   • ink outline — solid, or thin+dashed when the record is only being
- *     flagged (timelineOnly filter: `timeline_overlap=false` stays honest —
- *     outlined, not erased, per AGENTS.md §7).
+ *   • translucent fill (tier color, soft — tier-scaled + size-scaled)
+ *   • ink outline — thin solid; thin+dashed when the record is only
+ *     flagged (timelineOnly filter: `timeline_overlap=false` stays
+ *     honest — outlined, not erased, per AGENTS.md §7)
+ *   • the signature diagonal hatch is reserved for the SELECTED zone —
+ *     it's the focus affordance, not blanket markup (QA: hatched 40km
+ *     capsules over the whole map read as noise).
  *
- * `selected` raises the zone and pushes opacities to full; `dimmed` drops
- * everything to ~40% while another overlap is selected.
+ * `selected` raises the zone and pushes opacities to full; `highlighted`
+ * (list/map hover brushing) eases ~70% of the way toward that styling;
+ * `dimmed` drops everything to ~40% while another overlap is selected.
+ *
+ * Interaction: an invisible catch-plane (same ShapeGeometry, opacity 0 —
+ * the translucent fill alone raycasts unreliably) reports clicks to
+ * selectOverlap() and hover to setHoveredOverlap() for list↔map brushing.
  */
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { Line } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { PALETTE, TIER_COLORS } from '../../lib/palette'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
+import { useAppStore } from '../../state/store'
 import { polygonShape } from '../shapeUtils'
 import { mixHex, type ZoneDatum } from './zoneData'
 
 /** Flat-plane heights (meters) — see CityCanvas ground/buildings context. */
 const BASE_H = 7
 const RAISED_H = 16
+/** Fraction of the full "selected" treatment used for hover-highlighting. */
+const HIGHLIGHT_F = 0.7
 /** Opacity multiplier while another overlap is selected. */
 const DIM_FACTOR = 0.4
 /** Local z lifts inside the rotated group → real vertical separation. */
 const Z_FILL = 0
 const Z_HATCH = 0.6
 const Z_BORDER = 1.2
+/** Invisible event-catcher sits just above the border. */
+const Z_CATCH = 1.6
 /**
  * Tier-scaled fill/hatch strength — tier-4 zones are ~40km capsules; without
  * scaling, dozens of stacked fills saturate to a solid wash over the map.
@@ -42,11 +57,13 @@ export interface ZonePolygonProps {
   datum: ZoneDatum
   dimmed: boolean
   selected: boolean
+  /** Hover-brushed from the list/map — ~70% of the selected styling. */
+  highlighted: boolean
   /** True → fill+hatch hidden, only a thin dashed outline is drawn. */
   outlineOnly: boolean
 }
 
-export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygonProps) {
+export function ZonePolygon({ datum, dimmed, selected, highlighted, outlineOnly }: ZonePolygonProps) {
   const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
   const ink = useMemo(() => mixHex(color, PALETTE.ink, 0.55), [color])
   const groupRef = useRef<THREE.Group>(null)
@@ -59,8 +76,11 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
   )
 
   // One merged LineSegments holding every hatch line (x,y pairs → xyz @ z=0).
+  // The hatch is the SELECTED-zone affordance — building the buffer only
+  // when selected keeps ~200 resting zones from each owning a GPU buffer
+  // they never draw.
   const hatchGeom = useMemo(() => {
-    if (datum.hatch.length === 0) return null
+    if (!selected || datum.hatch.length === 0) return null
     const pos = new Float32Array((datum.hatch.length / 2) * 3)
     for (let i = 0, j = 0; i < datum.hatch.length; i += 2, j += 3) {
       pos[j] = datum.hatch[i]
@@ -70,7 +90,7 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     return g
-  }, [datum])
+  }, [datum, selected])
 
   // Closed planar ring for the drei <Line> border (solid or dashed). The
   // border's vertical lift is baked into the points' z — drei <Line> spreads
@@ -94,33 +114,76 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
   const hatchBase = HATCH_BY_TIER[datum.rec.tier] ?? 0.6
   /** Zones spanning kilometers get toned down so markup never floods. */
   const sizeF = datum.radiusM > 5000 ? 0.5 : datum.radiusM > 2500 ? 0.7 : 1
+  /** Hover-brush strength: 1 selected, ~0.7 hovered, 0 at rest. Selected
+   *  dominates — hovering another zone never dims a selection. */
+  const boost = selected ? 1 : highlighted ? HIGHLIGHT_F : 0
+  /** The floor `selected` lifts the hatch to (small tiers get more pop). */
+  const hatchFull = Math.max(0.55, hatchBase)
+
+  // Click selects; hover drives list↔map brushing. getState() inside the
+  // handlers keeps this component unsubscribed — `highlighted` is a prop.
+  const onSelect = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    selectOverlapInScene(datum.rec.overlap_id, datum.rec.zone)
+  }
+  const onHover = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    useAppStore.getState().setHoveredOverlap(datum.rec.overlap_id)
+  }
+  const onUnhover = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    // only clear if WE still own the hover — overlapping catch-planes can
+    // fire out-of-order and clobber a newer hover
+    if (useAppStore.getState().hoveredOverlapId === datum.rec.overlap_id) {
+      useAppStore.getState().setHoveredOverlap(null)
+    }
+  }
 
   // Idle motion: zones rise gently on mount / when selected; hatch breathes.
   useFrame((state, dt) => {
     const g = groupRef.current
     if (g) {
-      const target = selected ? RAISED_H : BASE_H
+      const target = BASE_H + (RAISED_H - BASE_H) * boost
       g.position.y += (target - g.position.y) * Math.min(1, dt * 5)
     }
     const m = hatchMat.current
     if (m) {
       const breathe = 1 + 0.12 * Math.sin(state.clock.elapsedTime * 1.4 + datum.phase)
-      const base = selected ? Math.max(0.55, hatchBase) : hatchBase
-      m.opacity = Math.min(1, base * breathe + (selected ? 0.08 : 0)) * dimF * sizeF
+      const base = hatchBase + (hatchFull - hatchBase) * boost
+      m.opacity = Math.min(1, base * breathe + 0.08 * boost) * dimF * sizeF
     }
   })
 
   if (!datum.ringLocal) return null // no zone geometry filed — connector still shows
 
-  const fillOpacity = (outlineOnly ? 0 : selected ? 0.3 : fillBase) * dimF * sizeF
-  const borderOpacity = (outlineOnly ? 0.6 : selected ? 1 : 0.95) * dimF
-  const hatchOpacity = (selected ? Math.max(0.55, hatchBase) : hatchBase) * dimF * sizeF
+  const fillOpacity = (outlineOnly ? 0 : fillBase + (0.3 - fillBase) * boost) * dimF * sizeF
+  const borderOpacity = (outlineOnly ? 0.6 : 0.95 + 0.05 * boost) * dimF
+  const hatchOpacity = (hatchBase + (hatchFull - hatchBase) * boost) * dimF * sizeF
 
   return (
     <group ref={groupRef} rotation-x={-Math.PI / 2}>
+      {/* invisible catch-plane: reliable click/hover target even where the
+          fill is nearly transparent (also covers outlineOnly interiors) */}
+      {fillGeom && (
+        <mesh
+          geometry={fillGeom}
+          position-z={Z_CATCH}
+          onClick={onSelect}
+          onPointerOver={onHover}
+          onPointerOut={onUnhover}
+        >
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+
       {/* translucent affected-area fill */}
       {!outlineOnly && fillGeom && (
-        <mesh geometry={fillGeom} position-z={Z_FILL} renderOrder={10}>
+        <mesh
+          geometry={fillGeom}
+          position-z={Z_FILL}
+          renderOrder={10}
+          onClick={onSelect}
+        >
           <meshBasicMaterial
             color={color}
             transparent
@@ -133,7 +196,8 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
         </mesh>
       )}
 
-      {/* signature diagonal hatching — one merged LineSegments */}
+      {/* signature diagonal hatching — the selected-zone focus affordance
+          only (hatchGeom is null until this record is selected) */}
       {!outlineOnly && hatchGeom && (
         <lineSegments geometry={hatchGeom} position-z={Z_HATCH} renderOrder={11}>
           <lineBasicMaterial
@@ -146,7 +210,8 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
         </lineSegments>
       )}
 
-      {/* ink border — solid normally; thin dashes when merely flagged */}
+      {/* ink border — thin solid normally; dashes when merely flagged
+          (clickable either way — flagged zones are still real records) */}
       {outlineOnly ? (
         <Line
           points={borderPts}
@@ -157,14 +222,16 @@ export function ZonePolygon({ datum, dimmed, selected, outlineOnly }: ZonePolygo
           gapSize={80}
           transparent
           opacity={borderOpacity}
+          onClick={onSelect}
         />
       ) : (
         <Line
           points={borderPts}
           color={ink}
-          lineWidth={1.75}
+          lineWidth={selected ? 2 : 1.4}
           transparent
           opacity={borderOpacity}
+          onClick={onSelect}
         />
       )}
     </group>

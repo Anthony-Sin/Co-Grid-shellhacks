@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useEffect, useState } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import type { Vec2 } from '../../lib/projection'
 
 /**
@@ -41,6 +41,24 @@ export function useShadowRefresh(dep: unknown) {
   useEffect(() => {
     gl.shadowMap.needsUpdate = true
   }, [gl, dep])
+}
+
+/**
+ * Boolean zoom threshold with hysteresis — reads camera.zoom inside
+ * useFrame (cheap under frameloop="demand"; the callback only runs on
+ * rendered frames) and flips a boolean when a threshold is crossed so
+ * idle frames cost ~0. `show` above `at`, hides again below `at*ratio`.
+ */
+export function useZoomAtLeast(at: number, ratio = 0.75): boolean {
+  const camera = useThree((s) => s.camera)
+  const [on, setOn] = useState(
+    () => 'zoom' in camera && (camera as { zoom: number }).zoom >= at,
+  )
+  useFrame(() => {
+    const z = 'zoom' in camera ? (camera as { zoom: number }).zoom : 1
+    setOn((v) => (v ? z >= at * ratio : z >= at))
+  })
+  return on
 }
 
 /** Absolute shoelace area of a ring in m² (winding-agnostic). */

@@ -26,9 +26,10 @@ export const PALETTE = {
   },
 
   water: {
-    /** Cool light-gray wash + darker ink shoreline */
-    surface: '#C6CCD0',
-    edge: '#8E959B',
+    /** Muted map blue — real water fill (not just ink), still quiet
+     *  enough not to fight the tier-colored data layer */
+    surface: '#A8C6D8',
+    edge: '#54748A',
   },
 
   road: {
@@ -43,6 +44,24 @@ export const PALETTE = {
   ink: '#231F18',
   /** Softer ink for secondary strokes (roads, shorelines) */
   inkSoft: '#4B463C',
+
+  /** Flat "web map" basemap (mapStyle='flat') — the clean Google/OSM
+   *  read: solid land fill, real blue water, soft green parks, neutral
+   *  road strokes. Deliberately muted so the utility-colored data layer
+   *  stays the hero. Water reuses PALETTE.water.surface (#A8C6D8). */
+  flat: {
+    /** Land fill inside the state bounds — warm paper-adjacent tan */
+    land: '#EDE7D9',
+    /** Soft real greens for green-space fills */
+    parkLight: '#D3E2C5',
+    parkDeep: '#B8D0A4',
+    /** Neutral road strokes: light minors ("streets"), slate majors */
+    roadMajor: '#A6ABB2',
+    roadMinor: '#F7F5EE',
+    rail: '#9C968A',
+    /** Wide soft halo under the state border ink (paper-tone casing) */
+    borderHalo: '#F7F4EC',
+  },
 
   /** Floating label chips */
   chipBg: 'rgba(30, 30, 30, 0.85)',
@@ -59,6 +78,11 @@ export const TIER_COLORS: Record<Tier, string> = {
   3: '#3E92CC', // blue — <8km shared logistics
   4: '#8E7CC3', // purple — <40km shared crews
 }
+
+/** Selection accent — hot magenta, the only hue arc unused by any tier
+ *  color, utility color, or basemap tone. A selected overlap repaints to
+ *  this so it reads as "chosen", not just a wider same-hue stroke. */
+export const SELECT_COLOR = '#FF2E9A'
 
 /** Tier metadata for legend + filter UI (order matters: most valuable first) */
 export const TIERS = [

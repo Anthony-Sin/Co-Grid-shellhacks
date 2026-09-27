@@ -66,7 +66,7 @@ function pushPolyline(
   }
 }
 
-function buildRoads(roads: CityRoad[]): BuiltRoads {
+function buildRoads(roads: CityRoad[], flat: boolean): BuiltRoads {
   const majorVerts: number[] = []
   const minorVerts: number[] = []
   const railVerts: number[] = []
@@ -81,8 +81,14 @@ function buildRoads(roads: CityRoad[]): BuiltRoads {
     if (baseKind(r.kind) === 'rail') {
       pushPolyline(railVerts, line, y, rng, true)
     } else if (DOUBLE_KINDS.has(baseKind(r.kind))) {
-      pushPolyline(majorVerts, offsetLine(line, DOUBLE_GAP_M), y, rng, true)
-      pushPolyline(majorVerts, offsetLine(line, -DOUBLE_GAP_M), y, rng, true)
+      // Flat mode: ONE centerline per road (web-map convention) — the
+      // double-stroke reads as hand-inked casing, sketch keeps it.
+      if (flat) {
+        pushPolyline(majorVerts, line, y, rng, true)
+      } else {
+        pushPolyline(majorVerts, offsetLine(line, DOUBLE_GAP_M), y, rng, true)
+        pushPolyline(majorVerts, offsetLine(line, -DOUBLE_GAP_M), y, rng, true)
+      }
     } else {
       pushPolyline(minorVerts, line, y, rng, true)
     }
@@ -95,17 +101,28 @@ function buildRoads(roads: CityRoad[]): BuiltRoads {
     return { geometry, color, opacity }
   }
 
-  const geometries = [
-    make(majorVerts, PALETTE.inkSoft, 0.75),
-    make(minorVerts, PALETTE.inkSoft, 0.42),
-    make(railVerts, PALETTE.ink, 0.6),
-  ].filter((g): g is { geometry: THREE.BufferGeometry; color: string; opacity: number } => g !== null)
+  // Flat: thin neutral strokes — light "street" minors, slate majors a
+  // touch stronger, rail quietest. Sketch: pencil inkSoft at ink opacities.
+  const geometries = flat
+    ? [
+        make(majorVerts, PALETTE.flat.roadMajor, 0.85),
+        make(minorVerts, PALETTE.flat.roadMinor, 0.8),
+        make(railVerts, PALETTE.flat.rail, 0.5),
+      ]
+    : [
+        make(majorVerts, PALETTE.inkSoft, 0.75),
+        make(minorVerts, PALETTE.inkSoft, 0.42),
+        make(railVerts, PALETTE.ink, 0.6),
+      ]
+  const kept = geometries.filter(
+    (g): g is { geometry: THREE.BufferGeometry; color: string; opacity: number } => g !== null,
+  )
 
-  return { geometries, disposables: geometries.map((g) => g.geometry) }
+  return { geometries: kept, disposables: kept.map((g) => g.geometry) }
 }
 
-export function RoadsLayer({ roads }: { roads: CityRoad[] }) {
-  const built = useMemo(() => buildRoads(roads), [roads])
+export function RoadsLayer({ roads, flat = false }: { roads: CityRoad[]; flat?: boolean }) {
+  const built = useMemo(() => buildRoads(roads, flat), [roads, flat])
   useDispose(built.disposables)
 
   return (

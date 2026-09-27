@@ -24,6 +24,7 @@ export function FocusRig() {
 
   const [overlaps, setOverlaps] = useState<OverlapRecord[] | null>(null)
   const goal = useRef<{ target: THREE.Vector3; zoom: number } | null>(null)
+  const tmpDelta = useRef(new THREE.Vector3())
 
   // Warm the overlaps cache once (state — the goal below may depend on it).
   // Shares the session-wide request cache with the panel/zones layers.
@@ -62,7 +63,14 @@ export function FocusRig() {
   useFrame((_, dt) => {
     if (!goal.current || !controls) return
     const t = 1 - Math.exp(-4.2 * dt) // critically-damped-ish ease
+    // MapControls/OrbitControls treat an external target move as a pivot
+    // change — the camera stays put. On the statewide scene a corridor
+    // fly-to can travel ~90km, which also runs past camera.far. Translate
+    // the camera by the same delta so the rig moves as one piece.
+    tmpDelta.current.copy(controls.target)
     controls.target.lerp(goal.current.target, t)
+    tmpDelta.current.sub(controls.target)
+    camera.position.sub(tmpDelta.current)
     const ortho = camera as THREE.OrthographicCamera
     if (ortho.isOrthographicCamera) {
       ortho.zoom += (goal.current.zoom - ortho.zoom) * t

@@ -206,9 +206,17 @@ def tool_get_overlap(overlap_id: str | None = None,
     Pass `overlap_ids` (list, <=30) to fetch several records in ONE call —
     a multi-record question should never burn a round per lookup."""
     if overlap_ids is not None:
-        # tolerate a comma-joined string — models sometimes emit one
+        # tolerate a comma-joined OR JSON-array string — models sometimes
+        # emit '["OV-1","OV-2"]' even when the spec says array
         if isinstance(overlap_ids, str):
-            overlap_ids = [x.strip() for x in overlap_ids.split(",") if x.strip()]
+            s = overlap_ids.strip()
+            if s.startswith("["):
+                try:
+                    overlap_ids = json.loads(s)
+                except ValueError:
+                    overlap_ids = s
+            if isinstance(overlap_ids, str):
+                overlap_ids = [x.strip() for x in s.split(",") if x.strip()]
         if not isinstance(overlap_ids, list) or not overlap_ids:
             return {"error": "overlap_ids must be a non-empty list"}
         wanted = [str(x) for x in overlap_ids[:30]]
@@ -228,8 +236,12 @@ def tool_find_overlaps(utility: str | None = None,
                        utilities: str | list | None = None,
                        tier: int | None = None,
                        zone: str | None = None,
+                       state: str | None = None,
                        timeline_only: bool = False,
                        adjacent_only: bool = False,
+                       missing_dates: bool = False,
+                       sort: str | None = None,
+                       offset: int = 0,
                        limit: int = 25) -> dict:
     """Filtered overlap search — the record-level query primitive.
 
@@ -238,16 +250,33 @@ def tool_find_overlaps(utility: str | None = None,
     match on the record's zone label (incl. 'a / b' composites).
     `timeline_only` keeps true window intersections; `adjacent_only`
     keeps the end-to-start handoff records instead (a different
-    coordination class — never both). Results stay in engine rank
-    order (tier asc -> distance asc)."""
+    coordination class — never both). Default order is engine rank
+    (tier asc -> distance asc); `sort="distance"`/`"distance_desc"`
+    orders by closest-point km instead — the only way to reach the
+    FARTHEST gaps (rank order puts them last)."""
     try:
         rows = filter_records(
             overlaps(), utility=utility, utilities=utilities, tier=tier,
-            zone=zone, timeline_only=timeline_only,
-            adjacent_only=adjacent_only)
+            zone=zone, state=state, timeline_only=timeline_only,
+            adjacent_only=adjacent_only, missing_dates=missing_dates)
     except ValueError as e:
         return {"error": str(e)}
+    if sort:
+        s = sort.strip().lower()
+        # missing distances sort last in both directions — a record with
+        # no km is never the answer to "closest" or "farthest"
+        if s in ("distance", "distance_asc"):
+            rows = sorted(rows, key=lambda r: r.get("min_distance_km") if r.get("min_distance_km") is not None else 1e9)
+        elif s in ("distance_desc", "farthest"):
+            rows = sorted(rows, key=lambda r: r.get("min_distance_km") if r.get("min_distance_km") is not None else -1e9, reverse=True)
+        elif s != "rank":
+            return {"error": f"unknown sort '{sort}' — rank|distance|distance_desc"}
     lim = max(1, min(int(limit or 25), 50))
+    off = max(0, int(offset or 0))
+    page = rows[off:off + lim]
+    # if the model asked for >50, say so — a silent clamp reads as
+    # "that's everything" and triggers wasteful re-queries
+    capped = int(limit or 25) > 50
     # download link mirrors this exact filter set — /api/overlaps.csv
     # shares filter_records so the export is faithful to this result.
     qs: dict[str, Any] = {}
@@ -260,14 +289,29 @@ def tool_find_overlaps(utility: str | None = None,
         qs["tier"] = int(tier)
     if zone:
         qs["zone"] = zone
+    if state:
+        qs["state"] = state
     if timeline_only:
         qs["timeline_only"] = "true"
     if adjacent_only:
         qs["adjacent_only"] = "true"
+    if missing_dates:
+        qs["missing_dates"] = "true"
+    if sort and sort.strip().lower() != "rank":
+        # normalize aliases to the export route's vocabulary so the link
+        # never 422s (distance_asc→distance, farthest→distance_desc)
+        sa = sort.strip().lower()
+        qs["sort"] = {"distance_asc": "distance",
+                      "farthest": "distance_desc"}.get(sa, sa)
+    if tier is not None and not 1 <= int(tier) <= 4:
+        qs.pop("tier", None)
     return {
         "total_matching": len(rows),
-        "shown": min(len(rows), lim),
-        "overlaps": [_overlap_brief(r) for r in rows[:lim]],
+        "shown": len(page),
+        "offset": off,
+        **({"limit_capped_at": 50,
+            "hint": "use offset to page further"} if capped else {}),
+        "overlaps": [_overlap_brief(r) for r in page],
         "csv_export": (f"/api/overlaps.csv?{urlencode(qs)}" if qs
                        else "/api/overlaps.csv"),
     }

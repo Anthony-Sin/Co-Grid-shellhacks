@@ -9,13 +9,30 @@
 /** Local 2D point in meters [x, y] */
 export type Vec2 = [number, number]
 
-export type SceneId = 'savannah' | 'augusta' | 'state'
+export type SceneId =
+  | 'savannah'
+  | 'augusta'
+  | 'state'
+  | 'atlanta'
+  | 'columbia'
+  | 'charleston'
+  | 'greenville_sc'
+  | 'columbus_ga'
+  | 'athens'
+  | 'macon'
 
 /** Scene centers [lon, lat] from docs/DATA_SCHEMA.md + projection.py SCENES */
 export const SCENE_CENTERS: Record<SceneId, Vec2> = {
   savannah: [-81.1, 32.13],
   augusta: [-81.97, 33.45],
   state: [-81.85, 32.78],
+  atlanta: [-84.39, 33.755],
+  columbia: [-81.035, 34.0],
+  charleston: [-79.94, 32.8],
+  greenville_sc: [-82.395, 34.845],
+  columbus_ga: [-84.99, 32.46],
+  athens: [-83.38, 33.955],
+  macon: [-83.635, 32.84],
 }
 
 const METERS_PER_DEG_LAT = 110540
@@ -29,10 +46,9 @@ export function lonLatToLocal(lon: number, lat: number, center: Vec2): Vec2 {
   return [x, y]
 }
 
-/** Inverse of {@link lonLatToLocal}: local meters -> [lon, lat] */
-export function localToLonLat(x: number, y: number, center: Vec2): Vec2 {
-  const [c0, c1] = center
-  const lon = c0 + x / (METERS_PER_DEG_LON_EQUATOR * Math.cos((c1 * Math.PI) / 180))
-  const lat = c1 + y / METERS_PER_DEG_LAT
-  return [lon, lat]
+/** Single-scene build: every zone renders in the statewide GA+SC view, so
+ * zone→scene always resolves 'state'. Kept as a function (backend parity
+ * with projection.scene_for_zone) so callers don't need to know. */
+export function sceneForZone(_zone: string | null | undefined): SceneId {
+  return 'state'
 }

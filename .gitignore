@@ -18,6 +18,8 @@ __pycache__/
 
 # Node
 node_modules/
+# scripts/node_modules is a symlink — node_modules/ above only matches real dirs
+scripts/node_modules
 dist/
 .vite/
 
@@ -25,13 +27,24 @@ dist/
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/README.md
+!data/raw/SOURCES.md
 
 # Processed data — generated artifacts (kept out of git; regenerate via pipeline)
 data/processed/*
 !data/processed/.gitkeep
 
+# agent-generated export artifacts (csv/xlsx/html downloads)
+exports/
+
 # headless UI captures (regenerable via scripts/screenshot.sh)
 shots/
+
+# rendered demo video — regenerated via scripts/demo_capture.sh +
+# scripts/record_demo.mjs; published cut lives on YouTube, not in git
+*.mp4
+
+# local design reference images (not part of the app)
+ref_img/
 
 # OS / editor
 .DS_Store

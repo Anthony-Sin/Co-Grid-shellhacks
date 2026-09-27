@@ -60,6 +60,9 @@
   background: #ece2c8;
   transform: translate(1px, 1px);
   box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+  /* SELECT_COLOR stripe echoes the map repaint — the row and its lines
+     share one unmistakable "this record" accent */
+  box-shadow: inset 4px 0 0 #ff2e9a, 2px 2px 0 rgba(30, 30, 30, 0.9);
 }
 
 .ov-rank {
@@ -74,6 +77,12 @@
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+}
+
+/* long project names like "Jasper – Okatie 230 kV #2 (new line)" must wrap
+   inside the 1fr grid column instead of pushing the row wide */
+.ov-names {
+  overflow-wrap: anywhere;
 }
 
 .ov-tier {
@@ -103,7 +112,9 @@
 .ov-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .ov-dist {
@@ -162,20 +173,15 @@
   font-weight: 800;
 }
 
-/* ---- bottom-right rail (Legend + docked OverlapDetail) -------------------- */
-
-.right-rail {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  z-index: 90;
-}
+/* ---- detail cards (OverlapDetail / ProjectDetail) -------------------------
+   Mounted inside .agent-rail's .agent-detail region (AgentBar.tsx) — the
+   region is the scroller; the card keeps its paper/ink chrome here and
+   re-skins to rail width via agentbar.css. */
 
 .overlap-detail {
+  /* shrinkable flex item — absorbs its region's cap and scrolls internally */
+  flex: 0 1 auto;
+  min-height: 0;
   width: 322px;
   max-height: min(58vh, 540px);
   overflow-y: auto;
@@ -190,6 +196,7 @@
 .detail-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -283,6 +290,7 @@
   font-size: 12px;
   font-weight: 700;
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .proj-utility {
@@ -302,6 +310,8 @@
   font-size: 10px;
   line-height: 1.4;
   opacity: 0.6;
+  /* long unbroken source strings/URLs must wrap inside the card */
+  overflow-wrap: anywhere;
 }
 
 .kv {
@@ -320,6 +330,8 @@
 .kv .v {
   font-weight: 700;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .detail-basis {
@@ -333,5 +345,34 @@
   font-size: 10.5px;
   line-height: 1.6;
   opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   Detail-card responsive repairs + reduced motion.
+   ========================================================================== */
+
+/* rail items cap at viewport-minus-margins on narrow screens */
+@media (max-width: 700px) {
+  .overlap-detail {
+    max-width: calc(100vw - 28px);
+  }
+}
+
+/* ---- reduced motion ---------------------------------------------------------
+   Kill the row-press transform/transition; the selected state still reads
+   through the #ece2c8 background. */
+
+@media (prefers-reduced-motion: reduce) {
+  .overlap-row {
+    transition: none;
+  }
+  .overlap-row:hover,
+  .overlap-row.is-selected,
+  .overlap-row.is-hovered {
+    /* the map-brushing / selected / pressed states still read through the
+       #ece2c8 background and the .ov-names underline — only the motion goes */
+    transform: none;
+  }
 }
 

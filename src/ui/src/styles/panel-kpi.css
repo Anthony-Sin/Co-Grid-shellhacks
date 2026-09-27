@@ -1,0 +1,202 @@
+/* PanelStats — the rail's KPI block (TomTom congestion-panel style):
+   big "N of M" count, tier checkbox legend rows with counts, secondary
+   micro-stats, and the "→ ask agent" handoff. Paper/ink chrome.
+   Imported by PanelStats.tsx — plain pnl-kpi/pnl-tier classes. */
+
+.pnl-kpi {
+  margin-bottom: 14px;
+  padding: 12px 14px 12px;
+  font-size: 10.5px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.18);
+}
+
+.pnl-kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pnl-kpi-big {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.pnl-kpi-big b {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.pnl-kpi-of {
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+/* tier legend rows — checkbox + color dot + label + count; off rows dim
+   but keep their count (an unchecked tier still exists in the view) */
+.pnl-kpi-tiers {
+  display: flex;
+  flex-direction: column;
+}
+
+.pnl-tier-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 -6px;
+  padding: 5px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pnl-tier-row:hover {
+  background: rgba(43, 43, 43, 0.07);
+}
+
+.pnl-tier-row.is-off {
+  opacity: 0.45;
+}
+
+.pnl-tier-row input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #2b2b2b;
+  cursor: pointer;
+}
+
+.pnl-tier-row .dot {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+
+.pnl-tier-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pnl-tier-n {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* secondary micro-stats strip */
+.pnl-kpi-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 9px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.pnl-kpi-substat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pnl-kpi-substat .k {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.pnl-kpi-substat .mono {
+  font-weight: 800;
+}
+
+.pnl-ask {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #2b2b2b;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+.pnl-ask:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* ---- top-4 quick-jump strip ---- */
+
+.pnl-top4 {
+  margin-top: 10px;
+}
+
+.pnl-top4-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.pnl-top4-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #2b2b2b;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pnl-top4-btn:hover,
+.pnl-top4-btn:focus-visible {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-top4-btn.is-selected {
+  /* SELECT_COLOR ring — same accent as the repainted map lines */
+  box-shadow: 0 0 0 2px #ff2e9a;
+}
+
+.pnl-top4-btn .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.pnl-top4-rank {
+  font-size: 9px;
+  opacity: 0.65;
+}
+
+/* overlap-id suffix — differentiates the otherwise identical "0km"
+   tier-1 rows (QA: four buttons all read "#n 0km") */
+.pnl-top4-id {
+  font-size: 9px;
+  opacity: 0.7;
+}

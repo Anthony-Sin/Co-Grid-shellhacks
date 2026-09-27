@@ -80,11 +80,13 @@ button {
   top: 0;
   left: 0;
   right: 0;
-  height: 54px;
+  /* slim 44px strip — every child (incl. the stats pill) must fit INSIDE;
+     the side rails start flush at top:44px to match */
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 16px;
+  gap: 14px;
+  padding: 0 14px;
   background: rgba(232, 228, 218, 0.92);
   border-bottom: 2px solid #2b2b2b;
   backdrop-filter: blur(3px);
@@ -102,6 +104,7 @@ button {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.14em;
+  white-space: nowrap; /* never wrap mid-word on narrow headers */
 }
 
 .brand-sep {
@@ -150,9 +153,11 @@ button {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 14px;
-  font-size: 12px;
+  gap: 7px;
+  /* ~27px tall — comfortably inside the 44px bar (was clipping its
+     top/bottom edges against the old strip) */
+  padding: 3px 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   background: rgba(245, 242, 234, 0.95);
@@ -174,7 +179,7 @@ button {
 
 .panel {
   position: absolute;
-  top: 70px;
+  top: 56px;
   left: 14px;
   width: 332px;
   max-height: calc(100% - 140px);
@@ -190,7 +195,7 @@ button {
 
 .panel-reopen {
   position: absolute;
-  top: 70px;
+  top: 56px;
   left: 14px;
   padding: 8px 14px;
   font-size: 12px;
@@ -209,6 +214,7 @@ button {
 }
 
 .panel-head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -240,6 +246,7 @@ button {
 }
 
 .panel-filters {
+  flex: none;
   padding: 10px 14px;
   border-bottom: 1px dashed rgba(43, 43, 43, 0.35);
   display: flex;
@@ -283,7 +290,9 @@ button {
   border: 1px solid rgba(43, 43, 43, 0.35);
   border-radius: 4px;
   padding: 2px 4px;
-  max-width: 150px;
+  min-width: 0;
+  max-width: 170px;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 
@@ -296,6 +305,7 @@ button {
 }
 
 .panel-body {
+  min-height: 0;
   padding: 14px;
   overflow-y: auto;
 }
@@ -323,40 +333,29 @@ button {
   border-radius: 4px;
 }
 
-/* ---- legend -------------------------------------------------------------- */
-
-.legend {
-  padding: 10px 14px;
-  background: rgba(240, 237, 229, 0.96);
-  border: 2px solid #2b2b2b;
-  border-radius: 14px;
-  box-shadow: 4px 4px 0 rgba(43, 43, 43, 0.18);
-  z-index: 90;
-}
-
-.legend-title {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 7px;
-}
-
-.legend-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.legend-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
 /* ---- floating label chips (inside drei Html) ------------------------------ */
+
+/* DOM overlay over the canvas — must sit UNDER the app chrome (.panel/
+ * .agent-rail/.header-bar are z≈90-100). Without an explicit z-index the
+ * overlay creates no stacking context in .canvas-wrap, so each chip's own
+ * zIndex would compete in the ROOT context and paint over the rails. */
+.label-overlay {
+  z-index: 10;
+}
+
+/* CameraMoveLabelGuard: while the camera is in motion (pan/zoom/flight),
+ * floating labels would pile up mid-flight — fade both label systems out
+ * until the view settles (~140ms after the last motion frame). */
+.label-overlay,
+.map-pill {
+  transition: opacity 140ms ease;
+}
+
+.is-camera-moving .label-overlay,
+.is-camera-moving .map-pill {
+  opacity: 0 !important;
+  pointer-events: none;
+}
 
 .label-chip {
   display: inline-flex;
@@ -386,3 +385,108 @@ button {
   opacity: 0.75;
 }
 
+/* ==========================================================================
+   Overflow / clipping / responsive hardening — CSS-only repairs.
+   ========================================================================== */
+
+/* ---- long dynamic strings: allow mid-string breaks ------------------------- */
+
+.empty-state code {
+  /* backend error text can be a long unbroken path/URL */
+  overflow-wrap: anywhere;
+}
+
+/* ---- keyboard focus rings --------------------------------------------------
+   Same dashed ink ring as .overlap-row:focus-visible (components.css). */
+
+.zone-select:focus-visible,
+.panel-collapse:focus-visible,
+.panel-reopen:focus-visible,
+.detail-close:focus-visible,
+.detail-share:focus-visible,
+.viewmodes-reopen:focus-visible,
+.vm-collapse:focus-visible,
+.vm-clear:focus-visible,
+.vm-layer:focus-visible,
+.agent-bar-toggle:focus-visible,
+.agent-rail-head button:focus-visible,
+.agent-chips button:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}
+
+.scene-btn:focus-visible,
+.vm-scene:focus-visible {
+  /* .scene-switch / .vm-scenes have overflow:hidden + pill radius — a
+     positive outline offset would be clipped, so ring inside the button. */
+  outline: 2px dashed #2b2b2b;
+  outline-offset: -2px;
+}
+
+.scene-btn.is-active:focus-visible,
+.vm-scene.is-active:focus-visible {
+  /* ink outline is invisible on the active button's ink fill */
+  outline-color: #f5f2ea;
+}
+
+/* ---- thin ink-on-paper scrollbars ------------------------------------------- */
+
+.panel-body,
+.overlap-detail,
+.agent-log,
+.agent-detail,
+.agent-chips {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 43, 43, 0.45) transparent;
+}
+
+.panel-body::-webkit-scrollbar,
+.overlap-detail::-webkit-scrollbar,
+.agent-log::-webkit-scrollbar,
+.agent-detail::-webkit-scrollbar,
+.agent-chips::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.panel-body::-webkit-scrollbar-thumb,
+.overlap-detail::-webkit-scrollbar-thumb,
+.agent-log::-webkit-scrollbar-thumb,
+.agent-detail::-webkit-scrollbar-thumb,
+.agent-chips::-webkit-scrollbar-thumb {
+  background: rgba(43, 43, 43, 0.32);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.panel-body::-webkit-scrollbar-thumb:hover,
+.overlap-detail::-webkit-scrollbar-thumb:hover,
+.agent-log::-webkit-scrollbar-thumb:hover,
+.agent-detail::-webkit-scrollbar-thumb:hover,
+.agent-chips::-webkit-scrollbar-thumb:hover {
+  background: rgba(43, 43, 43, 0.55);
+  background-clip: content-box;
+}
+
+.panel-body::-webkit-scrollbar-track,
+.overlap-detail::-webkit-scrollbar-track,
+.agent-log::-webkit-scrollbar-track,
+.agent-detail::-webkit-scrollbar-track,
+.agent-chips::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+/* screen-reader-only — keeps a11y announcements out of the layout */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

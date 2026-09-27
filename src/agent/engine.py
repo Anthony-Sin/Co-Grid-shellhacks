@@ -42,6 +42,9 @@ STRICT RULES:
   window; never describe it as overlapping.
 - Be concise: short paragraphs or tight bullets. No filler.
 - When asked about an overlap the user selected, call get_overlap with its id.
+- Superlatives ("biggest/farthest/closest gap") → call find_overlaps with
+  sort=distance_desc or top_overlaps and compare min_distance_km across
+  the returned rows — the tools give you real records, not just links.
 
 If tools are unavailable, emit a fenced block:
 ```tool
@@ -119,9 +122,24 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
     trace: list[dict] = []
     total_usage: dict[str, int] = {}
     last_reasoning: str | None = None
+    empty_nudges = 0
 
     for _round in range(MAX_ROUNDS):
-        resp = chat_completion(cfg, messages, tools=specs)
+        try:
+            resp = chat_completion(cfg, messages, tools=specs)
+        except ChatError as e:
+            # an upstream failure mid-loop must not 502 away the rounds
+            # that already completed — return what the trace gathered
+            return {
+                "reply": (f"The model endpoint dropped the request "
+                          f"({e}) — re-send to retry. Completed tool "
+                          f"calls are listed below."),
+                "reasoning": last_reasoning,
+                "tool_trace": trace,
+                "rounds": _round + 1,
+                "usage": total_usage,
+                "finish_reason": "error",
+            }
         msg = resp["raw_message"]
         last_reasoning = resp.get("reasoning") or last_reasoning
         for k, v in (resp.get("usage") or {}).items():
@@ -185,10 +203,48 @@ def _drive(cfg: AgentConfig, history: list[dict], use_native_tools: bool):
                                 "Emit a corrected ```tool block or answer."),
                 })
                 continue
+            # A ```tool block was emitted but unparseable/empty — never
+            # return the raw protocol block as the user's answer.
+            if empty_nudges < 2 and _round < MAX_ROUNDS - 1:
+                empty_nudges += 1
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": ("Your ```tool block was malformed (bad JSON "
+                                "or no 'tool' key). Emit a corrected block "
+                                "or answer in plain text."),
+                })
+                continue
 
         # ---- plain answer ------------------------------------------------------
+        # A thinking model can burn the whole completion budget inside
+        # `reasoning` and return content="" — accepting that as a reply
+        # ships "(empty answer)" to the UI. Treat empty content and
+        # token-truncated turns as failed rounds and nudge instead.
+        if not content.strip():
+            if empty_nudges < 2 and _round < MAX_ROUNDS - 1:
+                empty_nudges += 1
+                messages.append(msg if isinstance(msg, dict) else
+                                {"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": ("Your reply was empty. Answer the user now in "
+                                "plain text — call a tool first if needed, "
+                                "and keep reasoning brief."),
+                })
+                continue
+            return {
+                "reply": ("The model burned its response budget on internal "
+                          "reasoning and produced no answer — try a narrower "
+                          "question or re-send."),
+                "reasoning": last_reasoning,
+                "tool_trace": trace,
+                "rounds": _round + 1,
+                "usage": total_usage,
+                "finish_reason": resp["finish_reason"] or "empty",
+            }
         return {
-            "reply": content.strip() or "(empty answer)",
+            "reply": content.strip(),
             "reasoning": last_reasoning,
             "tool_trace": trace,
             "rounds": _round + 1,

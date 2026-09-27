@@ -1,0 +1,463 @@
+/* OverlapPanel — TomTom-style pinned left rail + dense ranked table.
+   Same paper/ink chrome as the rest of the dashboard: 1.5–2px ink borders,
+   hard offset shadows, uppercase letter-spaced labels, .mono for numbers.
+   The rail is DOCKED — full height under the header, opaque paper, square
+   corners, one ink edge against the map — not a floating card.
+
+   LOAD-ORDER NOTE: component stylesheets (this file, viewmodes.css,
+   detail.css) evaluate BEFORE the main.tsx imports (global.css,
+   components.css, overrides.css), so every rule that *overrides* a base
+   rule in those sheets carries .app-shell ancestry for extra specificity.
+   Plain pnl- prefixed classes are new and conflict-free.
+   Sibling sheets for this rail: panel-tf.css (TimeframeSlider),
+   panel-kpi.css (PanelStats), panel-table.css (OverlapTable/Row). */
+
+/* ==========================================================================
+   Rail dock — aside pinned to the left edge + always-visible edge tab
+   ========================================================================== */
+
+.app-shell .panel-dock {
+  position: absolute;
+  top: 44px; /* flush under the 44px header (header stays z100 above) */
+  left: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-start;
+  z-index: 90;
+  /* the dock's flex box is wider/taller than its cards (e.g. the strip
+     under the short edge tab) — only the cards themselves take clicks,
+     so the map stays draggable through the gaps */
+  pointer-events: none;
+}
+
+.app-shell .panel-dock > * {
+  pointer-events: auto;
+}
+
+/* the aside joins the dock's flex row — global.css's floating-card .panel
+   chrome (absolute coords, max-height, ring border, radius) is re-skinned
+   here into a docked rail: full height, opaque paper, squared corners, a
+   single ink edge + hard shadow separating it from the map canvas */
+.app-shell .panel-dock .panel {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 390px; /* rail right edge 390 — overrides.css parks map tools at 404 */
+  height: 100%;
+  max-height: none;
+  background: #f0ede5; /* opaque paper — pinned chrome, not a floating card */
+  border: none;
+  border-right: 2px solid #2b2b2b;
+  border-radius: 0;
+  box-shadow: 5px 0 0 rgba(43, 43, 43, 0.12);
+  transition: transform 0.18s ease;
+}
+
+/* closed: the rail slides fully off the left edge (+8 clears the ink edge
+   and hard shadow so nothing peeks); visibility flips at the end of the
+   slide so hidden controls never take focus mid-transition */
+.app-shell .panel-dock.is-closed .panel {
+  transform: translateX(calc(-100% - 8px));
+  visibility: hidden;
+  transition: transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+/* edge tab — sprouts from the rail's right ink border while open */
+.app-shell .panel-tab {
+  flex: none;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 16px;
+  margin-left: -2px; /* merge into the rail's right border */
+  padding: 7px 11px 7px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2b2b2b;
+  background: #f0ede5; /* same opaque paper as the rail it docks to */
+  border: 2px solid #2b2b2b;
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  box-shadow: 3px 3px 0 rgba(43, 43, 43, 0.18);
+}
+
+.app-shell .panel-tab:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.panel-tab-arrow {
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* closed: the tab leaves the flex row and hugs the viewport's left edge
+   (also carries .panel-reopen so overrides.css's :has() rules can tell
+   "rail closed" from "rail open") */
+.app-shell .panel-dock.is-closed .panel-tab {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* panel head — the rail's title row; wider side padding matches the rail */
+.app-shell .panel-head {
+  padding: 12px 16px;
+}
+
+/* panel head actions — csv export + collapse kept on one baseline
+   (the × button is display:grid/block-level; without this flex wrap it
+   drops under the csv pill and doubles the header height) */
+.pnl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+
+/* the csv download is a small pill link — same chrome as .pnl-ask /
+   .pnl-banner-btn */
+.pnl-csv {
+  padding: 2px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #2b2b2b;
+  background: #f5f2ea;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+.pnl-csv:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* ---- scroll region + section rhythm -------------------------------------- */
+
+.app-shell .panel-body {
+  padding: 14px 16px 16px;
+}
+
+.pnl-sec {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed rgba(43, 43, 43, 0.3);
+}
+
+.pnl-sec-title {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* The TIMEFRAME, KPI and dense-table rules live in their own sheets beside
+   the components that own them (panel-tf.css → TimeframeSlider,
+   panel-kpi.css → PanelStats, panel-table.css → OverlapTable) —
+   AGENTS.md §1 500-line cap. */
+
+/* ==========================================================================
+   Filter section — search, presets, toggles, utility chips, zone, sort
+   ========================================================================== */
+
+.pnl-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pnl-search {
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 11px;
+  color: #2b2b2b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 8px;
+  outline: none;
+}
+
+.pnl-search:focus {
+  box-shadow: 2px 2px 0 rgba(30, 30, 30, 0.9);
+}
+
+.pnl-search::placeholder {
+  color: rgba(43, 43, 43, 0.45);
+}
+
+/* segmented controls (presets + sort) */
+
+.pnl-seg {
+  display: flex;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 rgba(43, 43, 43, 0.2);
+}
+
+.pnl-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pnl-seg-btn + .pnl-seg-btn {
+  border-left: 1.5px solid #2b2b2b;
+}
+
+.pnl-seg-btn:hover {
+  background: rgba(43, 43, 43, 0.08);
+}
+
+.pnl-seg-btn.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pnl-sort .pnl-seg {
+  flex: 1;
+  min-width: 0;
+}
+
+.pnl-label {
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* utility filter chips + active-filter chip */
+
+.pnl-utils {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pnl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #2b2b2b;
+  background: rgba(245, 242, 234, 0.9);
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+}
+
+button.pnl-chip:hover {
+  background: #ece2c8;
+}
+
+.pnl-chip.is-active {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+.pnl-chip .dot {
+  width: 9px;
+  height: 9px;
+  border-width: 1px;
+}
+
+.pnl-chip-n {
+  font-size: 9.5px;
+  opacity: 0.55;
+}
+
+.pnl-chip--clear {
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.pnl-chip--static {
+  cursor: default;
+}
+
+.pnl-chip-x {
+  margin-left: 3px;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.pnl-chip-x:hover {
+  opacity: 1;
+}
+
+/* the "Timeline overlap only" toggle — looser separator now that the rail
+   breathes (overrides global.css's tighter .filter-row--timeline, which
+   loads later — .app-shell ancestry wins the tie) */
+.app-shell .filter-row--timeline {
+  margin-top: 6px;
+  padding-top: 10px;
+}
+
+/* active-filter readout row + reset */
+
+.pnl-active-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pnl-reset {
+  padding: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  border-bottom: 1px dashed rgba(43, 43, 43, 0.6);
+}
+
+.pnl-reset:hover {
+  opacity: 1;
+}
+
+/* selection-outside-filters banner */
+
+.pnl-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: rgba(243, 167, 18, 0.14);
+  border: 1.5px dashed rgba(43, 43, 43, 0.55);
+  border-radius: 10px;
+}
+
+.pnl-banner .mono {
+  font-weight: 800;
+}
+
+.pnl-banner-btn {
+  margin-left: auto;
+  padding: 1px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1.5px solid #2b2b2b;
+  border-radius: 999px;
+  background: #f5f2ea;
+}
+
+.pnl-banner-btn:hover {
+  background: #2b2b2b;
+  color: #f5f2ea;
+}
+
+/* ==========================================================================
+   Focus rings (dashed ink, same as global.css chrome)
+   ========================================================================== */
+
+.pnl-csv:focus-visible,
+.pnl-search:focus-visible,
+.pnl-chip:focus-visible,
+.pnl-chip-x:focus-visible,
+.pnl-reset:focus-visible,
+.pnl-banner-btn:focus-visible,
+.pnl-ask:focus-visible,
+.tf-clear:focus-visible,
+.panel-tab:focus-visible,
+.ovr-h:focus-visible,
+.pnl-tier-row input:focus-visible {
+  outline: 2px dashed #2b2b2b;
+  outline-offset: 2px;
+}
+
+.pnl-seg-btn:focus-visible {
+  /* .pnl-seg has overflow:hidden — draw the ring inside the pill */
+  outline: 2px dashed #2b2b2b;
+  outline-offset: -2px;
+}
+
+.pnl-seg-btn.is-active:focus-visible {
+  outline-color: #f5f2ea;
+}
+
+/* ==========================================================================
+   Responsive + reduced motion
+   ========================================================================== */
+
+/* <1100px: the agent rail becomes a full-width bottom sheet (z95, see
+   overrides.css) — lift the rail's bottom edge clear of it so nothing
+   covers the left rail's bottom. The edge tab is position:absolute off
+   the dock's top, so it is unaffected. */
+@media (max-width: 1099.98px) {
+  /* idle sheet ≈ 212px tall (head + hint + one chip row + input) —
+     measured at 760×900; the lift must exceed it or the sheet's top edge
+     covers the rail's bottom ink border */
+  .app-shell .panel-dock {
+    bottom: 248px;
+  }
+
+  /* the lifted bottom edge floats over the map — finish it like the
+     right-edge ink line so it reads as an edge, not a cut */
+  .app-shell .panel-dock .panel {
+    border-bottom: 2px solid #2b2b2b;
+    box-shadow: 5px 5px 0 rgba(43, 43, 43, 0.12);
+  }
+
+  /* once the sheet carries content (a conversation log or a detail card)
+     it can grow to its 54vh cap — reserve the full cap so the rail's
+     bottom is never covered mid-run */
+  .app-shell:has(.agent-log) .panel-dock,
+  .app-shell:has(.overlap-detail) .panel-dock {
+    bottom: calc(54vh + 4px);
+  }
+}
+
+/* narrow viewports: keep the edge tab on-screen — it sits right of the
+   rail's edge, so the rail leaves ~96px for it */
+@media (max-width: 700px) {
+  .app-shell .panel-dock .panel {
+    max-width: calc(100vw - 96px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .panel-dock .panel {
+    transition: none;
+  }
+}

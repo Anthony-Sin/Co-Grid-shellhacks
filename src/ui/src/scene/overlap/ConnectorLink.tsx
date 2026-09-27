@@ -8,13 +8,14 @@
  *
  * `faint` renders the arc thin + dashed (timeline-filtered records stay
  * honest — flagged, not erased). `dimmed` sinks it to ~40% opacity while
- * another overlap is selected; `selected` pushes it to full brightness.
+ * another overlap is selected; `selected` pushes it to full brightness;
+ * `highlighted` (hover brushing) eases ~70% of the way there.
  */
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Html, Line } from '@react-three/drei'
-import { PALETTE, TIER_COLORS } from '../../lib/palette'
-import { useAppStore } from '../../state/store'
+import { PALETTE, SELECT_COLOR, TIER_COLORS } from '../../lib/palette'
+import { selectOverlapInScene } from '../../lib/selectOverlap'
 import type { ZoneDatum } from './zoneData'
 
 /** Height of arc endpoints + ink dots above the map. */
@@ -22,18 +23,26 @@ const END_H = 30
 /** Chip hover offset above the arc apex. */
 const CHIP_LIFT = 34
 const DIM_FACTOR = 0.4
+/** Fraction of the full "selected" treatment used for hover-highlighting. */
+const HIGHLIGHT_F = 0.7
 
 export interface ConnectorLinkProps {
   datum: ZoneDatum
   dimmed: boolean
   selected: boolean
+  /** Hover-brushed from the list/map — ~70% of the selected styling. */
+  highlighted: boolean
   /** Timeline-filtered record → thin dashed arc. */
   faint: boolean
+  /** labels layer toggle — hides the midpoint pill chip when false. */
+  showChip?: boolean
 }
 
-export function ConnectorLink({ datum, dimmed, selected, faint }: ConnectorLinkProps) {
-  const selectOverlap = useAppStore((s) => s.selectOverlap)
-  const color = TIER_COLORS[datum.rec.tier] ?? '#888888'
+export function ConnectorLink({ datum, dimmed, selected, highlighted, faint, showChip = true }: ConnectorLinkProps) {
+  const tierColor = TIER_COLORS[datum.rec.tier] ?? '#888888'
+  // selected arcs repaint to SELECT_COLOR; the pill keeps its tier
+  // stripe (the record's identity) but gains a selection ring
+  const color = selected ? SELECT_COLOR : tierColor
 
   const a = useMemo(
     () => new THREE.Vector3(datum.aLocal[0], END_H, -datum.aLocal[1]),
@@ -58,7 +67,9 @@ export function ConnectorLink({ datum, dimmed, selected, faint }: ConnectorLinkP
     return { pts: curve.getPoints(48), chipPos: chip }
   }, [a, b, datum])
 
-  const arcOpacity = (faint ? 0.45 : selected ? 1 : 0.9) * (dimmed ? DIM_FACTOR : 1)
+  /** Hover-brush strength: 1 selected, ~0.7 hovered, 0 at rest. */
+  const boost = selected ? 1 : highlighted ? HIGHLIGHT_F : 0
+  const arcOpacity = (faint ? 0.45 : 0.9 + 0.1 * boost) * (dimmed ? DIM_FACTOR : 1)
   const dotOpacity = 0.95 * (dimmed ? DIM_FACTOR : 1)
 
   return (
@@ -68,7 +79,7 @@ export function ConnectorLink({ datum, dimmed, selected, faint }: ConnectorLinkP
         <Line
           points={pts}
           color={color}
-          lineWidth={faint ? 1.25 : selected ? 3.25 : 2.5}
+          lineWidth={faint ? 1.25 : 2.5 + 0.75 * boost}
           dashed={faint}
           dashSize={140}
           gapSize={90}
@@ -86,35 +97,44 @@ export function ConnectorLink({ datum, dimmed, selected, faint }: ConnectorLinkP
         </mesh>
       ))}
 
-      {/* midpoint pill chip — click toggles the selection */}
-      <Html position={chipPos} center zIndexRange={[80, 0]}>
-        <button
-          type="button"
-          onClick={() => selectOverlap(selected ? null : datum.rec.overlap_id)}
-          title={datum.rec.explanation}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'baseline',
-            gap: 6,
-            padding: '5px 12px',
-            background: PALETTE.chipBg,
-            color: PALETTE.chipText,
-            border: 'none',
-            borderLeft: `4px solid ${color}`,
-            borderRadius: 999,
-            boxShadow: '2px 3px 0 rgba(43, 43, 43, 0.25)',
-            whiteSpace: 'nowrap',
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-            opacity: (dimmed ? DIM_FACTOR : 1) * (faint && !selected ? 0.55 : 1),
-          }}
-        >
-          {datum.labelA} ⇄ {datum.labelB} · {datum.rec.min_distance_km.toFixed(1)} km
-        </button>
-      </Html>
+      {/* midpoint pill chip — click toggles the selection
+          (hidden when the labels layer is off) */}
+      {showChip && (
+        <Html position={chipPos} center zIndexRange={[80, 0]} wrapperClass="map-pill">
+          <button
+            type="button"
+            onClick={() =>
+              selectOverlapInScene(selected ? null : datum.rec.overlap_id, datum.rec.zone)
+            }
+            title={datum.rec.explanation}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              gap: 6,
+              padding: '5px 12px',
+              background: PALETTE.chipBg,
+              color: PALETTE.chipText,
+              border: 'none',
+              borderLeft: `4px solid ${tierColor}`,
+              borderRadius: 999,
+              boxShadow: selected
+                ? `0 0 0 2px ${SELECT_COLOR}, 2px 3px 0 rgba(43, 43, 43, 0.25)`
+                : '2px 3px 0 rgba(43, 43, 43, 0.25)',
+              whiteSpace: 'nowrap',
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              opacity: (dimmed ? DIM_FACTOR : 1) * (faint ? 0.55 + 0.45 * boost : 1),
+              transform: `scale(${1 + 0.1 * boost})`,
+              transition: 'transform 140ms ease, opacity 140ms ease',
+            }}
+          >
+            T{datum.rec.tier} · {datum.labelA} ⇄ {datum.labelB} · {datum.rec.min_distance_km.toFixed(1)} km
+          </button>
+        </Html>
+      )}
     </group>
   )
 }

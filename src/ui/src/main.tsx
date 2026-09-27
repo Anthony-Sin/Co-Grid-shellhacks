@@ -5,6 +5,8 @@ import { applyUrlParams } from './lib/urlParams'
 import './styles/global.css'
 import './styles/components.css'
 import './styles/agentbar.css'
+// last: responsive breakpoints + cross-sheet chrome overrides always win
+import './styles/overrides.css'
 
 applyUrlParams()
 
