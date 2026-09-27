@@ -6,6 +6,8 @@ import { applyMapAction, mapActionFromTrace } from '../../lib/mapActions'
 import { MsgView, type Msg } from './md'
 import { AgentRailSelection } from './AgentRailSelection'
 import { selectOvFromLog, useSelectionMessages } from './SelectionMessage'
+import { useVoiceInput } from './useVoiceInput'
+import { VoiceButton } from './VoiceButton'
 import { useAppStore } from '../../state/store'
 import {
   QUICK_ACTIONS, briefErrCopy, dropProgress, errText, freezeProgress,
@@ -292,6 +294,9 @@ export function AgentBar() {
   // ./SelectionMessage (kept out of this file for the 500-line cap)
   const renderSelMsg = useSelectionMessages({ setMsgs, send, busy, healthState, health })
 
+  // speech-to-text dictation — Web Speech API, hidden when unsupported
+  const voice = useVoiceInput(input, setInput)
+
   if (!open) {
     return (
       <button
@@ -453,6 +458,7 @@ export function AgentBar() {
               }
             }}
           />
+          <VoiceButton voice={voice} />
           {busy ? (
             <button
               type="button"
