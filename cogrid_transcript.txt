@@ -1,0 +1,9 @@
+CO-GRID demo — narrated transcript (74s)
+
+[0:00] Every year, utility companies in Georgia and South Carolina file billions in future grid construction — and they plan it blind to what their neighbors are building next door.
+[0:09] Co Grid compares 334 real filed projects from nine utilities — and finds where crews, corridors, and construction windows collide. Of nearly two thousand physical overlaps, eight hundred ninety-seven share a live build window.
+[0:21] Here on the Savannah River, Dominion Energy South Carolina and Georgia Power are rebuilding parallel corridors — tier one: literally touching, in the same 2026 build window.
+[0:29] Every opportunity is ranked — distance tier, shared timeline, and the actual filings behind it, with a snapshot drawn on real geography, not a cartoon.
+[0:36] Ask the analyst anything — it drives the map itself. Zoom to Macon, and watch the camera fly on its own.
+[0:50] And the output is a real deliverable — the ranked coordination set, one click, exported with its sources.
+[1:01] Built entirely on public filings and federal GIS — nothing fabricated, ever. Thirty to eighty-five million in duplicated corridors, now on the table. Co Grid. One grid, planned together.

@@ -1,0 +1,54 @@
+{
+  "title": "CO-GRID demo \u2014 ShellHacks 2026 (~90s)",
+  "segments": [
+    {
+      "id": "hook",
+      "dur_s": 9,
+      "narration": "Every year, utility companies in Georgia and South Carolina file billions in future grid construction \u2014 and they plan it blind to what their neighbors are building next door.",
+      "action": "overview_idle",
+      "note": "statewide map, slow camera drift"
+    },
+    {
+      "id": "scale",
+      "dur_s": 11,
+      "narration": "Co Grid compares more than three hundred real filed projects from nine utilities across both states \u2014 and finds where crews, corridors, and construction windows collide.",
+      "action": "overview_pan",
+      "note": "gentle pan across state, lines/glows visible"
+    },
+    {
+      "id": "savannah_zoom",
+      "dur_s": 12,
+      "narration": "Here on the Savannah River, Dominion and Georgia Power are rebuilding parallel corridors. Tier one \u2014 literally touching, in the same twenty twenty-six build window.",
+      "action": "zoom_savannah",
+      "note": "wheel-zoom onto the T1 zone at the river"
+    },
+    {
+      "id": "ranked_pick",
+      "dur_s": 12,
+      "narration": "Every opportunity is ranked \u2014 distance tier, shared timeline, and the actual filings behind it, with a snapshot drawn on real geography, not a cartoon.",
+      "action": "click_top_pick",
+      "note": "click #1 top pick \u2192 detail card + snapshot in right rail"
+    },
+    {
+      "id": "agent",
+      "dur_s": 16,
+      "narration": "Ask the analyst anything. It drives the map itself. Which overlaps share crews near Macon? It flies the camera, reasons over the ranked set, and answers from the filings.",
+      "action": "agent_ask_macon",
+      "note": "type question, watch tool progress + reply, camera moves"
+    },
+    {
+      "id": "export",
+      "dur_s": 14,
+      "narration": "And the output is a real deliverable. Export the ranked coordination set straight into Excel.",
+      "action": "export_and_open",
+      "note": "Export chip \u2192 download \u2192 LibreOffice opens the xlsx on screen"
+    },
+    {
+      "id": "close",
+      "dur_s": 12,
+      "narration": "Built entirely on public filings and federal G I S \u2014 nothing fabricated, ever. Co Grid. One grid, planned together.",
+      "action": "zoom_out_state",
+      "note": "zoom back to statewide, hold"
+    }
+  ]
+}
